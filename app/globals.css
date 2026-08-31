@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+/*
+ * SCENE/044 — editorial / newsprint identity.
+ *
+ * Tokens are taken verbatim from the approved Figma Make design. Two things
+ * are load-bearing and easy to "tidy" into a regression:
+ *   1. `--radius: 0px`. Every surface is a hard rectangle. The ticket-stub
+ *      card only reads as a torn ticket because nothing else is rounded.
+ *   2. `--color-border` is the same near-black as the text. Borders are a
+ *      structural element here, not a hairline separator, so they're 2px and
+ *      full-contrast rather than a faint grey.
+ */
+@theme inline {
+  --color-background: #f4f2ea;
+  --color-foreground: #14130d;
+  --color-card: #fbfaf5;
+  --color-card-foreground: #14130d;
+  --color-primary: #ff2d16;
+  --color-primary-foreground: #fbfaf5;
+  --color-secondary: #ece9dd;
+  --color-secondary-foreground: #14130d;
+  --color-muted: #e7e3d6;
+  --color-muted-foreground: #6b675a;
+  --color-accent: #1130ff;
+  --color-accent-foreground: #fbfaf5;
+  --color-signal: #0a8f4c;
+  --color-warn: #c26a00;
+  --color-border: #14130d;
+  --color-ring: #ff2d16;
+
+  /*
+   * "Ink" variants — same hues, darkened until white text on them clears WCAG
+   * AA at small sizes. The design's own pairings were measured and all four
+   * fail for the 10px badge text they're used at: signal+white 4.16:1,
+   * warn+white 3.92:1, primary+#fbfaf5 3.56:1, muted+muted-fg 4.41:1.
+   *
+   * The bright tokens above are still correct for LARGE display text — the
+   * hero's red "otherwise miss." is ~60px, where 3.56:1 passes as large text —
+   * and for the wordmark, which is a logo and exempt. Use these only where the
+   * text is small: status badges, mono kickers, the countdown line.
+   */
+  --color-primary-ink: #c41b09; /* white 5.99:1 · on card 5.83:1 */
+  --color-signal-ink: #07713c; /* white 6.11:1 */
+  --color-warn-ink: #8f4e00; /* white 6.45:1 */
+
+  --font-display: var(--font-archivo);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  --radius: 0px;
+}
+
+html {
+  color-scheme: light;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+/* Scrollbars are hidden so the swipeable tab panels don't show a track. The
+   panels stay keyboard- and wheel-scrollable; only the visual bar is removed. */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@keyframes scene-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scene-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes scene-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+@keyframes scene-flip-in {
+  0% {
+    opacity: 0;
+    transform: perspective(1400px) rotateY(-38deg) rotateX(6deg) scale(0.86) translateY(24px);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1) translateY(0);
+  }
+}
+@keyframes scene-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes scene-splash-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.scene-rise {
+  animation: scene-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.scene-ticker {
+  animation: scene-ticker 32s linear infinite;
+}
+.scene-blink {
+  animation: scene-blink 1.6s steps(1) infinite;
+}
+.scene-flip-in {
+  animation: scene-flip-in 0.46s cubic-bezier(0.22, 0.8, 0.24, 1) both;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+.scene-fade-in {
+  animation: scene-fade-in 0.28s ease both;
+}
+.scene-splash-out {
+  animation: scene-splash-out 0.48s ease forwards;
+}
+
+/* Ticket notch: a punched hole that reveals the page ground behind the card.
+   Must match --color-background, not --color-card, or the "hole" looks filled. */
+.ticket-notch {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--color-background);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/*
+ * Touch press feedback for event cards.
+ *
+ * Uses `translate`/`scale` (not `transform`) to match the mechanism Tailwind v4
+ * emits, so these don't fight the utility classes on the same elements.
+ * Specificity (class + attribute + type) already beats a single utility class.
+ */
+.scene-card[data-pressed="true"] > div {
+  translate: 0 -2px;
+}
+.scene-card[data-pressed="true"] img {
+  scale: 105%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-card[data-pressed="true"] > div {
+    translate: none;
+  }
+  .scene-card[data-pressed="true"] img {
+    scale: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-rise,
+  .scene-ticker,
+  .scene-blink,
+  .scene-flip-in {
+    animation: none !important;
+  }
+  .scene-fade-in {
+    animation: scene-fade-in 0.15s ease both;
+  }
+}
