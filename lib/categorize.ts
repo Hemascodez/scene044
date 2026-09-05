@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { CATEGORIES, type Category, type CategorizationResult } from "@/lib/types";
+import { extractModel } from "@/lib/extract";
 
 const CATEGORY_DEFINITIONS: Record<Category, string> = {
   ai: "models, agents, ML/LLM research and applied AI",
@@ -60,20 +61,24 @@ export async function categorizeEvent(
 ): Promise<CategorizationResult> {
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const prompt = `<event_data>
+    // Static block FIRST, variable event data LAST. Prompt caching only hits
+    // on a shared *prefix*, so leading with the per-event fields (as this did)
+    // meant the 9 category definitions were re-billed at full price on every
+    // call. Cached input is ~90% cheaper.
+    const prompt = `Categories:
+${CATEGORIES.map((c) => `- ${c}: ${CATEGORY_DEFINITIONS[c]}`).join("\n")}
+
+Pick the single best-fitting category, or null if none confidently fit (this is not a professional/tech event). Score chennai_relevance_score for whether this event is genuinely relevant to people in Chennai, India.
+
+<event_data>
 Title: ${input.title}
 Summary: ${input.summary ?? "(none)"}
 Venue address: ${input.venueAddress ?? "(none)"}
 Is online: ${input.isOnline}
-</event_data>
-
-Categories:
-${CATEGORIES.map((c) => `- ${c}: ${CATEGORY_DEFINITIONS[c]}`).join("\n")}
-
-Pick the single best-fitting category, or null if none confidently fit (this is not a professional/tech event). Score chennai_relevance_score for whether this event is genuinely relevant to people in Chennai, India.`;
+</event_data>`;
 
     const response = await client.responses.create({
-      model: process.env.EXTRACT_MODEL || "gpt-5.6-luna",
+      model: extractModel(),
       instructions: CATEGORIZE_INSTRUCTIONS,
       tools: [CATEGORIZE_TOOL],
       tool_choice: { type: "function", name: "categorize_event" },

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { MissingSearchCredentialsError, runSearchQuery } from "@/lib/search";
+import {
+  MissingSearchCredentialsError,
+  SearchRateLimitedError,
+  runSearchQuery,
+  selectSearchProvider,
+} from "@/lib/search";
 import { normalizeDomain } from "@/lib/domain";
+import { classifyEventUrl } from "@/lib/eventUrlPatterns";
 import { checkCronAuth } from "@/lib/auth";
 
 interface SearchQueryRow {
@@ -12,6 +18,7 @@ interface SearchQueryRow {
 
 interface PendingDiscoveryItemRow {
   id: number;
+  url: string;
   source_domain: string;
 }
 
@@ -38,11 +45,24 @@ export async function GET(request: Request) {
   }
 
   const params = new URL(request.url).searchParams;
+
+  let provider;
+  try {
+    provider = selectSearchProvider();
+  } catch (err) {
+    if (err instanceof MissingSearchCredentialsError) {
+      return NextResponse.json({ ok: false, error: err.message, setupRequired: true }, { status: 503 });
+    }
+    throw err;
+  }
+
   const limitParam = Number(params.get("limit"));
+  // Default comes from the provider, since free tiers differ by an order of
+  // magnitude (Google ~100/day, Firecrawl ~350 searches/month).
   const limit =
     Number.isInteger(limitParam) && limitParam > 0
       ? Math.min(limitParam, MAX_QUERY_LIMIT)
-      : DEFAULT_QUERY_LIMIT;
+      : Math.min(provider.suggestedQueriesPerRun, DEFAULT_QUERY_LIMIT);
 
   // Optional single-platform run, e.g. ?site=linkedin.com — useful for
   // backfilling one source after adding queries for it, or for debugging a
@@ -59,9 +79,17 @@ export async function GET(request: Request) {
       [limit, site],
     );
 
+    let creditsUsed = 0;
+    let stoppedEarly: string | null = null;
+
     for (const row of queries) {
       try {
-        const results = await runSearchQuery(row.query_text, row.site_filter);
+        const { results, creditsUsed: cost } = await runSearchQuery(
+          row.query_text,
+          row.site_filter,
+          provider,
+        );
+        creditsUsed += cost ?? 0;
 
         for (const result of results) {
           const source_domain = normalizeDomain(result.link);
@@ -81,18 +109,25 @@ export async function GET(request: Request) {
             { status: 503 },
           );
         }
+        // Quota or rate limit: every remaining query would fail the same way,
+        // so stop and still route whatever was already collected.
+        if (err instanceof SearchRateLimitedError) {
+          stoppedEarly = err.message;
+          break;
+        }
         console.error(`discover: search query ${row.id} failed`, err);
         continue;
       }
     }
 
     const { rows: pending } = await query<PendingDiscoveryItemRow>(
-      "SELECT id, source_domain FROM discovery_items WHERE status = 'new'"
+      "SELECT id, url, source_domain FROM discovery_items WHERE status = 'new'"
     );
 
     let autoProcessing = 0;
     let curatorPending = 0;
     let rejected = 0;
+    let hubPages = 0;
 
     for (const row of pending) {
       const { rows: srcRows } = await query<SourceRow>(
@@ -104,8 +139,18 @@ export async function GET(request: Request) {
       let status: string;
       let rejection_reason: string | null = null;
 
+      // A known platform's listing page (a Meetup group, an Eventbrite /d/
+      // feed) describes many events or none. Rejecting it here saves a fetch, a
+      // rate-limit slot and an LLM call, and keeps content-free hub pages from
+      // reaching the categoriser — which scored an obviously-Chennai GDG group
+      // "not Chennai relevant" purely because the page had no event text.
+      const urlKind = classifyEventUrl(row.url);
+
       if (row.source_domain === "linkedin.com" || row.source_domain.endsWith(".linkedin.com")) {
         status = "curator_pending";
+      } else if (urlKind === "hub") {
+        status = "rejected";
+        rejection_reason = "listing_page_not_an_event";
       } else if (src && src.trust_tier === "blocked") {
         status = "rejected";
         rejection_reason = "blocked domain";
@@ -121,6 +166,9 @@ export async function GET(request: Request) {
         row.id,
       ]);
 
+      if (status === "rejected" && rejection_reason === "listing_page_not_an_event") {
+        hubPages++;
+      }
       if (status === "auto_processing") {
         autoProcessing++;
       } else if (status === "curator_pending") {
@@ -132,13 +180,19 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       ok: true,
+      provider: provider.name,
       queriesRun: queries.length,
       queryLimit: limit,
       siteFilter: site || null,
+      creditsUsed: creditsUsed || undefined,
+      stoppedEarly,
       routed: {
         auto_processing: autoProcessing,
         curator_pending: curatorPending,
         rejected: rejected,
+        // Broken out so a sudden spike is visible — it means the queries have
+        // drifted toward listing pages and need retuning.
+        rejected_as_listing_page: hubPages,
       },
     });
   } catch (err) {

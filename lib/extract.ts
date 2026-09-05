@@ -125,6 +125,27 @@ function collectJsonLdCandidates(parsed: unknown): unknown[] {
   return out;
 }
 
+/**
+ * Empty and whitespace-only strings become null.
+ *
+ * JSON-LD in the wild carries `"startDate": ""` on pages where the field
+ * exists but was never filled in, and a model asked for a nullable string will
+ * occasionally answer "" rather than null. Both used to flow straight through
+ * to a `timestamptz` column and blow up the insert with
+ * `invalid input syntax for type timestamp with time zone: ""`, failing the
+ * whole item instead of treating the date as simply unknown.
+ */
+function nullIfBlank(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+}
+
+/** Additionally requires the string to be a date the DB will accept. */
+function nullUnlessParsableDate(value: unknown): string | null {
+  const text = nullIfBlank(value);
+  if (!text) return null;
+  return Number.isNaN(Date.parse(text)) ? null : text;
+}
+
 function extractImageUrl(image: unknown): string | null {
   if (!image) return null;
   if (typeof image === "string") return image;
@@ -303,8 +324,8 @@ function mapSchemaEventToExtractedEvent(node: Record<string, unknown>): Extracte
   const rawSummary = typeof node.description === "string" ? node.description : null;
   const summary = rawSummary ? stripHtmlTags(rawSummary) : null;
 
-  const startAt = typeof node.startDate === "string" ? node.startDate : null;
-  const endAt = typeof node.endDate === "string" ? node.endDate : null;
+  const startAt = nullUnlessParsableDate(node.startDate);
+  const endAt = nullUnlessParsableDate(node.endDate);
 
   const { isOnline, venueName, venueAddress } = extractVenueInfo(node);
   const organizerName = extractOrganizerName(node.organizer);
@@ -356,11 +377,15 @@ function findJsonLdEvent($: cheerio.CheerioAPI): ExtractedEvent | null {
   return null;
 }
 
-async function extractViaLlm(url: string, pageText: string): Promise<ExtractedEvent | null> {
+async function extractViaLlm(
+  url: string,
+  pageText: string,
+  model: string,
+): Promise<ExtractedEvent | null> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const res = await client.responses.create({
-    model: process.env.EXTRACT_MODEL || "gpt-5.6-luna",
+    model,
     instructions: EXTRACT_INSTRUCTIONS,
     tools: [EXTRACT_TOOL],
     tool_choice: { type: "function", name: "extract_event" },
@@ -385,14 +410,14 @@ async function extractViaLlm(url: string, pageText: string): Promise<ExtractedEv
 
   return {
     title: input.title,
-    summary: input.summary ?? null,
-    startAt: input.start_at ?? null,
-    endAt: input.end_at ?? null,
+    summary: nullIfBlank(input.summary),
+    startAt: nullUnlessParsableDate(input.start_at),
+    endAt: nullUnlessParsableDate(input.end_at),
     isOnline: input.is_online,
-    venueName: input.venue_name ?? null,
-    venueAddress: input.venue_address ?? null,
-    organizerName: input.organizer_name ?? null,
-    posterImageUrl: input.poster_image_url ?? null,
+    venueName: nullIfBlank(input.venue_name),
+    venueAddress: nullIfBlank(input.venue_address),
+    organizerName: nullIfBlank(input.organizer_name),
+    posterImageUrl: nullIfBlank(input.poster_image_url),
     // Anything other than the two known values collapses to "unknown" rather
     // than being trusted through to the card.
     priceType: input.price_type === "free" || input.price_type === "paid" ? input.price_type : null,
@@ -445,9 +470,31 @@ export function validateExtractedEvent(event: ExtractedEvent): ValidationResult 
  * fetch failure or if the page clearly isn't an event page — callers should
  * run `validateExtractedEvent` on a non-null result before trusting it.
  */
+/** Bulk pipeline default. Cheap tier — this runs unattended over every
+ *  auto-fetch candidate. */
+export const DEFAULT_EXTRACT_MODEL = "gpt-5.6-luna";
+
+/**
+ * Model for the curator's one-off "Run extraction" preview.
+ *
+ * Separate from the bulk model on purpose: this is the single call a human is
+ * waiting on and will publish from, and it runs a handful of times a day
+ * rather than continuously — the one place where paying for a stronger tier is
+ * clearly worth it. Set CURATOR_MODEL to the same value as EXTRACT_MODEL if
+ * you'd rather keep everything on the cheap tier.
+ */
+export function curatorModel(): string {
+  return process.env.CURATOR_MODEL || extractModel();
+}
+
+export function extractModel(): string {
+  return process.env.EXTRACT_MODEL || DEFAULT_EXTRACT_MODEL;
+}
+
 export async function extractEventFromUrl(
   url: string,
   allowedDomains: string[],
+  model: string = extractModel(),
 ): Promise<ExtractedEvent | null> {
   try {
     const fetched = await safeFetchText(url, { allowedDomains });
@@ -465,7 +512,7 @@ export async function extractEventFromUrl(
       .trim()
       .slice(0, PAGE_TEXT_MAX_CHARS);
 
-    return await extractViaLlm(fetched.finalUrl, pageText);
+    return await extractViaLlm(fetched.finalUrl, pageText, model);
   } catch {
     return null;
   }

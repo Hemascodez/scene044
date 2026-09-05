@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { checkCuratorAccess } from "@/lib/auth";
-import { extractEventFromUrl, validateExtractedEvent } from "@/lib/extract";
+import { curatorModel, extractEventFromUrl, validateExtractedEvent } from "@/lib/extract";
 import { categorizeEvent } from "@/lib/categorize";
 
 function isLinkedIn(domain: string): boolean {
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     // preview isn't bulk automated crawling, so the auto_fetch allowlist tier
     // doesn't apply, but SSRF protections (private IPs, off-domain redirects,
     // size/content-type limits) still do.
-    const extracted = await extractEventFromUrl(item.url, [item.source_domain]);
+    const extracted = await extractEventFromUrl(item.url, [item.source_domain], curatorModel());
     if (!extracted) {
       return NextResponse.json({ ok: true, discoveryItemId, extracted: null, categorization: null });
     }
