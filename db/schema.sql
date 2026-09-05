@@ -78,7 +78,7 @@ ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS extraction_meta JSONB;
 -- queue is shared: a draft stuck in one person's browser is a draft nobody else
 -- can finish.
 ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS curator_draft JSONB;
-ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'search'; -- 'search' | 'curator'
+ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'search'; -- 'search' | 'curator' | 'community'
 
 CREATE TABLE IF NOT EXISTS event_sources (            -- dedup links + "also listed on" badge
   id SERIAL PRIMARY KEY,

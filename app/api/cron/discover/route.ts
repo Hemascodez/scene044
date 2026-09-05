@@ -139,18 +139,21 @@ export async function GET(request: Request) {
       let status: string;
       let rejection_reason: string | null = null;
 
-      // A known platform's listing page (a Meetup group, an Eventbrite /d/
-      // feed) describes many events or none. Rejecting it here saves a fetch, a
-      // rate-limit slot and an LLM call, and keeps content-free hub pages from
-      // reaching the categoriser — which scored an obviously-Chennai GDG group
-      // "not Chennai relevant" purely because the page had no event text.
+      /*
+       * Listing pages are NOT rejected, despite looking like they should be.
+       *
+       * Meetup group roots, Eventbrite /d/ feeds and even /find/ pages embed
+       * JSON-LD for their next upcoming event — every event currently in this
+       * database was extracted from a URL this classifier calls a "hub". An
+       * earlier version rejected them outright and silently destroyed the only
+       * working discovery path. The classification is kept as a diagnostic
+       * signal only; extraction remains the ground truth for whether a page
+       * yields an event.
+       */
       const urlKind = classifyEventUrl(row.url);
 
       if (row.source_domain === "linkedin.com" || row.source_domain.endsWith(".linkedin.com")) {
         status = "curator_pending";
-      } else if (urlKind === "hub") {
-        status = "rejected";
-        rejection_reason = "listing_page_not_an_event";
       } else if (src && src.trust_tier === "blocked") {
         status = "rejected";
         rejection_reason = "blocked domain";
@@ -166,9 +169,7 @@ export async function GET(request: Request) {
         row.id,
       ]);
 
-      if (status === "rejected" && rejection_reason === "listing_page_not_an_event") {
-        hubPages++;
-      }
+      if (urlKind === "hub") hubPages++;
       if (status === "auto_processing") {
         autoProcessing++;
       } else if (status === "curator_pending") {
@@ -190,9 +191,8 @@ export async function GET(request: Request) {
         auto_processing: autoProcessing,
         curator_pending: curatorPending,
         rejected: rejected,
-        // Broken out so a sudden spike is visible — it means the queries have
-        // drifted toward listing pages and need retuning.
-        rejected_as_listing_page: hubPages,
+        // Diagnostic only — these are still processed, not dropped.
+        listing_pages_seen: hubPages,
       },
     });
   } catch (err) {

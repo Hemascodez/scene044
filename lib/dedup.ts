@@ -166,15 +166,24 @@ export async function findDuplicateEvent(
     ? new Date(new Date(candidate.startAt).getTime() + 3 * 86_400_000).toISOString()
     : null;
 
+  /*
+   * Deliberately NOT filtered by category.
+   *
+   * Category comes from an LLM, and the same event genuinely gets labelled
+   * differently across two source pages — "She Builds Tech" was published
+   * twice, once as `tech` and once as `ai`, because each listing emphasised
+   * different things. Narrowing candidates to one category made those
+   * invisible to dedup and put two identical cards in the public feed. The
+   * date window and title similarity do the real discriminating work.
+   */
   const { rows: candidates } = await query<CandidateRow>(
     `SELECT id, title, start_at, is_online, venue_name, organizer_name, primary_source_url
      FROM events
      WHERE status IN ('live', 'updated', 'pending_review')
-       AND category = $1
-       AND ($2::timestamptz IS NULL OR start_at IS NULL OR start_at BETWEEN $2 AND $3)
+       AND ($1::timestamptz IS NULL OR start_at IS NULL OR start_at BETWEEN $1 AND $2)
      ORDER BY created_at DESC
      LIMIT 200`,
-    [candidate.category, dateFrom, dateTo],
+    [dateFrom, dateTo],
   );
 
   let best: DuplicateMatch | null = null;

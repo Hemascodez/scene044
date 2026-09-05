@@ -434,6 +434,11 @@ function QueueRow({
             Curator-added
           </Pill>
         )}
+        {item.origin === "community" && (
+          <Pill tone="blue" glyph="✉">
+            Community tip
+          </Pill>
+        )}
         {item.curator_draft && (
           <Pill tone="amber" glyph="✎">
             Draft saved

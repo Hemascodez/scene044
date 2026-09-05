@@ -32,7 +32,7 @@ export interface QueueItem {
   rejection_reason: string | null;
   extraction_meta: { sourceMethod?: string; confidence?: number; possibleDuplicate?: unknown } | null;
   curator_draft: CuratorDraft | null;
-  origin: "search" | "curator";
+  origin: "search" | "curator" | "community";
   event_id: number | null;
   query_text: string | null;
 }

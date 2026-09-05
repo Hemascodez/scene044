@@ -102,7 +102,7 @@ export interface DiscoveryItem {
   status: DiscoveryItemStatus;
   rejection_reason: string | null;
   event_id: number | null;
-  origin: "search" | "curator";
+  origin: "search" | "curator" | "community";
 }
 
 export interface EventSourceRecord {
