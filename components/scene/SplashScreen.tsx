@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mono } from "@/components/scene/ui";
 import { isBackForwardNavigation } from "@/lib/client/splashGate";
 
-/** Runtime of public/scene-intro.mp4 (4.80s, read from the file's mvhd atom),
+/** Runtime of public/scene-intro.mp4 (4.71s, read from the file's mvhd atom),
  *  plus headroom so `onEnded` normally wins the race and this is only a
  *  backstop for a video that stalls or fails to decode. */
 const CLIP_CAP_MS = 5400;
@@ -71,7 +71,11 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      className={`scene-splash fixed inset-0 z-[100] flex items-center justify-center bg-foreground ${
+      /* Background is sampled from the clip's own corner pixels (#0c1720,
+         consistent across the runtime). With object-contain the letterbox
+         bands are that same colour, so the video reads as full-bleed without
+         cropping — see the comment on the <video> below. */
+      className={`scene-splash fixed inset-0 z-[100] flex items-center justify-center bg-[#0c1720] ${
         leaving ? "scene-splash-out" : ""
       }`}
     >
@@ -82,12 +86,16 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
         autoPlay
         preload="auto"
         aria-hidden
-        /* Full-bleed by request: `object-contain` left black letterbox bands
-           above and below this 720x1280 portrait clip. `cover` fills the
-           viewport edge-to-edge and crops instead — which is what the phone
-           reference shows. On very wide desktop viewports the crop is heavy,
-           the trade-off being no gap at any size. */
-        className="size-full object-cover"
+        /* `contain`, not `cover`.
+           The clip is 1080x1920 (9:16 = 0.5625). A modern phone is nearer
+           0.46, so `cover` scales to fill the height and crops ~18% of the
+           width — and because the SCENE/044 wordmark spans almost the whole
+           frame, that visibly clipped the "/044". `contain` keeps the whole
+           frame; the bands it leaves are the same colour as the clip's own
+           background, so nothing reads as a gap. If the clip is ever
+           re-rendered with ~15% safe margin around the wordmark, this can go
+           back to `cover`. */
+        className="size-full object-contain"
       />
 
       <button
