@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mono } from "@/components/scene/ui";
+import { isBackForwardNavigation } from "@/lib/client/splashGate";
 
 /** Runtime of public/scene-intro.mp4 (4.80s, read from the file's mvhd atom),
  *  plus headroom so `onEnded` normally wins the race and this is only a
@@ -29,10 +30,22 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
       window.setTimeout(() => onDoneRef.current(), 480);
     }
 
+    // Back/Forward: unmount immediately, and never assign the video src, so the
+    // 4.6 MB clip isn't fetched at all on a navigation that shouldn't play it.
+    if (isBackForwardNavigation()) {
+      finished.current = true;
+      onDoneRef.current();
+      return;
+    }
+
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const cap = window.setTimeout(finish, reduce ? REDUCED_MOTION_CAP_MS : CLIP_CAP_MS);
 
     const video = videoRef.current;
+    // src is assigned here rather than in JSX: the server renders no src, the
+    // client's first render matches, and the download only starts once we know
+    // the intro is actually going to play.
+    if (video) video.src = "/scene-intro.mp4";
     if (video && !reduce) {
       // Autoplay can be refused (low-power mode, a policy block). Failing
       // straight through to the feed is better than a frozen black screen.
@@ -58,13 +71,12 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center bg-foreground ${
+      className={`scene-splash fixed inset-0 z-[100] flex items-center justify-center bg-foreground ${
         leaving ? "scene-splash-out" : ""
       }`}
     >
       <video
         ref={videoRef}
-        src="/scene-intro.mp4"
         muted
         playsInline
         autoPlay

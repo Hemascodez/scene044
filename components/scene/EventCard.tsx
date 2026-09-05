@@ -133,10 +133,13 @@ export function EventCard({
           <span className="ticket-notch right-[-9px] top-[-9px] size-[18px] sm:bottom-[-9px] sm:left-[-9px] sm:right-auto sm:top-auto" />
         </div>
 
-        {/* BODY */}
-        <div className="flex flex-1 flex-col gap-2 p-3.5">
-          <div className="flex items-start justify-between gap-2">
-            <span className="bg-foreground px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-background">
+        {/* BODY
+            min-w-0 is load-bearing: a flex item defaults to `min-width: auto`,
+            so the nowrap `truncate` lines below would set the body's minimum
+            width to their full text length and push the whole card open. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2 p-3.5">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <span className="min-w-0 truncate bg-foreground px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-background">
               {fieldLabel}
             </span>
             <StatusBadge status={status} />
@@ -145,16 +148,16 @@ export function EventCard({
           <button
             type="button"
             onClick={onOpen}
-            className="text-left focus-visible:underline focus-visible:outline-none"
+            className="min-w-0 text-left focus-visible:underline focus-visible:outline-none"
           >
-            <h3 className="font-display text-base font-bold leading-tight tracking-tight transition-colors group-hover:text-primary-ink group-has-[:active]:text-primary-ink">
+            <h3 className="line-clamp-2 font-display text-base font-bold leading-tight tracking-tight break-words transition-colors group-hover:text-primary-ink group-has-[:active]:text-primary-ink">
               {event.title}
             </h3>
           </button>
 
-          <div className="flex flex-col gap-1 text-xs">
-            <span className="flex items-center gap-1.5">
-              <span className="font-mono text-muted-foreground" aria-hidden>
+          <div className="flex min-w-0 flex-col gap-1 text-xs">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="shrink-0 font-mono text-muted-foreground" aria-hidden>
                 ✦
               </span>
               <span className="truncate">
@@ -163,8 +166,8 @@ export function EventCard({
                 )}
               </span>
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="font-mono text-muted-foreground" aria-hidden>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="shrink-0 font-mono text-muted-foreground" aria-hidden>
                 ◈
               </span>
               <span className="truncate">
@@ -208,7 +211,7 @@ export function EventCard({
             )}
           </div>
 
-          <div className="mt-auto flex items-center gap-2 border-t-2 border-dashed border-foreground/25 pt-2.5">
+          <div className="mt-auto flex min-w-0 items-center gap-2 border-t-2 border-dashed border-foreground/25 pt-2.5">
             <Btn variant="solid" onClick={onOpen} className="!px-3 !py-2 !text-[10px]">
               View event →
             </Btn>

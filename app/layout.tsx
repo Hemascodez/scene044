@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
+import { SKIP_SPLASH_INLINE_SCRIPT } from "@/lib/client/splashGate";
 import "./globals.css";
 
 /* Self-hosted via next/font rather than the design's Google Fonts @import —
@@ -35,6 +36,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${archivo.variable} ${inter.variable} ${jetBrainsMono.variable} antialiased`}
     >
+      <head>
+        {/* Marks back/forward navigations before the first paint so CSS can hide
+            the intro instantly. These routes are force-dynamic (no-store), which
+            disables the bfcache — Back re-fetches the document and would
+            otherwise replay the splash. Deciding this in React instead would
+            either mismatch hydration or flash the intro before removing it. */}
+        <script dangerouslySetInnerHTML={{ __html: SKIP_SPLASH_INLINE_SCRIPT }} />
+      </head>
       <body className="min-h-full bg-background text-foreground">{children}</body>
     </html>
   );

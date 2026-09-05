@@ -161,6 +161,13 @@ body {
   animation: scene-splash-out 0.48s ease forwards;
 }
 
+/* Set by the inline script in app/layout.tsx on a Back/Forward navigation.
+   Hiding via CSS (rather than not rendering) keeps the server and client markup
+   identical, so hydration stays clean and the intro never flashes. */
+[data-skip-splash="1"] .scene-splash {
+  display: none !important;
+}
+
 /* Ticket notch: a punched hole that reveals the page ground behind the card.
    Must match --color-background, not --color-card, or the "hole" looks filled. */
 .ticket-notch {
