@@ -71,11 +71,10 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      /* Background is sampled from the clip's own corner pixels (#0c1720,
-         consistent across the runtime). With object-contain the letterbox
-         bands are that same colour, so the video reads as full-bleed without
-         cropping — see the comment on the <video> below. */
-      className={`scene-splash fixed inset-0 z-[100] flex items-center justify-center bg-[#0c1720] ${
+      /* Backdrop matches the clip's own corner pixels (#0c1720) purely as a
+         safety net for the moment before the first frame decodes — with
+         object-cover it should never actually be visible. */
+      className={`scene-splash fixed inset-0 z-[100] overflow-hidden bg-[#0c1720] ${
         leaving ? "scene-splash-out" : ""
       }`}
     >
@@ -86,31 +85,29 @@ export function SplashScreen({ onDone }: { onDone: () => void }) {
         autoPlay
         preload="auto"
         aria-hidden
-        /* `contain`, not `cover`.
-           The clip is 1080x1920 (9:16 = 0.5625). A modern phone is nearer
-           0.46, so `cover` scales to fill the height and crops ~18% of the
-           width — and because the SCENE/044 wordmark spans almost the whole
-           frame, that visibly clipped the "/044". `contain` keeps the whole
-           frame; the bands it leaves are the same colour as the clip's own
-           background, so nothing reads as a gap. If the clip is ever
-           re-rendered with ~15% safe margin around the wordmark, this can go
-           back to `cover`. */
-        className="size-full object-contain"
+        /* `cover`: the clip fills the viewport edge to edge with no bands at
+           any aspect ratio, which is the point of a full-bleed intro.
+           The cost is a real crop — the clip is 9:16 (0.5625) and a modern
+           phone is nearer 0.46, so roughly 18% of the width is cut, which
+           clips the outer edges of the SCENE/044 wordmark. Re-rendering the
+           clip with ~15% safe margin around the wordmark removes that cost
+           without changing anything here. */
+        className="absolute inset-0 size-full object-cover"
       />
 
       <button
         type="button"
         onClick={skip}
-        className="absolute bottom-6 right-6 border border-background/40 bg-black/25 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/90 backdrop-blur-sm transition-colors hover:border-background/80 hover:bg-black/40"
+        className="absolute bottom-6 right-6 z-10 border border-background/50 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-background/90 transition-colors [text-shadow:0_1px_4px_rgba(0,0,0,0.85)] hover:border-background hover:bg-background/10"
       >
         Skip →
       </button>
 
-      {/* Both overlays now sit directly on moving video, so they carry their own
-          low-opacity backdrop for legibility instead of a solid black fill —
-          translucent reads as part of the scene, a flat block reads as pasted on. */}
-      <div className="pointer-events-none absolute left-5 top-5 bg-black/25 px-2.5 py-1.5 backdrop-blur-sm">
-        <Mono className="text-[11px] text-background/80">
+      {/* Sits directly on the moving video with no panel behind it — a filled
+          box reads as a separate surface pasted over the intro. Legibility over
+          bright frames comes from a text shadow instead. */}
+      <div className="pointer-events-none absolute left-6 top-6 z-10">
+        <Mono className="text-[11px] text-background/90 [text-shadow:0_1px_4px_rgba(0,0,0,0.85)]">
           SCENE<span className="text-primary">/044</span>
         </Mono>
       </div>
