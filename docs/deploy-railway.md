@@ -50,6 +50,10 @@ Add a **second service from the same repo**, then in its settings:
 - **Start command**: `npm run pipeline`
 - **Cron schedule**: `30 1 * * *` (07:00 IST)
 
+`tsx` is a runtime **dependency**, not a devDependency, specifically for this
+service: Nixpacks builds with `NODE_ENV=production`, which skips devDependencies,
+and the cron job would fail with `tsx: not found` at 01:30 with nobody watching.
+
 Railway requires a cron process to exit when finished — `scripts/run-pipeline.ts`
 closes the pool and exits, so this is satisfied. Minimum interval is 5 minutes.
 
