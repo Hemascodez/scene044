@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
 import { SKIP_SPLASH_INLINE_SCRIPT } from "@/lib/client/splashGate";
+import { gaInlineScript, gaMeasurementId } from "@/lib/client/analytics";
 import "./globals.css";
 
 /* Self-hosted via next/font rather than the design's Google Fonts @import —
@@ -31,6 +32,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  const gaId = gaMeasurementId();
+
   return (
     <html
       lang="en"
@@ -43,6 +46,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             otherwise replay the splash. Deciding this in React instead would
             either mismatch hydration or flash the intro before removing it. */}
         <script dangerouslySetInnerHTML={{ __html: SKIP_SPLASH_INLINE_SCRIPT }} />
+
+        {/* Analytics. Renders nothing at all when no measurement ID is
+            configured, so dev and preview builds send no traffic. */}
+        {gaId && (
+          <>
+            <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+            <script dangerouslySetInnerHTML={{ __html: gaInlineScript(gaId) }} />
+          </>
+        )}
       </head>
       <body className="min-h-full bg-background text-foreground">{children}</body>
     </html>

@@ -145,3 +145,118 @@ CREATE TABLE IF NOT EXISTS clicks (
 CREATE INDEX IF NOT EXISTS idx_discovery_items_status ON discovery_items(status);
 CREATE INDEX IF NOT EXISTS idx_events_status_start_at ON events(status, start_at);
 CREATE INDEX IF NOT EXISTS idx_event_sources_event_id ON event_sources(event_id);
+
+-- ============================================================================
+-- Subscribers
+-- ============================================================================
+--
+-- Deliberately separate from `events`: this is the only table in the database
+-- holding personal data, and keeping it apart means the public read path
+-- (lib/events.ts) can never accidentally join against it.
+--
+-- There is no verification step by product decision — no OTP, no double
+-- opt-in email. Consent is captured differently per channel:
+--
+--   email    — the visitor typed their address into the signup field. The
+--              row is created immediately with status 'active'.
+--   whatsapp — the visitor sent US a message first, via a wa.me link. That
+--              user-initiated inbound message IS the opt-in Meta requires,
+--              and it opens a 24-hour free service window. We therefore never
+--              collect a phone number through a form: a number typed into a
+--              field is NOT a valid opt-in, and messaging it would be
+--              unsolicited. WhatsApp rows can only be created from an inbound
+--              message webhook (see lib/subscribers.ts -> recordWhatsappOptIn).
+CREATE TABLE IF NOT EXISTS subscribers (
+  id SERIAL PRIMARY KEY,
+  channel TEXT NOT NULL CHECK (channel IN ('email', 'whatsapp')),
+
+  -- Exactly one identifier is populated, matching `channel`.
+  email TEXT,
+  phone_e164 TEXT,                   -- E.164, digits only after '+', e.g. +919876543210
+
+  -- Empty array means "everything" rather than "nothing" — a subscriber who
+  -- ticks no boxes wants the whole feed, which is the common case.
+  categories TEXT[] NOT NULL DEFAULT '{}',
+
+  status TEXT NOT NULL DEFAULT 'active',  -- active | unsubscribed | bounced | blocked
+
+  -- Opaque, unguessable, and unique per subscriber. Used for one-click
+  -- unsubscribe links, which every bulk email must carry (CAN-SPAM, GDPR, and
+  -- Gmail/Yahoo's 2024 bulk-sender rules all require it). Generated with a
+  -- CSPRNG, never derived from the email address.
+  unsubscribe_token TEXT NOT NULL UNIQUE,
+
+  -- Provenance for consent disputes: where the signup happened and what the
+  -- visitor was shown when they consented.
+  source TEXT NOT NULL DEFAULT 'web',
+  consent_note TEXT,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  unsubscribed_at TIMESTAMPTZ,
+  last_sent_at TIMESTAMPTZ,
+
+  -- One row per address/number. Partial unique indexes rather than a plain
+  -- UNIQUE so that the unused column being NULL doesn't defeat uniqueness.
+  CONSTRAINT subscribers_identifier_matches_channel CHECK (
+    (channel = 'email'    AND email IS NOT NULL AND phone_e164 IS NULL) OR
+    (channel = 'whatsapp' AND phone_e164 IS NOT NULL AND email IS NULL)
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(lower(email)) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_phone ON subscribers(phone_e164) WHERE phone_e164 IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_subscribers_active ON subscribers(channel) WHERE status = 'active';
+
+/*
+ * Row Level Security.
+ *
+ * RLS is enabled with NO policies, which in Postgres means: any role subject
+ * to RLS can see and do nothing. That is the intended posture — Supabase's
+ * `anon` and `authenticated` roles reach the database through PostgREST, and
+ * this table must be invisible to both. Adding a policy later is a deliberate
+ * act; the default is closed.
+ *
+ * IMPORTANT, and easy to get wrong: this app does NOT talk to Supabase through
+ * PostgREST. It connects directly with `pg` (lib/db.ts) using DATABASE_URL. If
+ * that connection string is the postgres superuser or the table owner, it
+ * BYPASSES RLS entirely — RLS is not what protects these rows from our own
+ * application code. It is defence-in-depth against the anon key leaking or
+ * PostgREST being exposed, which is a real and common failure mode.
+ *
+ * FORCE ROW LEVEL SECURITY is deliberately NOT set: forcing it would apply RLS
+ * to the table owner too and lock out our own writes.
+ */
+ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
+
+-- Belt and braces: even if RLS were later disabled by accident, these roles
+-- hold no grants on the table. DO block so this stays runnable on a plain
+-- Postgres where the Supabase roles don't exist.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    EXECUTE 'REVOKE ALL ON subscribers FROM anon';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    EXECUTE 'REVOKE ALL ON subscribers FROM authenticated';
+  END IF;
+END $$;
+
+-- Append-only log of what was sent to whom. Kept separate from `subscribers`
+-- so a send failure never mutates consent state, and so per-message cost can
+-- be reconciled against the provider's own billing (WhatsApp marketing
+-- templates are billed per message by Meta, ~Rs 0.86 on the India rate).
+CREATE TABLE IF NOT EXISTS subscriber_sends (
+  id SERIAL PRIMARY KEY,
+  subscriber_id INT NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL,
+  template_name TEXT,                -- Meta-approved template, for WhatsApp
+  provider TEXT,                     -- 'aisensy' | email provider, once chosen
+  provider_message_id TEXT,
+  status TEXT NOT NULL DEFAULT 'queued', -- queued | sent | delivered | failed
+  error TEXT,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriber_sends_subscriber ON subscriber_sends(subscriber_id, sent_at DESC);
+
+ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;

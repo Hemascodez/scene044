@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "pipeline": "tsx scripts/run-pipeline.ts",
+    "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
