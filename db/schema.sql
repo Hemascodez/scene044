@@ -267,3 +267,10 @@ ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;
 -- the same honesty rule that keeps price_type null when a page never states a
 -- price. `summary` is rewritten by the same pass into 1-2 scannable sentences.
 ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '{}';
+
+-- Registration deadline, when the source publishes one. schema.org puts this on
+-- offers.validThrough (when ticket sales end), which is the only structured
+-- signal any of our sources carry for it. Null is common and must stay null:
+-- lib/summarize.ts is forbidden from mentioning a closing date it wasn't given.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_note TEXT;

@@ -25,8 +25,10 @@ export interface PublicEvent {
   id: number;
   title: string;
   summary: string | null;
-  /** 0-4 short, source-grounded phrases. Empty when the listing was vague. */
+  /** Three short, source-grounded takeaways. Empty when the listing was vague. */
   highlights: string[];
+  /** Only populated when the source published a deadline. Usually null. */
+  registrationNote: string | null;
   category: Category;
   startAt: string | null;
   endAt: string | null;
@@ -70,6 +72,7 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
     title: string;
     summary: string | null;
     highlights: string[];
+    registrationNote: string | null;
     category: Category;
     startAt: string | null;
     endAt: string | null;
@@ -88,6 +91,7 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
   }>(
     `SELECT
        e.id, e.title, e.summary, e.highlights, e.category, e.status,
+       e.registration_note AS "registrationNote",
        e.start_at          AS "startAt",
        e.end_at            AS "endAt",
        e.is_online         AS "isOnline",

@@ -127,6 +127,8 @@ export interface ExtractedEvent {
   posterImageUrl: string | null;
   priceType: PriceType | null; // null = not stated on the page
   priceNote: string | null; // display amount when one was published, e.g. "₹499"
+  /** offers.validThrough — when ticket sales close. Null on most listings. */
+  registrationDeadline?: string | null;
   sourceMethod: "json_ld" | "llm";
   confidence: number; // 0..1. json_ld extractions are implicitly 1.0 (structured data, not inferred).
   dateEvidence: string | null; // verbatim page-text substring the LLM based startAt/endAt on

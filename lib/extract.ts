@@ -349,6 +349,7 @@ function mapSchemaEventToExtractedEvent(node: Record<string, unknown>): Extracte
   const organizerName = extractOrganizerName(node.organizer);
   const posterImageUrl = extractImageUrl(node.image);
   const { priceType, priceNote } = extractPriceInfo(node);
+  const registrationDeadline = extractRegistrationDeadline(node);
 
   return {
     title,
@@ -362,11 +363,32 @@ function mapSchemaEventToExtractedEvent(node: Record<string, unknown>): Extracte
     posterImageUrl,
     priceType,
     priceNote,
+    registrationDeadline,
     sourceMethod: "json_ld",
     confidence: 1,
     dateEvidence: null,
     venueEvidence: null,
   };
+}
+
+/**
+ * When ticket sales close, per schema.org `offers.validThrough`.
+ *
+ * This is the only structured registration-deadline signal our sources carry —
+ * there is no `registrationDeadline` in the Event vocabulary. Absent on most
+ * listings, and that absence must survive: the listing copy is forbidden from
+ * mentioning a closing date we were never given.
+ */
+function extractRegistrationDeadline(node: Record<string, unknown>): string | null {
+  const rawOffers = node.offers;
+  const offers = (Array.isArray(rawOffers) ? rawOffers : [rawOffers]).filter(
+    (o): o is Record<string, unknown> => !!o && typeof o === "object",
+  );
+  for (const offer of offers) {
+    const parsed = nullUnlessParsableDate(offer.validThrough);
+    if (parsed) return parsed;
+  }
+  return null;
 }
 
 function findJsonLdEvent($: cheerio.CheerioAPI): ExtractedEvent | null {

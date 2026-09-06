@@ -209,6 +209,15 @@ export function EventDetail({
               </Alert>
             )}
 
+            {/* Only ever set when the source published offers.validThrough —
+                the copy is forbidden from inventing a closing date. */}
+            {event.registrationNote && (
+              <p className="mt-3 inline-flex items-center gap-2 border-l-4 border-warn-ink bg-secondary px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn-ink">
+                <span aria-hidden>⏱</span>
+                {event.registrationNote}
+              </p>
+            )}
+
             <AlertsBanner categoryHint={fieldLabel} className="mt-5" />
 
             <div className="mt-4">
