@@ -274,3 +274,26 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '
 -- lib/summarize.ts is forbidden from mentioning a closing date it wasn't given.
 ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_note TEXT;
+
+-- Deduplicate search_queries and make the uniqueness rule actually hold.
+--
+-- `UNIQUE (query_text, site_filter)` looks right but does nothing for the rows
+-- that matter: in Postgres NULL is never equal to NULL, so every query without
+-- a site filter could be inserted again on each seed run. The table reached 69
+-- rows for 43 distinct queries — 38% of every sweep spent re-running the same
+-- searches at 2 Firecrawl credits each.
+--
+-- Keeping the lowest id preserves whichever copy discovery_items already
+-- reference, so no provenance is lost.
+DELETE FROM search_queries a
+ USING search_queries b
+ WHERE a.id > b.id
+   AND a.query_text = b.query_text
+   AND COALESCE(a.site_filter, '') = COALESCE(b.site_filter, '');
+
+ALTER TABLE search_queries DROP CONSTRAINT IF EXISTS search_queries_query_text_site_filter_key;
+
+-- COALESCE inside the index is what makes NULL comparable, so a site-less
+-- query can only exist once.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_search_queries_unique
+  ON search_queries (query_text, COALESCE(site_filter, ''));

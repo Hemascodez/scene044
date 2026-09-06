@@ -67,7 +67,7 @@ async function main() {
     const result = await query(
       `INSERT INTO search_queries (query_text, category_hint, site_filter)
        VALUES ($1,$2,$3)
-       ON CONFLICT (query_text, site_filter) DO UPDATE SET category_hint = EXCLUDED.category_hint
+       ON CONFLICT (query_text, COALESCE(site_filter, '')) DO UPDATE SET category_hint = EXCLUDED.category_hint
        RETURNING (xmax = 0) AS inserted`,
       [row.query_text, row.category_hint, siteFilter],
     );

@@ -28,6 +28,17 @@ const sources: SourceSeed[] = [
   { name: "Eventbrite (UK)", domain: "eventbrite.co.uk", trust_tier: "auto_fetch", robots_allowed: true, notes: "Regional storefront for eventbrite.com; same robots.txt rules." },
   { name: "Eventbrite (CA)", domain: "eventbrite.ca", trust_tier: "auto_fetch", robots_allowed: true, notes: "Regional storefront for eventbrite.com; same robots.txt rules." },
   { name: "Eventbrite (SG)", domain: "eventbrite.sg", trust_tier: "auto_fetch", robots_allowed: true, notes: "Regional storefront for eventbrite.com; same robots.txt rules. Nearest regional hub to India, so likely to appear on Chennai listings." },
+  /*
+   * Chennai design communities. Design was the worst-covered field (0 live
+   * events) and the diagnosis was not that the queries were wrong — they found
+   * exactly the right places — but that these domains sat at curator_only, so
+   * every hit queued for a human who never came.
+   *
+   * Both publish a Crawl-delay we comfortably exceed: our 120/hour is a 30s
+   * gap, against their requested 2s and 10s.
+   */
+  { name: "Friends of Figma (Chennai)", domain: "friends.figma.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "Official Friends of Figma Chennai chapter — one of the few consistently active UX/UI communities in the city. robots.txt disallows /health/, /accounts/, /api/, /newsletter/, /gql/, /triggers/, /u/ and /viewserver-health/; chapter and event pages are public and allowed. Crawl-delay: 2." },
+  { name: "UMO City Meetups (Chennai)", domain: "meetups.umo.design", trust_tier: "auto_fetch", robots_allowed: true, notes: "Design meetup listings with a Chennai city page. robots.txt disallows only infrastructure paths (/admin/, /includes/, /config/, /logs/, /backup/, /.env, /wp-*). Crawl-delay: 10, well inside our 30s per-domain gap. Upgraded from curator_only — it was queuing design events nobody reviewed." },
   { name: "GDG Community (Google Developer Groups)", domain: "gdg.community.dev", trust_tier: "auto_fetch", robots_allowed: true, notes: "Hosts active GDG Chennai, GDG Cloud Chennai, and multiple GDG on Campus Chennai chapters with confirmed 2026 events (Google I/O Extended Chennai, Chennai Hackfest 2026). robots.txt disallows /accounts/, /api/, /newsletter/, /gql/, /u/ but explicitly permits ClaudeBot on general paths; event listing/detail pages are public." },
   { name: "Hasgeek", domain: "hasgeek.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "Active pan-India (incl. Chennai-relevant) tech conference/community platform (e.g. The Fifth Elephant). robots.txt only disallows /account and /login; event/proposal pages are public." },
   { name: "ChennaiJS", domain: "chennaijs.dev", trust_tier: "auto_fetch", robots_allowed: true, notes: "Active Chennai JavaScript community, monthly meetups confirmed via search. No robots.txt file exists (genuine 404, not a soft-block), so nothing is disallowed; site is a small static public community page with no login wall." },
