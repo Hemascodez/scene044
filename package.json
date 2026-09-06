@@ -14,6 +14,11 @@
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "cheerio": "^1.2.0",
     "fastest-levenshtein": "^1.0.16",
     "next": "16.3.3",
@@ -21,17 +26,12 @@
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tsx": "^4.23.13"
+    "tailwindcss": "^4",
+    "tsx": "^4.23.13",
+    "typescript": "^5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/pg": "^8.23.1",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.3",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "eslint-config-next": "16.3.3"
   }
 }
