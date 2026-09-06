@@ -17,6 +17,7 @@ import {
   DEDUP_LOW_CONFIDENCE_THRESHOLD,
 } from "@/lib/dedup";
 import { importPosterFromUrl } from "@/lib/posterStore";
+import { summarizeEvent } from "@/lib/summarize";
 import { safeFetchText } from "@/lib/safeFetch";
 import type { ExtractionMeta } from "@/lib/types";
 
@@ -374,6 +375,18 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         continue;
       }
 
+      /*
+       * Rewrite the organizer's description into something scannable.
+       * JSON-LD `description` arrives verbatim — averaging ~950 characters and
+       * running to 4,600, with markdown and boilerplate intact. Done here
+       * rather than at render time so the cost is paid once per event, not
+       * once per page view.
+       */
+      const editorial = await summarizeEvent({
+        title: extractedEvent.title,
+        rawSummary: extractedEvent.summary,
+      });
+
       // Re-host the poster rather than hotlinking: source URLs rot, and
       // hotlinking leaks every visitor's IP and referrer to that CDN.
       // Best-effort — a failed download falls back to the category Scene image.
@@ -391,11 +404,11 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
       const {
         rows: [eventRow],
       } = await query<{ id: number }>(
-        `INSERT INTO events (title, summary, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto',$14,'live', now()) RETURNING id`,
+        `INSERT INTO events (title, summary, highlights, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
+         VALUES ($1,$2,$15,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto',$14,'live', now()) RETURNING id`,
         [
           extractedEvent.title,
-          extractedEvent.summary,
+          editorial.summary,
           cat.category,
           extractedEvent.startAt,
           extractedEvent.endAt,
@@ -408,6 +421,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
           extractedEvent.priceNote,
           normalizeUrl(item.url),
           cat.chennaiRelevanceScore,
+          editorial.highlights,
         ],
       );
 

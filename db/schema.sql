@@ -260,3 +260,10 @@ CREATE TABLE IF NOT EXISTS subscriber_sends (
 CREATE INDEX IF NOT EXISTS idx_subscriber_sends_subscriber ON subscriber_sends(subscriber_id, sent_at DESC);
 
 ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;
+
+-- Editorial highlights: 0-4 short, concrete phrases an attendee gets, each one
+-- traceable to a sentence in the organizer's own description (lib/summarize.ts).
+-- Empty is the correct value for a vague listing — an invented perk would break
+-- the same honesty rule that keeps price_type null when a page never states a
+-- price. `summary` is rewritten by the same pass into 1-2 scannable sentences.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '{}';

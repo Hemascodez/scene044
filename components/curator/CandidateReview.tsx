@@ -68,6 +68,9 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     id: item.id,
     title: draft.title || "Untitled event",
     summary: draft.summary || null,
+    // Curator-entered events skip the summarizer pass, so there are no
+    // highlights to show — an empty list renders nothing, which is correct.
+    highlights: [],
     category: (draft.category || "tech") as Category,
     startAt: draftToInstant(draft.startDate, draft.startTime),
     endAt: draftToInstant(draft.endDate, draft.endTime),

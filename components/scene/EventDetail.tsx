@@ -170,6 +170,28 @@ export function EventDetail({
               </p>
             )}
 
+            {/* Only ever renders what the organizer's own description stated —
+                lib/summarize.ts returns an empty list rather than inventing a
+                perk, so a vague listing simply shows nothing here. */}
+            {event.highlights.length > 0 && (
+              <div className="mt-4">
+                <Mono className="text-[10px] text-muted-foreground">What you get</Mono>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {event.highlights.map((highlight) => (
+                    <li
+                      key={highlight}
+                      className="inline-flex items-center gap-1.5 border-2 border-foreground bg-card px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em]"
+                    >
+                      <span aria-hidden className="text-primary-ink">
+                        ▸
+                      </span>
+                      {highlight}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {status === "cancelled" && (
               <Alert tone="bad">This event has been cancelled by the organizer.</Alert>
             )}
