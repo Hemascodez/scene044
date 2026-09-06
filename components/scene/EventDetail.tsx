@@ -6,6 +6,7 @@ import type { PublicEvent } from "@/lib/events";
 import { formatSceneDate, formatSceneTime, relativeChecked } from "@/lib/client/istTime";
 import { deriveSceneStatus, posterFor, toPlainSummary } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
+import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { Btn, BtnLink, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
 
 const REPORT_REASONS = ["Wrong date", "Cancelled", "Bad link", "Duplicate"] as const;
@@ -185,6 +186,8 @@ export function EventDetail({
                 We found this event but not a confirmed date. Check the original source before making plans.
               </Alert>
             )}
+
+            <AlertsBanner categoryHint={fieldLabel} className="mt-5" />
 
             <div className="mt-4">
               <Row label="Date & time">

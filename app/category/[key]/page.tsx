@@ -56,7 +56,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           title="Upcoming in Chennai"
           note="Soonest first · past events hidden"
         />
-        <CategoryFeed events={events} />
+        <CategoryFeed events={events} fieldLabel={card.label} />
 
         <nav className="mt-16">
           <SectionHead kicker="Other fields" title="Keep looking" />

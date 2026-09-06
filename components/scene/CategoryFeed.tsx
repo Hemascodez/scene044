@@ -8,15 +8,25 @@ import { useEventInteractions } from "@/lib/client/useEventInteractions";
 import { EventCard } from "@/components/scene/EventCard";
 import { EventDetail } from "@/components/scene/EventDetail";
 import { ReturnPrompt } from "@/components/scene/ReturnPrompt";
+import { AlertsBanner } from "@/components/scene/AlertsBanner";
 
 /** Per-field listing. Same card, save and return-prompt behaviour as the home
  *  feed — it shares `useEventInteractions` so the two can't diverge. */
-export function CategoryFeed({ events }: { events: PublicEvent[] }) {
+export function CategoryFeed({
+  events,
+  fieldLabel = null,
+}: {
+  events: PublicEvent[];
+  /** FIELD_CARDS label, used to preselect the matching alert interest. */
+  fieldLabel?: string | null;
+}) {
   const upcoming = useMemo(() => events.filter((e) => !isHiddenFromFeed(e)).sort(bySoonest), [events]);
   const interactions = useEventInteractions(upcoming);
 
   return (
     <>
+      <AlertsBanner categoryHint={fieldLabel} className="mt-8" />
+
       {upcoming.length === 0 ? (
         <div className="mt-8 flex flex-col items-center justify-center border-2 border-dashed border-foreground bg-card p-12 text-center">
           <span
