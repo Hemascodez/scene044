@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { PublicEvent } from "@/lib/events";
 import { formatSceneDate, formatSceneTime, relativeChecked } from "@/lib/client/istTime";
 import { deriveSceneStatus, posterFor, toStoryParagraphs } from "@/lib/client/sceneEvent";
+import { useOpensInNewTab } from "@/lib/client/usePointerType";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { Btn, BtnLink, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
@@ -32,6 +33,8 @@ export function EventDetail({
   const [posterFailed, setPosterFailed] = useState(false);
   const fieldLabel = getFieldCardForCategory(event.category)?.label ?? event.category;
   const story = toStoryParagraphs(event.summary);
+  // Phones navigate in place so the Back button returns here; see the hook.
+  const newTab = useOpensInNewTab();
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -282,9 +285,10 @@ export function EventDetail({
               href={`/api/go/${event.id}`}
               variant="solid"
               className="flex-1"
+              newTab={newTab}
               onNavigate={() => onVisit(event)}
             >
-              View original ↗
+              View original {newTab ? "↗" : "→"}
             </BtnLink>
             <Btn variant="outline" onClick={onToggleSave}>
               <SaveIcon filled={saved} />

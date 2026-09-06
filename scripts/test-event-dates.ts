@@ -4,7 +4,8 @@ import { datesInSnippet, effectiveEndAt, isPastEvent, snippetLooksPast } from ".
 let pass = 0, fail = 0;
 function check(name: string, actual: unknown, expected: unknown) {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
-  ok ? pass++ : fail++;
+  if (ok) pass++;
+  else fail++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `  got=${JSON.stringify(actual)} want=${JSON.stringify(expected)}`}`);
 }
 

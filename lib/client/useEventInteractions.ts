@@ -8,6 +8,13 @@ import {
   lastViewedStore,
   recordViewedEvent,
 } from "@/lib/client/lastViewedEvent";
+import {
+  closeModal,
+  getModalEventId,
+  getServerModalEventId,
+  openModal,
+  subscribeModalHistory,
+} from "@/lib/client/modalHistory";
 
 /**
  * Shared behaviour for any surface that lists events: the shortlist, which
@@ -16,39 +23,20 @@ import {
  */
 export function useEventInteractions(events: PublicEvent[]) {
   const { ids, toggle, has } = useSavedEvents();
-  const [openId, setOpenId] = useState<number | null>(null);
-  const [returnPromptId, setReturnPromptId] = useState<number | null>(null);
-
-  /*
-   * The phone's Back button closes the detail modal.
-   *
-   * Without this, Back from an open event leaves the site entirely — on a
-   * phone the modal fills the screen, so it reads as a page, and people
-   * reasonably press Back expecting to return to the feed. Losing them to the
-   * previous site at that moment is the most expensive possible exit.
-   *
-   * A history entry is pushed when the modal opens and popped when it closes,
-   * so Back and the close button do the same thing.
-   */
-  const openEventModal = useCallback((id: number | null) => {
-    setOpenId((current) => {
-      if (id !== null && current === null) {
-        window.history.pushState({ sceneModal: true }, "");
-      } else if (id === null && current !== null && window.history.state?.sceneModal) {
-        window.history.back();
-      }
-      return id;
-    });
+  /* Open modal lives in history, not component state — see modalHistory.ts.
+     Read here rather than assigned from an effect, so there is no cascading
+     render and the server snapshot keeps hydration clean. */
+  const openId = useSyncExternalStore(
+    subscribeModalHistory,
+    getModalEventId,
+    getServerModalEventId,
+  );
+  const setOpenId = useCallback((id: number | null) => {
+    if (id === null) closeModal();
+    else openModal(id);
   }, []);
 
-  useEffect(() => {
-    if (openId === null) return;
-    // Fires for the pushed entry AND for a real Back — either way the modal
-    // should close, and setOpenId here avoids re-entering history.
-    const onPop = () => setOpenId(null);
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, [openId]);
+  const [returnPromptId, setReturnPromptId] = useState<number | null>(null);
 
   // Read through the external store rather than an effect + setState: that
   // keeps the server snapshot defined (localStorage doesn't exist during SSR)
@@ -88,7 +76,7 @@ export function useEventInteractions(events: PublicEvent[]) {
     toggleSaved: toggle,
     isSaved: has,
     openId,
-    setOpenId: openEventModal,
+    setOpenId,
     openEvent: byId(openId),
     lastViewedId,
     handleVisit,
