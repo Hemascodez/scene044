@@ -391,6 +391,67 @@ function extractRegistrationDeadline(node: Record<string, unknown>): string | nu
   return null;
 }
 
+/*
+ * Poster selection.
+ *
+ * Three problems showed up across the live feed, each with a different cause:
+ *
+ *  1. Meetup leaves JSON-LD `image` empty on many events while publishing the
+ *     real event photo in og:image. og:image exists precisely so third parties
+ *     can render a preview, so reading it is its intended use — and it is the
+ *     single biggest source of recoverable posters.
+ *  2. Meetup also serves RELATIVE urls ("/images/fallbacks/...") which are not
+ *     fetchable on their own, so they must be resolved against the page.
+ *  3. Both platforms fall back to their own generic branding when an organizer
+ *     uploaded nothing. Storing "meetup-flyer.png" as if it were the event
+ *     poster is worse than showing our own category art, because it looks like
+ *     a real poster and tells the visitor nothing.
+ */
+
+/** Observed platform placeholders — each pattern is a real case from the feed,
+ *  not a guess. Matching one means the organizer uploaded no image at all. */
+const PLACEHOLDER_IMAGE_PATTERNS = [
+  "/images/fallbacks/",
+  "meetup-flyer.png",
+  "/next/images/shared/",
+];
+
+function isPlaceholderImage(url: string): boolean {
+  const lower = url.toLowerCase();
+  return PLACEHOLDER_IMAGE_PATTERNS.some((p) => lower.includes(p));
+}
+
+function toAbsoluteImageUrl(candidate: unknown, pageUrl: string): string | null {
+  if (typeof candidate !== "string") return null;
+  const raw = candidate.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw, pageUrl);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** JSON-LD first (most authoritative), then the social-preview tags. */
+function pickPosterUrl(
+  $: cheerio.CheerioAPI,
+  pageUrl: string,
+  fromJsonLd: string | null,
+): string | null {
+  const candidates = [
+    fromJsonLd,
+    $('meta[property="og:image"]').attr("content"),
+    $('meta[name="twitter:image"]').attr("content"),
+    $('meta[name="og:image"]').attr("content"),
+  ];
+  for (const candidate of candidates) {
+    const absolute = toAbsoluteImageUrl(candidate, pageUrl);
+    if (absolute && !isPlaceholderImage(absolute)) return absolute;
+  }
+  return null;
+}
+
 function findJsonLdEvent($: cheerio.CheerioAPI): ExtractedEvent | null {
   const scripts = $('script[type="application/ld+json"]').toArray();
 
@@ -664,7 +725,10 @@ export async function extractFromUrl(
      * of extracted, and the real event lost.
      */
     const jsonLdEvent = findJsonLdEvent($);
-    if (jsonLdEvent) return { kind: "event", event: jsonLdEvent };
+    if (jsonLdEvent) {
+      jsonLdEvent.posterImageUrl = pickPosterUrl($, fetched.finalUrl, jsonLdEvent.posterImageUrl);
+      return { kind: "event", event: jsonLdEvent };
+    }
 
     const links = findJsonLdEventLinks($, fetched.finalUrl);
     if (links.length > 0) return { kind: "event_list", links };
@@ -677,7 +741,11 @@ export async function extractFromUrl(
       .slice(0, PAGE_TEXT_MAX_CHARS);
 
     const viaLlm = await extractViaLlm(fetched.finalUrl, pageText, model);
-    return viaLlm ? { kind: "event", event: viaLlm } : { kind: "none" };
+    if (!viaLlm) return { kind: "none" };
+    // The LLM never sees <head>, so the social tags are the only poster source
+    // on this path.
+    viaLlm.posterImageUrl = pickPosterUrl($, fetched.finalUrl, viaLlm.posterImageUrl);
+    return { kind: "event", event: viaLlm };
   } catch {
     return { kind: "none" };
   }
