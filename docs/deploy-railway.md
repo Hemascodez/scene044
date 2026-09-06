@@ -63,16 +63,14 @@ The run does discovery → extraction (looping until the queue drains or a
 
 ### NEXT_PUBLIC_ variables must be set at BUILD time
 
-`NEXT_PUBLIC_WHATSAPP_NUMBER` and `NEXT_PUBLIC_ALERTS_EMAIL` are inlined into
-the client bundle when `next build` runs. Setting them only as runtime
+`NEXT_PUBLIC_WHATSAPP_NUMBER` is inlined into the client bundle when `next build` runs. Setting them only as runtime
 variables produces a hydration mismatch: the server renders the alerts banner
 (it reads `process.env` live) while the client bundle has `undefined` baked in
 and renders nothing. Railway exposes service variables to the build, so simply
 adding them to the service is enough — just don't add them *after* a deploy and
 expect the existing build to pick them up. Rebuild.
 
-Leave either one empty and that channel's button hides itself; leave both empty
-and the banner does not render at all.
+Leave it empty and the alerts banner does not render at all.
 
 ## 4. Secrets
 
