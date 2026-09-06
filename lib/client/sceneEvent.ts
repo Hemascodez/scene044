@@ -105,3 +105,44 @@ export function toPlainSummary(markdown: string | null): string | null {
     .trim();
   return text.length > 0 ? text : null;
 }
+
+/**
+ * Minimal inline Markdown for the event write-up.
+ *
+ * The copy comes back as Markdown, but pulling in a parser for what is
+ * realistically bold and paragraph breaks would be the fifth runtime
+ * dependency in a project that has four. Everything except **bold** is already
+ * flattened by toPlainSummary, and React escapes each segment as text, so
+ * there is no HTML to inject.
+ */
+export interface StorySegment {
+  text: string;
+  bold: boolean;
+}
+
+export function toStoryParagraphs(markdown: string | null): StorySegment[][] {
+  const plain = markdown
+    ?.replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/`([^`]*)`/g, "$1")
+    .trim();
+  if (!plain) return [];
+
+  return plain
+    .split(/\n\s*\n/)
+    .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .map((para) =>
+      para
+        .split(/(\*\*[^*]+\*\*)/g)
+        .filter(Boolean)
+        .map((chunk) =>
+          chunk.startsWith("**") && chunk.endsWith("**")
+            ? { text: chunk.slice(2, -2), bold: true }
+            : { text: chunk, bold: false },
+        ),
+    );
+}

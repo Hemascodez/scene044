@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PublicEvent } from "@/lib/events";
 import { formatSceneDate, formatSceneTime, relativeChecked } from "@/lib/client/istTime";
-import { deriveSceneStatus, posterFor, toPlainSummary } from "@/lib/client/sceneEvent";
+import { deriveSceneStatus, posterFor, toStoryParagraphs } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { Btn, BtnLink, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
@@ -31,7 +31,7 @@ export function EventDetail({
   const poster = posterFor(event);
   const [posterFailed, setPosterFailed] = useState(false);
   const fieldLabel = getFieldCardForCategory(event.category)?.label ?? event.category;
-  const summary = toPlainSummary(event.summary);
+  const story = toStoryParagraphs(event.summary);
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -164,11 +164,19 @@ export function EventDetail({
 
             <h2 className="font-display text-2xl font-black leading-tight tracking-tight">{event.title}</h2>
 
-            {summary && (
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-foreground/80">
-                {summary}
+            {story.map((paragraph, i) => (
+              <p key={i} className="mt-3 text-sm leading-relaxed text-foreground/80">
+                {paragraph.map((seg, j) =>
+                  seg.bold ? (
+                    <strong key={j} className="font-semibold text-foreground">
+                      {seg.text}
+                    </strong>
+                  ) : (
+                    <span key={j}>{seg.text}</span>
+                  ),
+                )}
               </p>
-            )}
+            ))}
 
             {/* Only ever renders what the organizer's own description stated —
                 lib/summarize.ts returns an empty list rather than inventing a
