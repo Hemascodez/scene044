@@ -56,7 +56,6 @@ export function TabbedFeed({
 }) {
   const [active, setActive] = useState(0);
   const [query, setQuery] = useState("");
-  const scrollerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Search narrows the pool before it splits into panels, so the tab counts
@@ -64,18 +63,20 @@ export function TabbedFeed({
   const pool = useMemo(() => events.filter((e) => matchesSearch(e, query)), [events, query]);
   const panels = useMemo(() => PRESETS.map((p) => ({ preset: p, items: pool.filter(p.test) })), [pool]);
 
+  /*
+   * Tabs change only when a tab is tapped.
+   *
+   * These panels used to be a snap-scrolling horizontal strip you could swipe
+   * between. On a phone that was actively hostile: the pane sits inside a
+   * vertically scrolling page, so any downward flick with a few degrees of
+   * horizontal drift silently switched category. People lost their place
+   * without touching anything they meant to touch.
+   *
+   * Only the active panel is rendered now, which also means one panel's worth
+   * of cards in the DOM instead of five.
+   */
   function goTo(index: number) {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    scroller.scrollTo({ left: index * scroller.clientWidth, behavior: "smooth" });
     setActive(index);
-  }
-
-  function onScroll() {
-    const scroller = scrollerRef.current;
-    if (!scroller || scroller.clientWidth === 0) return;
-    const index = Math.round(scroller.scrollLeft / scroller.clientWidth);
-    setActive((prev) => (prev === index ? prev : index));
   }
 
   // Keep the selected pill visible inside the horizontally scrolling tab bar.
@@ -171,18 +172,14 @@ export function TabbedFeed({
         </div>
       </div>
 
-      <div
-        ref={scrollerRef}
-        onScroll={onScroll}
-        className="mt-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
-      >
-        {panels.map((panel) => (
+      <div className="mt-4">
+        {panels.filter((_, i) => i === active).map((panel) => (
           <section
             key={panel.preset.key}
             role="tabpanel"
             id={`panel-${panel.preset.key}`}
             aria-labelledby={`tab-${panel.preset.key}`}
-            className="w-full shrink-0 snap-start pr-0.5"
+            className="w-full min-w-0"
           >
             <div className="mb-4 flex items-baseline justify-between gap-2 border-b-2 border-dashed border-foreground/25 pb-2">
               <Mono className="text-[11px]">
@@ -200,7 +197,7 @@ export function TabbedFeed({
                 onUpcoming={() => goTo(0)}
               />
             ) : (
-              <div className="grid gap-6 xl:grid-cols-2">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
                 {panel.items.map((event, i) => (
                   <EventCard
                     key={event.id}

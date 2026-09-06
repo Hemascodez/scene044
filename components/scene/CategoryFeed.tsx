@@ -48,7 +48,7 @@ export function CategoryFeed({
           </Link>
         </div>
       ) : (
-        <div className="mt-8 grid gap-6 xl:grid-cols-2">
+        <div className="mt-8 grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
           {upcoming.map((event, i) => (
             <EventCard
               key={event.id}

@@ -42,7 +42,11 @@ export function EventCard({
       onTouchStart={() => setPressed(true)}
       onTouchEnd={() => setPressed(false)}
       onTouchCancel={() => setPressed(false)}
-      className="scene-card scene-rise group relative"
+      /* min-w-0: a grid item defaults to min-width:auto, so the card refused
+         to shrink below its content and rendered 474px wide inside a 341px
+         track — that stray 124px is what made the whole page slide sideways
+         on a phone. */
+      className="scene-card scene-rise group relative min-w-0"
       // Capped so a long feed doesn't leave the last cards invisible for a second.
       style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
     >
@@ -50,7 +54,7 @@ export function EventCard({
       <span className="ticket-notch left-[-9px] top-1/2 size-[18px] -translate-y-1/2" />
       <span className="ticket-notch right-[-9px] top-1/2 size-[18px] -translate-y-1/2" />
 
-      <div className="flex flex-col border-2 border-foreground bg-card transition-transform duration-200 group-hover:-translate-y-0.5 group-has-[:active]:-translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-has-[:active]:translate-y-0 sm:min-h-[188px] sm:flex-row">
+      <div className="flex flex-col border-2 border-foreground bg-card shadow-[4px_4px_0_0] shadow-foreground transition-transform duration-200 group-hover:-translate-y-0.5 group-has-[:active]:-translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-has-[:active]:translate-y-0 sm:min-h-[188px] sm:flex-row">
         {/* STUB — poster on top when stacked, on the left when wide */}
         <button
           type="button"

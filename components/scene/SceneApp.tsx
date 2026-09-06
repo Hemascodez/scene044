@@ -69,13 +69,41 @@ export function SceneApp({
   // Marked after mount, not during render, so a re-render can't consume it.
   useEffect(markSplashConsumed, []);
 
+  /*
+   * Start at the top when the intro plays.
+   *
+   * history.scrollRestoration defaults to "auto", so on a reload the browser
+   * silently restores the previous scroll position — underneath the splash,
+   * where nobody can see it happening. The intro then lifts to reveal the
+   * footer instead of the hero. Restoration is only suppressed when the splash
+   * is actually playing, so Back still returns you to where you were.
+   */
+  useEffect(() => {
+    if (!showSplash) return;
+    const previous = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+    return () => {
+      window.history.scrollRestoration = previous;
+    };
+  }, [showSplash]);
+
   function scrollToFeed() {
     feedRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <div className="min-h-full">
-      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      {showSplash && (
+        <SplashScreen
+          onDone={() => {
+            // Belt and braces: anything that moved the page while the overlay
+            // was up is undone before it is revealed.
+            window.scrollTo(0, 0);
+            setShowSplash(false);
+          }}
+        />
+      )}
 
       <SceneHeader
         view={view}
@@ -97,7 +125,7 @@ export function SceneApp({
             <SectionHead
               kicker="Discovery feed"
               title="Browse the scene"
-              note="Swipe the tabs · past events hidden"
+              note="Tap a tab · past events hidden"
             />
 
             <div className="mt-6">
@@ -123,7 +151,7 @@ export function SceneApp({
                   title="Newly discovered"
                   note="Pulled into SCENE/044 in the last few hours."
                 />
-                <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
                   {newlyDiscovered.map((event, i) => (
                     <EventCard
                       key={event.id}
@@ -226,7 +254,7 @@ function SavedView({
           </div>
         </div>
       ) : (
-        <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
           {events.map((event, i) => (
             <EventCard
               key={event.id}

@@ -212,3 +212,24 @@ body {
     animation: scene-fade-in 0.15s ease both;
   }
 }
+
+/*
+ * Horizontal overflow guard.
+ *
+ * The layout is fixed properly at source (grid items carry min-w-0 and tracks
+ * use minmax(0,1fr)), but a single long unbroken token in event copy we do not
+ * control can still push the page sideways — and on a phone that turns the
+ * whole app into a wobbling, horizontally scrollable surface, which is the
+ * worst thing a feed can feel like. This makes that failure impossible rather
+ * than merely unlikely.
+ */
+html {
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: clip;
+  /* Stops a vertical flick at the top or bottom from rubber-banding the whole
+     page, which reads as the app "floating" loose from the screen. */
+  overscroll-behavior-y: none;
+}
