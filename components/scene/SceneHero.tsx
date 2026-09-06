@@ -3,7 +3,7 @@ import { FIELD_CARDS } from "@/lib/fieldCards";
 import { Btn, Mono } from "@/components/scene/ui";
 import { Wordmark } from "@/components/scene/SceneHeader";
 
-export function SceneHero({ onExplore, onSubmit }: { onExplore: () => void; onSubmit: () => void }) {
+export function SceneHero({ onExplore }: { onExplore: () => void }) {
   return (
     <section className="border-b-2 border-foreground bg-foreground text-background">
       {/* Marquee of the fields we index. Duplicated once because the keyframe
@@ -34,13 +34,6 @@ export function SceneHero({ onExplore, onSubmit }: { onExplore: () => void; onSu
             className="!border-primary !bg-primary !text-primary-foreground hover:!border-background hover:!bg-background hover:!text-foreground"
           >
             Explore the scene ↓
-          </Btn>
-          <Btn
-            variant="outline"
-            onClick={onSubmit}
-            className="!border-background/60 !text-background hover:!border-background hover:!bg-background hover:!text-foreground"
-          >
-            Submit / report an event
           </Btn>
           <Mono className="text-[10px] text-background/50">No account needed · Save locally</Mono>
         </div>
@@ -120,7 +113,6 @@ export function SceneFooter() {
               <li>Deduplicated across sources</li>
               <li>Freshness-checked continuously</li>
               <li>Original source always shown</li>
-              <li>Report anything wrong</li>
             </ul>
           </div>
           <div>

@@ -10,7 +10,6 @@ import { getFieldCardForCategory } from "@/lib/fieldCards";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { Btn, BtnLink, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
 
-const REPORT_REASONS = ["Wrong date", "Cancelled", "Bad link", "Duplicate"] as const;
 
 export function EventDetail({
   event,
@@ -25,7 +24,6 @@ export function EventDetail({
   onClose: () => void;
   onVisit: (event: PublicEvent) => void;
 }) {
-  const [reportState, setReportState] = useState<"idle" | "choosing" | "sending" | "sent" | "failed">("idle");
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const status = deriveSceneStatus(event);
@@ -70,20 +68,6 @@ export function EventDetail({
       document.body.style.overflow = previousOverflow;
     };
   }, [onClose]);
-
-  async function submitReport(reason: string) {
-    setReportState("sending");
-    try {
-      const res = await fetch("/api/report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: event.id, reason }),
-      });
-      setReportState(res.ok ? "sent" : "failed");
-    } catch {
-      setReportState("failed");
-    }
-  }
 
   function share() {
     const text = `${event.title}${event.startAt ? ` — ${formatSceneDate(event.startAt)}, ${formatSceneTime(event.startAt)} IST` : ""}. Found on SCENE/044.`;
@@ -297,43 +281,6 @@ export function EventDetail({
             <Btn variant="outline" onClick={share}>
               Share
             </Btn>
-          </div>
-
-          <div className="mt-3">
-            {reportState === "idle" && (
-              <button
-                type="button"
-                onClick={() => setReportState("choosing")}
-                className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground underline underline-offset-2 hover:text-primary-ink"
-              >
-                Report incorrect or outdated info
-              </button>
-            )}
-            {reportState === "choosing" && (
-              <div className="flex flex-wrap items-center gap-2">
-                {REPORT_REASONS.map((reason) => (
-                  <button
-                    key={reason}
-                    type="button"
-                    onClick={() => submitReport(reason)}
-                    className="border-2 border-foreground px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] hover:bg-foreground hover:text-background"
-                  >
-                    {reason}
-                  </button>
-                ))}
-              </div>
-            )}
-            {reportState === "sending" && (
-              <Mono className="text-[10px] text-muted-foreground">Sending…</Mono>
-            )}
-            {reportState === "sent" && (
-              <Mono className="text-[10px] text-signal-ink">✓ Thanks — sent to curators for review.</Mono>
-            )}
-            {reportState === "failed" && (
-              <Mono className="text-[10px] text-primary-ink">
-                Couldn&apos;t send that report. Please try again.
-              </Mono>
-            )}
           </div>
         </div>
       </div>

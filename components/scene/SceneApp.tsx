@@ -9,7 +9,6 @@ import { markSplashConsumed, shouldPlaySplash } from "@/lib/client/splashGate";
 import { SceneHeader } from "@/components/scene/SceneHeader";
 import { FieldsGrid, SceneFooter, SceneHero, SectionHead } from "@/components/scene/SceneHero";
 import { SplashScreen } from "@/components/scene/SplashScreen";
-import { SubmitEventModal } from "@/components/scene/SubmitEventModal";
 import { TabbedFeed } from "@/components/scene/TabbedFeed";
 import { EventCard } from "@/components/scene/EventCard";
 import { EventDetail } from "@/components/scene/EventDetail";
@@ -31,7 +30,6 @@ export function SceneApp({
   // back to Home (wordmark, "Back to all events"), which is not a page load.
   const [showSplash, setShowSplash] = useState(deepLinkEventId === null && shouldPlaySplash());
   const [view, setView] = useState<"discover" | "saved">("discover");
-  const [showSubmit, setShowSubmit] = useState(false);
   const feedRef = useRef<HTMLElement>(null);
   const interactions = useEventInteractions(events);
   const hasOpenedDeepLink = useRef(false);
@@ -118,7 +116,7 @@ export function SceneApp({
 
       {view === "discover" ? (
         <>
-          <SceneHero onExplore={scrollToFeed} onSubmit={() => setShowSubmit(true)} />
+          <SceneHero onExplore={scrollToFeed} />
           <FieldsGrid counts={counts} />
 
           <main ref={feedRef} id="feed" className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 lg:px-6">
@@ -191,7 +189,6 @@ export function SceneApp({
         />
       )}
 
-      {showSubmit && <SubmitEventModal onClose={() => setShowSubmit(false)} />}
 
       {interactions.returnEvent && (
         <ReturnPrompt

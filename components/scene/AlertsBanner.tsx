@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Mono } from "@/components/scene/ui";
+import {
+  getAlertsDone,
+  getServerAlertsDone,
+  markAlertsDone,
+  subscribeAlertsOptIn,
+} from "@/lib/client/alertsOptIn";
 
 /**
  * Event-alerts opt-in — ported from the Figma Make design.
@@ -102,10 +108,16 @@ export function AlertsBanner({
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const alreadyDone = useSyncExternalStore(
+    subscribeAlertsOptIn,
+    getAlertsDone,
+    getServerAlertsDone,
+  );
 
   // Nothing to opt into without a number — better to render nothing than a
-  // banner whose button goes nowhere.
-  if (!WHATSAPP_NUMBER) return null;
+  // banner whose button goes nowhere. And nothing to ask twice of someone who
+  // has already been through the flow.
+  if (!WHATSAPP_NUMBER || alreadyDone) return null;
 
   return (
     <div className={`border-2 border-foreground bg-foreground p-5 text-background sm:p-6 ${className}`}>
@@ -408,15 +420,30 @@ function AlertsSheet({
             <p className="mt-2 max-w-sm text-sm text-muted-foreground">
               Review the prefilled message and send it yourself — that&apos;s how we know it&apos;s really you.
             </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-              {/* Offered rather than auto-detected: there is no reliable signal
-                  that an app-handoff failed. */}
-              <button type="button" onClick={() => setPhase("fallback")} className={CTRL_OUTLINE}>
-                Nothing opened?
+            {/* Self-reported, and phrased that way on purpose. The handoff
+                leaves our page, so the browser never learns whether they
+                pressed send — this only stops us asking again. */}
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  markAlertsDone();
+                  onClose();
+                }}
+                className={`${CTRL} w-full border-2 border-signal-ink bg-signal-ink text-white hover:border-foreground hover:bg-foreground active:translate-y-0.5 sm:w-auto`}
+              >
+                ✓ Sent it — don&apos;t ask again
               </button>
-              <button type="button" onClick={() => setPhase("form")} className={CTRL_GHOST}>
-                Back
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {/* Offered rather than auto-detected: there is no reliable
+                    signal that an app-handoff failed. */}
+                <button type="button" onClick={() => setPhase("fallback")} className={CTRL_GHOST}>
+                  Nothing opened?
+                </button>
+                <button type="button" onClick={() => setPhase("form")} className={CTRL_GHOST}>
+                  Back
+                </button>
+              </div>
             </div>
           </div>
         )}
