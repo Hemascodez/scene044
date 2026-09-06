@@ -21,13 +21,13 @@ export async function POST(request: Request) {
 
   try {
     const { rows } = await query<{ id: number }>(
-      "UPDATE events SET status = 'stale', updated_at = now() WHERE id = $1 RETURNING id",
+      "UPDATE events SET status = 'expired', updated_at = now() WHERE id = $1 RETURNING id",
       [eventId],
     );
     if (rows.length === 0) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, status: "stale", eventId });
+    return NextResponse.json({ ok: true, status: "expired", eventId });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err).slice(0, 500) }, { status: 500 });
   }

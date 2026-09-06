@@ -18,6 +18,7 @@ import {
 } from "@/lib/dedup";
 import { importPosterFromUrl } from "@/lib/posterStore";
 import { summarizeEvent } from "@/lib/summarize";
+import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS, snippetLooksPast } from "@/lib/eventDates";
 import { safeFetchText } from "@/lib/safeFetch";
 import type { ExtractionMeta } from "@/lib/types";
 
@@ -51,6 +52,8 @@ interface PendingDiscoveryItemRow {
   id: number;
   url: string;
   source_domain: string;
+  title: string | null;
+  snippet: string | null;
 }
 
 interface DiscoveryItemRow {
@@ -76,6 +79,8 @@ export interface DiscoveryResult {
     auto_processing: number;
     curator_pending: number;
     rejected: number;
+    /** Dropped from the search snippet alone — no fetch, no model. */
+    past_from_snippet: number;
     listing_pages_seen: number;
   };
 }
@@ -88,6 +93,10 @@ export interface ExtractionResult {
   rejected: number;
   expandedListings: number;
   enqueuedFromLists: number;
+  /** Dropped before any model call because the page's own date had passed. */
+  pastEvents: number;
+  /** No readable date anywhere, including from the model — a human decides. */
+  needsDateReview: number;
 }
 
 async function markDiscoveryItem(
@@ -175,13 +184,14 @@ export async function runDiscovery(opts: {
   }
 
   const { rows: pending } = await query<PendingDiscoveryItemRow>(
-    "SELECT id, url, source_domain FROM discovery_items WHERE status = 'new'",
+    "SELECT id, url, source_domain, title, snippet FROM discovery_items WHERE status = 'new'",
   );
 
   let autoProcessing = 0;
   let curatorPending = 0;
   let rejected = 0;
   let hubPages = 0;
+  let snippetRejected = 0;
 
   for (const row of pending) {
     /*
@@ -192,6 +202,24 @@ export async function runDiscovery(opts: {
      * discovery path. This classification is a diagnostic signal only.
      */
     const urlKind = classifyEventUrl(row.url);
+
+    /*
+     * Cheapest possible gate: the search snippet, before a single HTTP request.
+     * Only fires when EVERY date in the snippet is past — snippets routinely
+     * mention an unrelated date alongside the real one, and a wrong rejection
+     * here is silent and permanent, so one future date anywhere keeps the
+     * candidate.
+     */
+    if (snippetLooksPast(`${row.title ?? ""} ${row.snippet ?? ""}`)) {
+      await query(
+        "UPDATE discovery_items SET status = 'rejected', rejection_reason = 'past_event_snippet' WHERE id = $1",
+        [row.id],
+      );
+      snippetRejected++;
+      rejected++;
+      continue;
+    }
+
     const { status, rejectionReason } = await routeDiscoveryItem(row.source_domain);
 
     await query("UPDATE discovery_items SET status = $1, rejection_reason = $2 WHERE id = $3", [
@@ -217,6 +245,7 @@ export async function runDiscovery(opts: {
       auto_processing: autoProcessing,
       curator_pending: curatorPending,
       rejected,
+      past_from_snippet: snippetRejected,
       listing_pages_seen: hubPages,
     },
   };
@@ -243,6 +272,8 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
   let rejected = 0;
   let expandedListings = 0;
   let enqueuedFromLists = 0;
+  let pastEvents = 0;
+  let needsDateReview = 0;
 
   for (const item of items) {
     try {
@@ -294,6 +325,13 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         continue;
       }
 
+      // The page told us it is over, and it cost nothing to find out.
+      if (outcome.kind === "past_event") {
+        await markDiscoveryItem(item.id, "rejected", "past_event", null, null);
+        pastEvents++;
+        continue;
+      }
+
       const extractedEvent = outcome.kind === "event" ? outcome.event : null;
 
       if (!extractedEvent) {
@@ -310,7 +348,15 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
           dateEvidence: extractedEvent.dateEvidence,
           venueEvidence: extractedEvent.venueEvidence,
         };
-        if (validation.reason === "low_extraction_confidence") {
+        if (validation.reason === "no_event_date") {
+          // Unknown is not past. Someone should look rather than the pipeline
+          // guessing, so this gets its own queue instead of a rejection.
+          await markDiscoveryItem(item.id, "needs_date_review", validation.reason, meta, null);
+          needsDateReview++;
+        } else if (validation.reason === "past_event") {
+          await markDiscoveryItem(item.id, "rejected", "past_event", meta, null);
+          pastEvents++;
+        } else if (validation.reason === "low_extraction_confidence") {
           await markDiscoveryItem(item.id, "curator_pending", validation.reason, meta, null);
           needsReview++;
         } else {
@@ -443,7 +489,10 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
     }
   }
 
-  return { processed, extracted, merged, needsReview, rejected, expandedListings, enqueuedFromLists };
+  return {
+    processed, extracted, merged, needsReview, rejected,
+    expandedListings, enqueuedFromLists, pastEvents, needsDateReview,
+  };
 }
 
 // ---------------------------------------------------------------- Verification
@@ -469,7 +518,7 @@ export interface VerificationResult {
  * Two separate jobs. Expiry is arithmetic — an event whose date has passed
  * should not be on a "what's on" page, and that needs no network. Verification
  * re-fetches the source page of the least recently checked live events and
- * marks the ones that have vanished as `stale`, which is what backs the
+ * returns the ones that have vanished to the curator queue, which backs the
  * "freshness-checked" claim in the footer and the per-card freshness dot.
  *
  * A fetch failure is deliberately NOT treated as "gone": a timeout or a blip
@@ -524,7 +573,13 @@ export async function runVerification(): Promise<VerificationResult> {
     // catch http_404x or a future http_4040.
     const gone = !result.ok && (result.reason === "http_404" || result.reason === "http_410");
     if (gone) {
-      await query("UPDATE events SET status = 'stale', updated_at = now() WHERE id = $1", [event.id]);
+      /*
+       * The listing is gone from the source. That could mean cancelled, moved,
+       * or simply reorganised — we genuinely do not know, and the old `stale`
+       * label said exactly that while still showing the event publicly. It goes
+       * back to the curator queue instead: out of the feed, in front of a human.
+       */
+      await query("UPDATE events SET status = 'pending_review', updated_at = now() WHERE id = $1", [event.id]);
       goneStale++;
       continue;
     }
@@ -538,4 +593,62 @@ export async function runVerification(): Promise<VerificationResult> {
   }
 
   return { expired: expired ?? 0, checked, stillLive, goneStale };
+}
+
+// ------------------------------------------------------------------- Cleanup
+
+/** Queue items nobody has touched for this long stop being worth showing a
+ *  curator — the event they describe has almost certainly happened. */
+const QUEUE_STALE_AFTER_DAYS = 60;
+
+export interface CleanupResult {
+  eventsExpired: number;
+  queueItemsExpired: number;
+  orphanedPostersRemoved: number;
+}
+
+/**
+ * Weekly housekeeping, so the directory stays a picture of what's next.
+ *
+ * Nothing is deleted. Events that have happened move to `expired`, which drops
+ * them from every public query while keeping the row for auditing — and for a
+ * "you missed this" surface later, which needs exactly this data.
+ *
+ * The one thing that IS deleted is orphaned poster bytes: images whose event
+ * row is gone are pure storage cost with nothing referencing them, and Supabase's
+ * free tier is 500 MB.
+ */
+export async function runCleanup(): Promise<CleanupResult> {
+  const { rowCount: eventsExpired } = await query(
+    `UPDATE events
+        SET status = 'expired', updated_at = now()
+      WHERE status IN ('live', 'updated', 'pending_review')
+        AND COALESCE(end_at, start_at) IS NOT NULL
+        AND COALESCE(end_at, start_at) < now() - ($1::bigint * interval '1 millisecond')`,
+    [EVENT_END_GRACE_MS + ASSUMED_DURATION_MS],
+  );
+
+  // Queue items whose own extracted date has passed, plus anything that has
+  // sat unreviewed long enough that it cannot still be upcoming.
+  const { rowCount: queueItemsExpired } = await query(
+    `UPDATE discovery_items
+        SET status = 'expired'
+      WHERE status IN ('curator_pending', 'needs_date_review', 'auto_processing', 'new')
+        AND discovered_at < now() - ($1::int * interval '1 day')`,
+    [QUEUE_STALE_AFTER_DAYS],
+  );
+
+  const { rowCount: orphanedPostersRemoved } = await query(
+    `DELETE FROM poster_uploads pu
+      WHERE pu.created_at < now() - interval '7 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM events e WHERE e.poster_image_url = '/api/poster/' || pu.id
+        )`,
+  );
+
+  return {
+    eventsExpired: eventsExpired ?? 0,
+    queueItemsExpired: queueItemsExpired ?? 0,
+    orphanedPostersRemoved: orphanedPostersRemoved ?? 0,
+  };
 }

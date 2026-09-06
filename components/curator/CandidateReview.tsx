@@ -48,11 +48,11 @@ const REJECT_REASONS = [
   "Other",
 ] as const;
 
-const STATUS_OPTIONS: { value: Extract<EventStatus, "live" | "postponed" | "cancelled" | "stale">; label: string }[] = [
+const STATUS_OPTIONS: { value: Extract<EventStatus, "live" | "postponed" | "cancelled" | "expired">; label: string }[] = [
   { value: "live", label: "Confirmed / live" },
   { value: "postponed", label: "Postponed" },
   { value: "cancelled", label: "Cancelled" },
-  { value: "stale", label: "May be outdated" },
+  { value: "expired", label: "Past / expired" },
 ];
 
 function isLinkedIn(domain: string): boolean {
@@ -84,7 +84,9 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     priceNote: draft.priceNote || null,
     primarySourceDomain: item.source_domain,
     otherSourceDomains: [],
-    status: draft.status === "live" ? "live" : draft.status,
+    // The preview renders the PUBLIC card, and an expired event is never
+    // public — show it as it would look while still live.
+    status: draft.status === "expired" ? "live" : draft.status,
     discoveredAt: item.discovered_at,
     lastVerifiedAt: new Date().toISOString(),
   };

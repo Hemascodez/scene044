@@ -198,11 +198,6 @@ export function EventDetail({
             {status === "postponed" && (
               <Alert>This event was postponed. A new date has not been confirmed.</Alert>
             )}
-            {status === "stale" && (
-              <Alert>
-                Details may be outdated — please confirm on the original source before attending.
-              </Alert>
-            )}
             {status === "uncertain" && (
               <Alert>
                 We found this event but not a confirmed date. Check the original source before making plans.

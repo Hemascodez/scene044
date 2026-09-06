@@ -6,7 +6,8 @@ import type { DiscoveryItemStatus } from "@/lib/types";
 /** Quick triage from the queue list, without opening full review. */
 const ALLOWED: Record<string, { status: DiscoveryItemStatus; defaultReason: string }> = {
   irrelevant: { status: "curator_rejected", defaultReason: "Not relevant" },
-  stale: { status: "stale", defaultReason: "Marked stale by curator" },
+  expired: { status: "expired", defaultReason: "Event has already happened" },
+  needs_date_review: { status: "needs_date_review", defaultReason: "No reliable event date found" },
   rejected: { status: "curator_rejected", defaultReason: "Rejected by curator" },
   reopen: { status: "curator_pending", defaultReason: "" },
 };

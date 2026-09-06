@@ -7,7 +7,7 @@ import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/l
 
 /** Lifecycle states a curator may publish into. `expired` is excluded — there
  *  is no reason to publish something already over. */
-const PUBLISHABLE_STATUSES: EventStatus[] = ["live", "postponed", "cancelled", "stale"];
+const PUBLISHABLE_STATUSES: EventStatus[] = ["live", "postponed", "cancelled", "expired"];
 
 /** Items open for review. `needs_correction` is included so a parked draft can
  *  be finished and published without being reopened first. */

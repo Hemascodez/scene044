@@ -27,7 +27,7 @@ export interface CuratorDraft {
   /** "" means the source never stated a price — stored as NULL, shown as nothing. */
   priceType: PriceType | "";
   priceNote: string;
-  status: Extract<EventStatus, "live" | "postponed" | "cancelled" | "stale">;
+  status: Extract<EventStatus, "live" | "postponed" | "cancelled" | "expired">;
 }
 
 export function emptyCuratorDraft(): CuratorDraft {

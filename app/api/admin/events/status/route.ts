@@ -4,7 +4,7 @@ import { checkCuratorAccess } from "@/lib/auth";
 import type { EventStatus } from "@/lib/types";
 
 /** Lifecycle transitions a curator may apply to a published event. */
-const ALLOWED: EventStatus[] = ["live", "updated", "postponed", "cancelled", "stale", "expired"];
+const ALLOWED: EventStatus[] = ["live", "updated", "postponed", "cancelled", "expired"];
 
 export async function POST(request: Request) {
   if (!(await checkCuratorAccess(request))) {

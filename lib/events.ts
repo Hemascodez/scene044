@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { CATEGORIES, type Category, type PriceType } from "@/lib/types";
+import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS } from "@/lib/eventDates";
 
 /**
  * Lifecycle states we surface publicly.
@@ -11,14 +12,13 @@ import { CATEGORIES, type Category, type PriceType } from "@/lib/types";
  * and silently dropping it from the feed is how they'd end up travelling to a
  * venue for nothing.
  */
-export type PublicEventStatus = "live" | "updated" | "postponed" | "cancelled" | "stale";
+export type PublicEventStatus = "live" | "updated" | "postponed" | "cancelled";
 
 const PUBLIC_STATUSES: readonly PublicEventStatus[] = [
   "live",
   "updated",
   "postponed",
   "cancelled",
-  "stale",
 ];
 
 export interface PublicEvent {
@@ -111,9 +111,20 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
        e.last_verified_at  AS "lastVerifiedAt"
      FROM events e
      WHERE e.status = ANY($1::text[])
+       /*
+        * Upcoming only, decided in SQL rather than in the browser.
+        * The client already hides past events, but that runs after the row has
+        * been rendered into the HTML — so a finished event was still shipped to
+        * every visitor and to search engines. An event with no date at all is
+        * kept: undated is not the same as over, and those sort last anyway.
+        */
+       AND (
+         COALESCE(e.end_at, e.start_at) IS NULL
+         OR COALESCE(e.end_at, e.start_at) > now() - ($3::bigint * interval '1 millisecond')
+       )
        AND ($2::text[] IS NULL OR e.category = ANY($2::text[]))
      ORDER BY e.start_at ASC NULLS LAST, e.id ASC`,
-    [PUBLIC_STATUSES, categories],
+    [PUBLIC_STATUSES, categories, EVENT_END_GRACE_MS + ASSUMED_DURATION_MS],
   );
 
   return rows.map(({ sourceDomains, primarySourceDomain, ...rest }) => {

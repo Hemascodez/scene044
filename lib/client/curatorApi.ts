@@ -17,7 +17,8 @@ export type QueueKey =
   | "needs_correction"
   | "duplicates"
   | "published"
-  | "stale"
+  | "expired"
+  | "needs_date_review"
   | "rejected"
   | "errors";
 
@@ -35,6 +36,8 @@ export interface QueueItem {
   origin: "search" | "curator" | "community";
   event_id: number | null;
   query_text: string | null;
+  /** Published category when extracted, else the discovering query's hint. */
+  category: string | null;
 }
 
 export interface AdminEvent {
@@ -118,9 +121,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export function fetchQueue(queue: QueueKey) {
-  return request<{ items: QueueItem[]; counts: Record<string, number> }>(
-    `/api/admin/curator/queue?queue=${encodeURIComponent(queue)}`,
+export interface QueueFacets {
+  source: Record<string, number>;
+  category: Record<string, number>;
+}
+
+export function fetchQueue(
+  queue: QueueKey,
+  filters: { source?: string | null; category?: string | null } = {},
+) {
+  const params = new URLSearchParams({ queue });
+  if (filters.source) params.set("source", filters.source);
+  if (filters.category) params.set("category", filters.category);
+  return request<{ items: QueueItem[]; counts: Record<string, number>; facets: QueueFacets }>(
+    `/api/admin/curator/queue?${params.toString()}`,
   );
 }
 
@@ -187,7 +201,7 @@ export function rejectItem(discoveryItemId: number, reason: string) {
 
 export function setItemStatus(
   discoveryItemId: number,
-  action: "irrelevant" | "stale" | "rejected" | "reopen",
+  action: "irrelevant" | "expired" | "rejected" | "reopen",
   reason?: string,
 ) {
   return request<{ status: string }>("/api/admin/curator/item-status", {

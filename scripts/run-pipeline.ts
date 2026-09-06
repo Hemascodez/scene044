@@ -12,11 +12,12 @@
  *   npx tsx scripts/run-pipeline.ts --discover-only
  *   npx tsx scripts/run-pipeline.ts --extract-only
  *   npx tsx scripts/run-pipeline.ts --verify-only
+ *   npx tsx scripts/run-pipeline.ts --cleanup-only   # weekly housekeeping
  *   npx tsx scripts/run-pipeline.ts --limit 20 --site meetup.com
  *   npx tsx scripts/run-pipeline.ts --max-minutes 5
  */
 import { pool } from "../lib/db";
-import { runDiscovery, runExtraction, runVerification } from "../lib/pipeline";
+import { runCleanup, runDiscovery, runExtraction, runVerification } from "../lib/pipeline";
 import { MissingSearchCredentialsError } from "../lib/search";
 
 /*
@@ -45,7 +46,8 @@ async function main() {
   const discoverOnly = has("discover-only");
   const extractOnly = has("extract-only");
   const verifyOnly = has("verify-only");
-  const only = discoverOnly || extractOnly || verifyOnly;
+  const cleanupOnly = has("cleanup-only");
+  const only = discoverOnly || extractOnly || verifyOnly || cleanupOnly;
 
   if (!only || discoverOnly) {
     const limit = Number(arg("limit"));
@@ -90,6 +92,11 @@ async function main() {
   // Verification runs last so it sees anything this run just published.
   if (!only || verifyOnly) {
     console.log("verification:", JSON.stringify(await runVerification()));
+  }
+
+  // Cleanup is weekly, so it only runs when asked for explicitly.
+  if (cleanupOnly) {
+    console.log("cleanup:", JSON.stringify(await runCleanup()));
   }
 
   console.log(`pipeline finished in ${((Date.now() - started) / 1000).toFixed(1)}s`);

@@ -8,13 +8,12 @@ import { isPastEvent } from "@/lib/client/istTime";
  * freshness sweep is behind) and a missing date becomes its own honest state
  * rather than being presented as a confirmed event.
  */
-export type SceneStatus = "confirmed" | "cancelled" | "postponed" | "stale" | "expired" | "uncertain";
+export type SceneStatus = "confirmed" | "cancelled" | "postponed" | "expired" | "uncertain";
 
 export const STATUS_META: Record<SceneStatus, { label: string; tone: "ok" | "warn" | "bad" | "muted" }> = {
   confirmed: { label: "Confirmed", tone: "ok" },
   cancelled: { label: "Cancelled", tone: "bad" },
   postponed: { label: "Postponed", tone: "warn" },
-  stale: { label: "May be outdated", tone: "warn" },
   expired: { label: "Expired", tone: "muted" },
   uncertain: { label: "Date needs confirmation", tone: "warn" },
 };
@@ -26,7 +25,6 @@ export function deriveSceneStatus(event: PublicEvent, now: Date = new Date()): S
   if (event.status === "postponed") return "postponed";
   if (!event.startAt) return "uncertain";
   if (isPastEvent(event.startAt, now)) return "expired";
-  if (event.status === "stale") return "stale";
   return "confirmed";
 }
 

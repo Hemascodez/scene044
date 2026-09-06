@@ -2,12 +2,12 @@ import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import { safeFetchText } from "@/lib/safeFetch";
 import { normalizeUrl } from "@/lib/domain";
+import { findCheapEventDate, isPastEvent } from "@/lib/eventDates";
 import type { ExtractedEvent, PriceType } from "@/lib/types";
 
 const PAGE_TEXT_MAX_CHARS = 6000;
 const MIN_TITLE_LENGTH = 3;
 const MAX_TITLE_LENGTH = 200;
-const MAX_PAST_MS = 24 * 60 * 60 * 1000; // a "valid event date" may be up to 1 day in the past
 export const EXTRACTION_CONFIDENCE_THRESHOLD = 0.6; // provisional/tunable, LLM path only
 
 const EXTRACT_INSTRUCTIONS =
@@ -635,7 +635,7 @@ async function extractViaLlm(
 
 export interface ValidationResult {
   valid: boolean;
-  reason?: "invalid_title" | "invalid_or_past_date" | "low_extraction_confidence";
+  reason?: "invalid_title" | "past_event" | "no_event_date" | "low_extraction_confidence";
 }
 
 /**
@@ -649,15 +649,20 @@ export function validateExtractedEvent(event: ExtractedEvent): ValidationResult 
     return { valid: false, reason: "invalid_title" };
   }
 
-  const candidates = [event.startAt, event.endAt].filter(
-    (d): d is string => typeof d === "string" && d.length > 0,
-  );
-  const hasValidFutureDate = candidates.some((d) => {
-    const parsed = Date.parse(d);
-    return !Number.isNaN(parsed) && parsed >= Date.now() - MAX_PAST_MS;
-  });
-  if (!hasValidFutureDate) {
-    return { valid: false, reason: "invalid_or_past_date" };
+  /*
+   * "No date" and "past date" used to collapse into one rejection, which threw
+   * away two very different things: an event that has happened (correctly
+   * dropped) and an event whose date we simply could not read (which deserves
+   * a human glance, not deletion). They are separate outcomes now.
+   */
+  const hasAnyDate =
+    (typeof event.startAt === "string" && Number.isFinite(Date.parse(event.startAt))) ||
+    (typeof event.endAt === "string" && Number.isFinite(Date.parse(event.endAt)));
+  if (!hasAnyDate) {
+    return { valid: false, reason: "no_event_date" };
+  }
+  if (isPastEvent(event.startAt, event.endAt)) {
+    return { valid: false, reason: "past_event" };
   }
 
   if (event.sourceMethod === "llm" && event.confidence < EXTRACTION_CONFIDENCE_THRESHOLD) {
@@ -705,6 +710,10 @@ export function extractModel(): string {
 export type ExtractionOutcome =
   | { kind: "event"; event: ExtractedEvent }
   | { kind: "event_list"; links: EventLink[] }
+  /** The page states a date and it has already passed. Returned WITHOUT
+   *  calling the model — there is nothing to learn from extracting an event
+   *  that is over. */
+  | { kind: "past_event"; startAt: string | null; endAt: string | null; dateSource: string }
   | { kind: "none" };
 
 export async function extractFromUrl(
@@ -732,6 +741,25 @@ export async function extractFromUrl(
 
     const links = findJsonLdEventLinks($, fetched.finalUrl);
     if (links.length > 0) return { kind: "event_list", links };
+
+    /*
+     * Pre-flight date gate.
+     *
+     * Reached only when the page carries no JSON-LD Event, i.e. exactly when
+     * extraction would otherwise cost a model call. Parsing a date out of the
+     * markup is free, so a page advertising something that already happened is
+     * dropped here rather than being extracted, categorised and summarised
+     * first.
+     *
+     * Note what this does NOT do: a page with no readable date still goes to
+     * the model. The model is the only way to learn the date, and "unknown" is
+     * not "past" — those candidates surface as needs_date_review afterwards if
+     * the model can't find one either.
+     */
+    const cheap = findCheapEventDate($);
+    if (cheap.startAt && isPastEvent(cheap.startAt, cheap.endAt)) {
+      return { kind: "past_event", startAt: cheap.startAt, endAt: cheap.endAt, dateSource: cheap.source };
+    }
 
     $("script, style").remove();
     const pageText = $("body")

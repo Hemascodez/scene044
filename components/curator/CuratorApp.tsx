@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  SOURCE_TYPES,
+  SOURCE_TYPE_LABELS,
+  CATEGORY_FILTER_LABELS,
+} from "@/lib/sourceTypes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EventStatus } from "@/lib/types";
@@ -11,6 +16,7 @@ import {
   CuratorApiError,
   fetchPublishedEvents,
   fetchQueue,
+  type QueueFacets,
   setEventStatus,
   setItemStatus,
   type AdminEvent,
@@ -32,7 +38,8 @@ const QUEUES: { key: QueueKey; label: string; glyph: string }[] = [
   { key: "needs_correction", label: "Needs correction", glyph: "✎" },
   { key: "duplicates", label: "Merged duplicates", glyph: "≈" },
   { key: "published", label: "Published", glyph: "✓" },
-  { key: "stale", label: "Stale", glyph: "◷" },
+  { key: "needs_date_review", label: "Needs date review", glyph: "?" },
+  { key: "expired", label: "Past / expired", glyph: "◷" },
   { key: "rejected", label: "Rejected", glyph: "⛌" },
   { key: "errors", label: "Errors", glyph: "!" },
 ];
@@ -42,13 +49,17 @@ const EMPTY_COPY: Record<QueueKey, string> = {
   needs_correction: "Nothing parked for correction. Drafts you save for later appear here.",
   duplicates: "No merged duplicates. Items merged into an existing event show up here.",
   published: "",
-  stale: "No candidates marked stale.",
+  needs_date_review: "Nothing awaiting a date check. Candidates with no reliable event date land here.",
+  expired: "No past events. Candidates whose date has already passed land here.",
   rejected: "No rejected candidates.",
   errors: "No extraction errors.",
 };
 
 export function CuratorApp() {
   const [queue, setQueue] = useState<QueueKey>("pending");
+  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [facets, setFacets] = useState<QueueFacets>({ source: {}, category: {} });
   const [items, setItems] = useState<QueueItem[]>([]);
   const [published, setPublished] = useState<AdminEvent[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -72,7 +83,7 @@ export function CuratorApp() {
     window.setTimeout(() => setToast((t) => (t?.msg === msg ? null : t)), 6000);
   }, []);
 
-  const requestKey = `${queue}:${reloadToken}`;
+  const requestKey = `${queue}:${sourceFilter}:${categoryFilter}:${reloadToken}`;
   // Derived rather than a `loading` state set inside the effect: setting state
   // synchronously in an effect body causes a cascading re-render, and React's
   // lint rule flags it. Everything below updates state from a promise callback.
@@ -89,10 +100,13 @@ export function CuratorApp() {
             setPublished(p.events);
             setCounts(q.counts);
           })
-        : fetchQueue(queue).then(({ items: rows, counts: c }) => {
-            setItems(rows);
-            setCounts(c);
-          });
+        : fetchQueue(queue, { source: sourceFilter || null, category: categoryFilter || null }).then(
+            ({ items: rows, counts: c, facets: f }) => {
+              setItems(rows);
+              setCounts(c);
+              setFacets(f ?? { source: {}, category: {} });
+            },
+          );
 
     pending
       .then(() => {
@@ -113,7 +127,7 @@ export function CuratorApp() {
     return () => {
       cancelled = true;
     };
-  }, [queue, requestKey]);
+  }, [queue, sourceFilter, categoryFilter, requestKey]);
 
   const guard = useCallback(
     (fn: () => void) => {
@@ -164,7 +178,7 @@ export function CuratorApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [filtered, openId, guard]);
 
-  async function quickAction(item: QueueItem, action: "irrelevant" | "stale" | "rejected" | "reopen") {
+  async function quickAction(item: QueueItem, action: "irrelevant" | "expired" | "rejected" | "reopen") {
     try {
       await setItemStatus(item.id, action);
       announce(`#${item.id} marked ${action}`);
@@ -334,6 +348,48 @@ export function CuratorApp() {
                     </option>
                   ))}
                 </Select>
+                {/* Source and category are server-side: they are derived from
+                    the domain and the linked event, so filtering them in the
+                    browser would only ever see the current 200-row page. */}
+                <Select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  aria-label="Filter by source"
+                  className="max-w-[190px]"
+                >
+                  <option value="">All sources</option>
+                  {SOURCE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {SOURCE_TYPE_LABELS[type]}
+                      {facets.source[type] ? ` (${facets.source[type]})` : ""}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  aria-label="Filter by category"
+                  className="max-w-[190px]"
+                >
+                  <option value="">All categories</option>
+                  {Object.entries(CATEGORY_FILTER_LABELS).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                      {facets.category[key] ? ` (${facets.category[key]})` : ""}
+                    </option>
+                  ))}
+                </Select>
+                {(sourceFilter || categoryFilter) && (
+                  <AdminBtn
+                    variant="ghost"
+                    onClick={() => {
+                      setSourceFilter("");
+                      setCategoryFilter("");
+                    }}
+                  >
+                    Clear filters
+                  </AdminBtn>
+                )}
                 <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#5f7568]">
                   {loading ? "Loading…" : `${filtered.length} item${filtered.length === 1 ? "" : "s"} · newest first`}
                 </span>
@@ -412,10 +468,10 @@ function QueueRow({
 }: {
   item: QueueItem;
   onReview: () => void;
-  onQuick: (item: QueueItem, action: "irrelevant" | "stale" | "rejected" | "reopen") => void;
+  onQuick: (item: QueueItem, action: "irrelevant" | "expired" | "rejected" | "reopen") => void;
 }) {
   const linkedIn = item.source_domain === "linkedin.com" || item.source_domain.endsWith(".linkedin.com");
-  const resolved = item.status === "curator_rejected" || item.status === "rejected" || item.status === "stale";
+  const resolved = item.status === "curator_rejected" || item.status === "rejected" || item.status === "expired";
 
   return (
     <li className="border border-[#25382e] bg-[#101c16] p-4 transition-colors hover:border-[#33493c]">
@@ -492,7 +548,7 @@ function QueueRow({
             <AdminBtn variant="ghost" onClick={() => onQuick(item, "irrelevant")}>
               Irrelevant
             </AdminBtn>
-            <AdminBtn variant="ghost" onClick={() => onQuick(item, "stale")}>
+            <AdminBtn variant="ghost" onClick={() => onQuick(item, "expired")}>
               Stale
             </AdminBtn>
             <AdminBtn variant="danger" onClick={() => onQuick(item, "rejected")}>
@@ -505,7 +561,7 @@ function QueueRow({
   );
 }
 
-const EVENT_STATUS_OPTIONS: EventStatus[] = ["live", "updated", "postponed", "cancelled", "stale", "expired"];
+const EVENT_STATUS_OPTIONS: EventStatus[] = ["live", "updated", "postponed", "cancelled", "expired"];
 
 function PublishedList({
   events,

@@ -58,7 +58,16 @@ Railway requires a cron process to exit when finished — `scripts/run-pipeline.
 closes the pool and exits, so this is satisfied. Minimum interval is 5 minutes.
 
 The run does discovery → extraction (looping until the queue drains or a
-20-minute budget is spent) → verification. Tune with `--max-minutes`,
+20-minute budget is spent) → verification.
+
+Add a **third service** for weekly housekeeping:
+
+- **Start command**: `npm run pipeline -- --cleanup-only`
+- **Cron schedule**: `0 2 * * 0` (07:30 IST Sunday)
+
+That expires events whose date has passed, clears queue items too old to still
+be upcoming, and deletes orphaned poster bytes. Nothing else is deleted —
+expired rows stay for auditing and for a "what you missed" surface. Tune with `--max-minutes`,
 `--limit`, `--discover-only`, `--extract-only`, `--verify-only`.
 
 ### NEXT_PUBLIC_ variables must be set at BUILD time

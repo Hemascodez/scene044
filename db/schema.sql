@@ -297,3 +297,26 @@ ALTER TABLE search_queries DROP CONSTRAINT IF EXISTS search_queries_query_text_s
 -- query can only exist once.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_search_queries_unique
   ON search_queries (query_text, COALESCE(site_filter, ''));
+
+-- Status vocabulary, revised.
+--
+-- `stale` is gone from both tables. It meant "the source page vanished" but
+-- read as "possibly out of date", and it kept showing the event publicly while
+-- saying so — the worst of both. Vanished listings now go back to the curator
+-- queue as pending_review; events whose date has passed become `expired`.
+--
+-- discovery_items gains two states:
+--   needs_date_review — no reliable event date could be read, including by the
+--                       model. Unknown is not past, so this is a queue for a
+--                       human rather than a rejection.
+--   expired           — the candidate's own date has passed, or it sat
+--                       unreviewed long enough that it cannot still be upcoming.
+--
+-- Nothing is deleted. Expired rows stay for auditing, and for a "what you
+-- missed" surface, which needs exactly this data.
+CREATE INDEX IF NOT EXISTS idx_events_upcoming
+  ON events (COALESCE(end_at, start_at))
+  WHERE status IN ('live', 'updated');
+
+CREATE INDEX IF NOT EXISTS idx_discovery_items_curator_queue
+  ON discovery_items (status, discovered_at DESC);

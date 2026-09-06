@@ -24,7 +24,9 @@ export type DiscoveryItemStatus =
   | "curator_rejected"
   | "rejected"
   | "duplicate"
-  | "stale"
+  | "needs_date_review"
+  | "expanded"
+  | "expired"
   | "error";
 
 export type EventStatus =
@@ -33,8 +35,7 @@ export type EventStatus =
   | "updated"
   | "postponed"
   | "cancelled"
-  | "expired"
-  | "stale";
+  | "expired";
 
 export type SourceType = "auto" | "curator";
 
