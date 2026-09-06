@@ -44,9 +44,24 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     database: db,
-    // NEXT_PUBLIC_* is inlined at build time, so this reveals whether the
-    // variable existed when `next build` ran — not merely at runtime.
+    /*
+     * Two different questions, and separating them is the whole point.
+     *
+     * `inlinedAtBuild` reads process.env.NEXT_PUBLIC_WHATSAPP_NUMBER directly.
+     * Next replaces that expression with a literal during `next build`, so it
+     * is false whenever the variable was absent at BUILD time — even if it is
+     * set now.
+     *
+     * `presentAtRuntime` enumerates the live environment instead, which Next
+     * cannot inline. So:
+     *   runtime true  + build false -> variable is set, the build predates it
+     *   runtime false + build false -> not set on THIS service at all: wrong
+     *                                  service, wrong scope, or a typo
+     */
     whatsappNumberInlinedAtBuild: Boolean(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER),
+    nextPublicKeysPresentAtRuntime: Object.keys(process.env).filter((k) =>
+      k.startsWith("NEXT_PUBLIC"),
+    ),
     otherKeysPresent: {
       OPENAI_API_KEY: Boolean(process.env.OPENAI_API_KEY),
       FIRECRAWL_API_KEY: Boolean(process.env.FIRECRAWL_API_KEY),
