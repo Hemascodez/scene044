@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { checkCronAuth } from "@/lib/auth";
-import { extractEventFromUrl, validateExtractedEvent } from "@/lib/extract";
+import { extractFromUrl, validateExtractedEvent } from "@/lib/extract";
 import { categorizeEvent } from "@/lib/categorize";
-import { normalizeUrl } from "@/lib/domain";
+import { normalizeDomain, normalizeUrl } from "@/lib/domain";
+import { routeDiscoveryItem } from "@/lib/discoveryRouting";
 import {
   findDuplicateEvent,
   DEDUP_HIGH_CONFIDENCE_THRESHOLD,
@@ -19,6 +20,8 @@ interface DiscoveryItemRow {
   id: number;
   url: string;
   source_domain: string;
+  /** Carried onto children of a listing page so provenance survives expansion. */
+  query_id: number | null;
 }
 
 interface SourceRateLimitRow {
@@ -53,7 +56,7 @@ export async function GET(request: Request) {
     const allowedDomains = allowedSources.map((s) => s.domain);
 
     const { rows: items } = await query<DiscoveryItemRow>(
-      "SELECT id, url, source_domain FROM discovery_items WHERE status = 'auto_processing' LIMIT $1",
+      "SELECT id, url, source_domain, query_id FROM discovery_items WHERE status = 'auto_processing' LIMIT $1",
       [BATCH_LIMIT],
     );
 
@@ -62,6 +65,8 @@ export async function GET(request: Request) {
     let merged = 0;
     let needsReview = 0;
     let rejected = 0;
+    let expandedListings = 0;
+    let enqueuedFromLists = 0;
 
     for (const item of items) {
       try {
@@ -80,10 +85,42 @@ export async function GET(request: Request) {
           }
         }
 
-        const extractedEvent = await extractEventFromUrl(item.url, allowedDomains);
+        const outcome = await extractFromUrl(item.url, allowedDomains);
         await query("UPDATE sources SET last_fetched_at = now() WHERE domain = $1", [
           item.source_domain,
         ]);
+
+        /*
+         * Listing page: enqueue each advertised event as its own discovery
+         * item rather than trying to squeeze one event out of a page that
+         * describes several. The children are routed by the same rules as a
+         * search hit, so a blocked or auth-walled domain can't sneak in this
+         * way, and ON CONFLICT (url) makes re-expansion idempotent — the same
+         * calendar can be re-read every day without duplicating anything.
+         */
+        if (outcome.kind === "event_list") {
+          for (const link of outcome.links) {
+            let childDomain: string;
+            try {
+              childDomain = normalizeDomain(link.url);
+            } catch {
+              continue; // unparseable child URL — skip it, keep the rest
+            }
+            const route = await routeDiscoveryItem(childDomain);
+            const inserted = await query(
+              `INSERT INTO discovery_items (query_id, title, snippet, url, source_domain, status, rejection_reason, origin)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,'search')
+               ON CONFLICT (url) DO NOTHING`,
+              [item.query_id, link.title, null, link.url, childDomain, route.status, route.rejectionReason],
+            );
+            if (inserted.rowCount) enqueuedFromLists++;
+          }
+          await markDiscoveryItem(item.id, "expanded", null, null, null);
+          expandedListings++;
+          continue;
+        }
+
+        const extractedEvent = outcome.kind === "event" ? outcome.event : null;
 
         if (!extractedEvent) {
           await markDiscoveryItem(item.id, "rejected", "extraction_failed", null, null);
@@ -223,6 +260,8 @@ export async function GET(request: Request) {
       merged,
       needsReview,
       rejected,
+      expandedListings,
+      enqueuedFromLists,
     });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err).slice(0, 500) }, { status: 500 });

@@ -13,6 +13,21 @@ const sources: SourceSeed[] = [
   { name: "Luma (luma.com)", domain: "luma.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "lu.ma 301-redirects to luma.com (platform rebrand, confirmed live 2026-08-30) — the SSRF-safe fetcher re-validates every redirect hop's domain against the allowlist, so luma.com must be seeded too or every lu.ma URL fails to fetch. robots.txt only restricts Googlebot from a few paths (/social-share, /in/, /company/, /session-*), same as lu.ma." },
   { name: "Meetup", domain: "meetup.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "Hosts numerous active Chennai groups (Chennai Tech Meetup, AWS User Group Chennai, PyData Chennai, Chennai Web Engineering, OWASP Chennai). robots.txt disallows feeds/api/query-param variants but does not block general group/event pages, which are viewable without login." },
   { name: "Eventbrite", domain: "eventbrite.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "Generic platform used by IIT Madras E-Cell and many Chennai organizers. robots.txt disallows /login/, /signin/, /logout/, rss/atom feeds and a directory path, but discovery pages (e.g. /d/india--chennai/tech-meetup/) and event detail pages are allowed and publicly viewable." },
+  /*
+   * Eventbrite's regional storefronts serve the SAME event under a different
+   * TLD — a Chennai event routinely appears as eventbrite.com.au/e/... because
+   * that's the domain the organizer created it on. Listing-page expansion
+   * surfaced this: children harvested from a .com ItemList carry .com.au and
+   * .co.uk URLs, which were landing in the curator queue as "unknown domain"
+   * despite being the same trusted publisher. Same precedent as luma.com above.
+   * robots.txt on all four is byte-identical to eventbrite.com's (verified
+   * 2026-09-06): feeds, /esi_cache/, /upload/ and query-param variants are
+   * disallowed; /e/ event pages and /d/ discovery pages are not.
+   */
+  { name: "Eventbrite (AU)", domain: "eventbrite.com.au", trust_tier: "auto_fetch", robots_allowed: true, notes: "Regional storefront for eventbrite.com; same robots.txt rules. Chennai events surface here when the organizer's account is AU-based." },
+  { name: "Eventbrite (UK)", domain: "eventbrite.co.uk", trust_tier: "auto_fetch", robots_allowed: true, notes: "Regional storefront for eventbrite.com; same robots.txt rules." },
+  { name: "Eventbrite (CA)", domain: "eventbrite.ca", trust_tier: "auto_fetch", robots_allowed: true, notes: "Regional storefront for eventbrite.com; same robots.txt rules." },
+  { name: "Eventbrite (SG)", domain: "eventbrite.sg", trust_tier: "auto_fetch", robots_allowed: true, notes: "Regional storefront for eventbrite.com; same robots.txt rules. Nearest regional hub to India, so likely to appear on Chennai listings." },
   { name: "GDG Community (Google Developer Groups)", domain: "gdg.community.dev", trust_tier: "auto_fetch", robots_allowed: true, notes: "Hosts active GDG Chennai, GDG Cloud Chennai, and multiple GDG on Campus Chennai chapters with confirmed 2026 events (Google I/O Extended Chennai, Chennai Hackfest 2026). robots.txt disallows /accounts/, /api/, /newsletter/, /gql/, /u/ but explicitly permits ClaudeBot on general paths; event listing/detail pages are public." },
   { name: "Hasgeek", domain: "hasgeek.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "Active pan-India (incl. Chennai-relevant) tech conference/community platform (e.g. The Fifth Elephant). robots.txt only disallows /account and /login; event/proposal pages are public." },
   { name: "ChennaiJS", domain: "chennaijs.dev", trust_tier: "auto_fetch", robots_allowed: true, notes: "Active Chennai JavaScript community, monthly meetups confirmed via search. No robots.txt file exists (genuine 404, not a soft-block), so nothing is disallowed; site is a small static public community page with no login wall." },

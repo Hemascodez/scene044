@@ -61,7 +61,16 @@ CREATE TABLE IF NOT EXISTS discovery_items (            -- every raw search hit;
   status TEXT NOT NULL DEFAULT 'new',   -- new | auto_processing | auto_extracted |
                                          -- curator_pending | needs_correction |
                                          -- curator_approved | curator_rejected |
-                                         -- rejected | duplicate | stale | error
+                                         -- rejected | duplicate | stale | error |
+                                         -- expanded
+                                         --
+                                         -- 'expanded' = the URL was a listing page
+                                         -- (Eventbrite city feed, Lu.ma calendar). It is
+                                         -- not an event itself; each event it advertised
+                                         -- was inserted as its own discovery_item. Kept
+                                         -- distinct from 'rejected' so the pipeline can
+                                         -- tell "this page was useful" from "this page
+                                         -- was junk".
   rejection_reason TEXT,
   event_id INT REFERENCES events(id),
   extraction_meta JSONB              -- {sourceMethod, confidence, dateEvidence, venueEvidence, possibleDuplicate}

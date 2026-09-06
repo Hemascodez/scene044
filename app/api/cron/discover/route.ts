@@ -9,6 +9,7 @@ import {
 import { normalizeDomain } from "@/lib/domain";
 import { classifyEventUrl } from "@/lib/eventUrlPatterns";
 import { checkCronAuth } from "@/lib/auth";
+import { routeDiscoveryItem } from "@/lib/discoveryRouting";
 
 interface SearchQueryRow {
   id: number;
@@ -20,11 +21,6 @@ interface PendingDiscoveryItemRow {
   id: number;
   url: string;
   source_domain: string;
-}
-
-interface SourceRow {
-  trust_tier: string;
-  active: boolean;
 }
 
 /**
@@ -130,15 +126,6 @@ export async function GET(request: Request) {
     let hubPages = 0;
 
     for (const row of pending) {
-      const { rows: srcRows } = await query<SourceRow>(
-        "SELECT trust_tier, active FROM sources WHERE domain = $1",
-        [row.source_domain]
-      );
-      const src = srcRows[0];
-
-      let status: string;
-      let rejection_reason: string | null = null;
-
       /*
        * Listing pages are NOT rejected, despite looking like they should be.
        *
@@ -152,20 +139,11 @@ export async function GET(request: Request) {
        */
       const urlKind = classifyEventUrl(row.url);
 
-      if (row.source_domain === "linkedin.com" || row.source_domain.endsWith(".linkedin.com")) {
-        status = "curator_pending";
-      } else if (src && src.trust_tier === "blocked") {
-        status = "rejected";
-        rejection_reason = "blocked domain";
-      } else if (src && src.trust_tier === "auto_fetch" && src.active) {
-        status = "auto_processing";
-      } else {
-        status = "curator_pending";
-      }
+      const { status, rejectionReason } = await routeDiscoveryItem(row.source_domain);
 
       await query("UPDATE discovery_items SET status = $1, rejection_reason = $2 WHERE id = $3", [
         status,
-        rejection_reason,
+        rejectionReason,
         row.id,
       ]);
 

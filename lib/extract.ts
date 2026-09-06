@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import { safeFetchText } from "@/lib/safeFetch";
+import { normalizeUrl } from "@/lib/domain";
 import type { ExtractedEvent, PriceType } from "@/lib/types";
 
 const PAGE_TEXT_MAX_CHARS = 6000;
@@ -96,12 +97,29 @@ function stripHtmlTags(text: string): string {
     .trim();
 }
 
+/*
+ * schema.org Event subtypes.
+ *
+ * Matching only the literal string "Event" silently dropped every page that
+ * used a more specific type, which is most of them in practice —
+ * BusinessEvent, EducationEvent, SocialEvent and Hackathon are all common on
+ * Eventbrite and Meetup. `@type` may also arrive as a full IRI
+ * ("https://schema.org/BusinessEvent"), so the trailing segment is what gets
+ * compared.
+ */
+const EVENT_TYPE_EXTRAS = new Set(["Festival", "Hackathon", "CourseInstance", "EventSeries"]);
+
+function isEventTypeName(raw: unknown): boolean {
+  if (typeof raw !== "string") return false;
+  const name = raw.split(/[/#]/).pop() ?? "";
+  return /Event$/.test(name) || EVENT_TYPE_EXTRAS.has(name);
+}
+
 function isEventType(node: unknown): node is Record<string, unknown> {
   if (!node || typeof node !== "object") return false;
   const type = (node as Record<string, unknown>)["@type"];
-  if (typeof type === "string") return type === "Event";
-  if (Array.isArray(type)) return type.includes("Event");
-  return false;
+  if (Array.isArray(type)) return type.some(isEventTypeName);
+  return isEventTypeName(type);
 }
 
 function collectJsonLdCandidates(parsed: unknown): unknown[] {
@@ -377,6 +395,109 @@ function findJsonLdEvent($: cheerio.CheerioAPI): ExtractedEvent | null {
   return null;
 }
 
+/**
+ * Events advertised by a listing page, via schema.org `ItemList`.
+ *
+ * Meetup group roots, Eventbrite `/d/` city feeds and Lu.ma calendar pages
+ * don't describe one event — they enumerate several, each as an `Event` node
+ * nested under `itemListElement`, carrying its own canonical `url`. The
+ * previous parser only looked at top-level and `@graph` nodes, so every one of
+ * these pages returned null and was filed as `extraction_failed`. That was the
+ * single largest source of waste in the pipeline: a re-probe of the rejected
+ * backlog found 188 dated events sitting in pages already downloaded.
+ *
+ * These are returned as *links to enqueue*, not as finished events. The child
+ * page is worth fetching on its own because it carries the description,
+ * poster and price that the list entry omits — and because attributing a child
+ * event to the listing URL would point the card at a search-results page.
+ */
+export interface EventLink {
+  url: string;
+  title: string | null;
+  startAt: string | null;
+}
+
+const JSON_LD_MAX_DEPTH = 6;
+
+function collectListedEvents(parsed: unknown): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const seen = new Set<object>();
+
+  const visit = (node: unknown, insideList: boolean, depth: number) => {
+    if (!node || typeof node !== "object" || depth > JSON_LD_MAX_DEPTH) return;
+    if (Array.isArray(node)) {
+      for (const child of node) visit(child, insideList, depth + 1);
+      return;
+    }
+    // Guards against a self-referencing document costing us the whole run.
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    const rec = node as Record<string, unknown>;
+    if (insideList && isEventType(rec)) out.push(rec);
+
+    visit(rec["@graph"], insideList, depth + 1);
+    // Entries appear either as bare Event nodes carrying `position`
+    // (Eventbrite, Lu.ma) or wrapped in a ListItem with `.item` (the spec's
+    // own example). Both shapes reach here.
+    if (rec.itemListElement) visit(rec.itemListElement, true, depth + 1);
+    if (rec.item) visit(rec.item, insideList, depth + 1);
+  };
+
+  visit(parsed, false, 0);
+  return out;
+}
+
+function findJsonLdEventLinks($: cheerio.CheerioAPI, pageUrl: string): EventLink[] {
+  const links: EventLink[] = [];
+  const seenUrls = new Set<string>();
+
+  // A page listing itself is not a child. Without this an expanded item would
+  // be re-inserted as its own discovery item and loop forever.
+  const selfUrls = new Set<string>();
+  for (const candidate of [pageUrl]) {
+    try {
+      selfUrls.add(normalizeUrl(candidate));
+    } catch {
+      /* unparseable page URL — nothing to exclude */
+    }
+  }
+
+  for (const el of $('script[type="application/ld+json"]').toArray()) {
+    const raw = $(el).text();
+    if (!raw || !raw.trim()) continue;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+
+    for (const node of collectListedEvents(parsed)) {
+      const href = typeof node.url === "string" ? node.url : null;
+      if (!href) continue;
+
+      let absolute: string;
+      try {
+        absolute = normalizeUrl(new URL(href, pageUrl).toString());
+      } catch {
+        continue;
+      }
+      if (selfUrls.has(absolute) || seenUrls.has(absolute)) continue;
+      seenUrls.add(absolute);
+
+      links.push({
+        url: absolute,
+        title: nullIfBlank(typeof node.name === "string" ? stripHtmlTags(node.name) : null),
+        startAt: nullUnlessParsableDate(typeof node.startDate === "string" ? node.startDate : null),
+      });
+    }
+  }
+
+  return links;
+}
+
 async function extractViaLlm(
   url: string,
   pageText: string,
@@ -491,19 +612,40 @@ export function extractModel(): string {
   return process.env.EXTRACT_MODEL || DEFAULT_EXTRACT_MODEL;
 }
 
-export async function extractEventFromUrl(
+/**
+ * What a page turned out to be.
+ *
+ * `event_list` exists because a listing page is a legitimate, useful result
+ * that simply isn't an event — collapsing it into `null` (as this used to)
+ * threw away the majority of what discovery finds.
+ */
+export type ExtractionOutcome =
+  | { kind: "event"; event: ExtractedEvent }
+  | { kind: "event_list"; links: EventLink[] }
+  | { kind: "none" };
+
+export async function extractFromUrl(
   url: string,
   allowedDomains: string[],
   model: string = extractModel(),
-): Promise<ExtractedEvent | null> {
+): Promise<ExtractionOutcome> {
   try {
     const fetched = await safeFetchText(url, { allowedDomains });
-    if (!fetched.ok) return null;
+    if (!fetched.ok) return { kind: "none" };
 
     const $ = cheerio.load(fetched.text);
 
+    /*
+     * Order matters. A page that describes its OWN event wins, even when it
+     * also carries an ItemList of "more events like this" — otherwise an
+     * ordinary event page with a related-events rail would be expanded instead
+     * of extracted, and the real event lost.
+     */
     const jsonLdEvent = findJsonLdEvent($);
-    if (jsonLdEvent) return jsonLdEvent;
+    if (jsonLdEvent) return { kind: "event", event: jsonLdEvent };
+
+    const links = findJsonLdEventLinks($, fetched.finalUrl);
+    if (links.length > 0) return { kind: "event_list", links };
 
     $("script, style").remove();
     const pageText = $("body")
@@ -512,8 +654,20 @@ export async function extractEventFromUrl(
       .trim()
       .slice(0, PAGE_TEXT_MAX_CHARS);
 
-    return await extractViaLlm(fetched.finalUrl, pageText, model);
+    const viaLlm = await extractViaLlm(fetched.finalUrl, pageText, model);
+    return viaLlm ? { kind: "event", event: viaLlm } : { kind: "none" };
   } catch {
-    return null;
+    return { kind: "none" };
   }
+}
+
+/** Single-event convenience wrapper — used by the curator preview, which is
+ *  always pointed at one specific event page by a human. */
+export async function extractEventFromUrl(
+  url: string,
+  allowedDomains: string[],
+  model: string = extractModel(),
+): Promise<ExtractedEvent | null> {
+  const outcome = await extractFromUrl(url, allowedDomains, model);
+  return outcome.kind === "event" ? outcome.event : null;
 }
