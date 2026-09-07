@@ -153,8 +153,23 @@ export function datesInSnippet(text: string): number[] {
  * date anywhere keeps the candidate. A wrong rejection here is invisible and
  * permanent, so the bar is deliberately high.
  */
+/**
+ * Search engines (and Firecrawl, which mirrors this convention) prepend an
+ * "indexed on" or "posted on" date to a snippet — "19 Apr 2026 · Workshop &
+ * National Cyber Security Conference..." — which is metadata ABOUT the search
+ * result, not content authored by the page. It is indistinguishable in shape
+ * from a real date, and LinkedIn results hit this constantly: the post's own
+ * timestamp is always in the past by the time it is indexed, so every
+ * LinkedIn snippet looked like a past event regardless of when the event it
+ * describes actually is. Confirmed against real rejections: two genuinely
+ * upcoming 2026 events were rejected on nothing but this leading prefix, with
+ * no other date anywhere in the visible snippet text.
+ */
+const SNIPPET_METADATA_PREFIX =
+  /^\s*\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}\s*[·\-–—]\s*/i;
+
 export function snippetLooksPast(text: string, now: number = Date.now()): boolean {
-  const dates = datesInSnippet(text);
+  const dates = datesInSnippet(text.replace(SNIPPET_METADATA_PREFIX, ""));
   if (dates.length === 0) return false;
   const cutoff = now - EVENT_END_GRACE_MS;
   return dates.every((d) => d + ASSUMED_DURATION_MS < cutoff);

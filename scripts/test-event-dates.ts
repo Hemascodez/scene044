@@ -37,4 +37,33 @@ check("ISO date understood", snippetLooksPast("Event date: 2026-08-01", NOW), tr
 check("empty snippet keeps it", snippetLooksPast("", NOW), false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
+
+console.log("\n--- real production snippets: LinkedIn's date-prefix false positives ---");
+check(
+  "genuinely past (#230, real date mid-text) still rejected",
+  snippetLooksPast("We are a community based in Chennai, Date: July 11, 2026 (Saturday)", NOW),
+  true,
+);
+check(
+  "genuinely past (#93, prefix AND real date both past) still rejected",
+  snippetLooksPast("15 Jan 2025 · Hey All, Join us for the upcoming Null Chennai and OWASP Chennai Chapter monthly meetup! Date: January 18, 2025 Time: 10:00 AM - 1:00 PM", NOW),
+  true,
+);
+check(
+  "false positive (#91): index-date prefix, no real date in snippet — no longer rejected",
+  snippetLooksPast("19 Apr 2026 · Workshop & National Cyber Security Conference 2026 - Chennai Edition The National Cyber Security Research Council (NCSRC) is proud to", NOW),
+  false,
+);
+check(
+  "false positive (#1): same shape — no longer rejected",
+  snippetLooksPast("10 May 2026 · Hands-on AI Agent & RAG system building with real-world healthcare use cases. Explore AI + Cloud, DevSecOps, automation, and industry-level", NOW),
+  false,
+);
+check(
+  "prefix stripped, but a genuinely past date STILL follows it — must still reject",
+  snippetLooksPast("19 Apr 2026 · This meetup happened on March 1, 2026 and was great", NOW),
+  true,
+);
+
+console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
