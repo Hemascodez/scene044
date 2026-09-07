@@ -37,6 +37,8 @@ interface ApproveBody {
 
 /** Only absolute http(s) URLs are storable — anything else could produce a
  *  `javascript:` or `data:` destination on a public "View event" link. */
+/** Absolute http(s) URL, unchanged. Reused for primarySourceUrl, which is
+ *  always an external link and never one of ours. */
 function safeHttpUrl(value: string | null | undefined): string | null {
   const raw = (value ?? "").trim();
   if (!raw) return null;
@@ -46,6 +48,22 @@ function safeHttpUrl(value: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * A poster is either a full external URL, or one of ours — `/api/poster/<id>`,
+ * which is what lib/posterStore.ts hands back from every curator upload.
+ *
+ * `new URL("/api/poster/7")` with no base throws: it has no scheme to parse,
+ * so safeHttpUrl alone rejected every self-hosted poster as invalid, even
+ * though it is exactly the correct, expected shape. This was blocking
+ * publishing on every curator-uploaded poster with a misleading error.
+ */
+function safePosterUrl(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  if (/^\/api\/poster\/\d+$/.test(raw)) return raw;
+  return safeHttpUrl(raw);
 }
 
 export async function POST(request: Request) {
@@ -80,8 +98,11 @@ export async function POST(request: Request) {
   if (body.primarySourceUrl && !safeHttpUrl(body.primarySourceUrl)) {
     return NextResponse.json({ error: "primarySourceUrl must be an http(s) URL" }, { status: 400 });
   }
-  if (body.posterImageUrl && !safeHttpUrl(body.posterImageUrl)) {
-    return NextResponse.json({ error: "posterImageUrl must be an http(s) URL" }, { status: 400 });
+  if (body.posterImageUrl && !safePosterUrl(body.posterImageUrl)) {
+    return NextResponse.json(
+      { error: "posterImageUrl must be an http(s) URL or /api/poster/<id>" },
+      { status: 400 },
+    );
   }
   if (body.priceType != null && body.priceType !== "free" && body.priceType !== "paid") {
     return NextResponse.json({ error: "priceType must be 'free', 'paid' or null" }, { status: 400 });
