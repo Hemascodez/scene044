@@ -138,3 +138,69 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
     };
   });
 }
+
+/**
+ * Single-event lookup for link-preview metadata (see app/page.tsx's
+ * generateMetadata). Deliberately skips the "upcoming only" and category
+ * filters `getPublicEvents` applies for the feed: a shared link to a past or
+ * out-of-category event should still preview correctly, it just won't be
+ * listed in the browsable feed.
+ */
+export async function getPublicEventById(id: number): Promise<PublicEvent | null> {
+  const { rows } = await query<{
+    id: number;
+    title: string;
+    summary: string | null;
+    highlights: string[];
+    registrationNote: string | null;
+    category: Category;
+    startAt: string | null;
+    endAt: string | null;
+    isOnline: boolean;
+    venueName: string | null;
+    city: string;
+    organizerName: string | null;
+    posterImageUrl: string | null;
+    priceType: PriceType | null;
+    priceNote: string | null;
+    primarySourceDomain: string;
+    sourceDomains: string[] | null;
+    status: PublicEventStatus;
+    discoveredAt: string;
+    lastVerifiedAt: string | null;
+  }>(
+    `SELECT
+       e.id, e.title, e.summary, e.highlights, e.category, e.status,
+       e.registration_note AS "registrationNote",
+       e.start_at          AS "startAt",
+       e.end_at            AS "endAt",
+       e.is_online         AS "isOnline",
+       e.venue_name        AS "venueName",
+       e.city,
+       e.organizer_name    AS "organizerName",
+       e.poster_image_url  AS "posterImageUrl",
+       e.price_type        AS "priceType",
+       e.price_note        AS "priceNote",
+       regexp_replace(e.primary_source_url, '^https?://(www\\.)?([^/]+).*$', '\\2') AS "primarySourceDomain",
+       COALESCE((
+         SELECT array_agg(DISTINCT es.source_domain ORDER BY es.source_domain)
+         FROM event_sources es
+         WHERE es.event_id = e.id
+       ), '{}') AS "sourceDomains",
+       e.created_at        AS "discoveredAt",
+       e.last_verified_at  AS "lastVerifiedAt"
+     FROM events e
+     WHERE e.id = $1 AND e.status = ANY($2::text[])`,
+    [id, PUBLIC_STATUSES],
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+  const { sourceDomains, primarySourceDomain, ...rest } = row;
+  const primary = bareDomain(primarySourceDomain);
+  return {
+    ...rest,
+    primarySourceDomain: primary,
+    otherSourceDomains: (sourceDomains ?? []).map(bareDomain).filter((d) => d && d !== primary),
+  };
+}

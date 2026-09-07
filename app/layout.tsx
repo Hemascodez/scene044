@@ -26,6 +26,10 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  // Required for per-event OpenGraph images (app/page.tsx's generateMetadata)
+  // to resolve to absolute URLs — WhatsApp/Twitter/LinkedIn crawlers fetch
+  // og:image directly and can't resolve a relative path.
+  metadataBase: new URL("https://scene044.in"),
   title: "SCENE/044 — Chennai's tech events, discovered",
   description:
     "SCENE/044 automatically discovers Chennai professional and technology events from public sources and presents them in one feed.",
