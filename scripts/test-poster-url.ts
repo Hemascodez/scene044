@@ -39,3 +39,4 @@ check("javascript: scheme rejected", safePosterUrl("javascript:alert(1)"), null)
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
+

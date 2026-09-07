@@ -96,11 +96,21 @@ export function validateDraftForPublish(draft: CuratorDraft): string[] {
   if (draft.startDate && !start) errors.push("Start date is not a valid date");
   if (draft.endDate && !end) errors.push("End date is not a valid date");
   if (start && end && Date.parse(end) <= Date.parse(start)) errors.push("End must be after start");
-  for (const [label, value] of [
-    ["Registration URL", draft.registrationUrl],
-    ["Poster URL", draft.posterImageUrl],
-  ] as const) {
-    if (value.trim() && !/^https?:\/\/\S+$/i.test(value.trim())) errors.push(`${label} must be http(s)`);
+  if (draft.registrationUrl.trim() && !/^https?:\/\/\S+$/i.test(draft.registrationUrl.trim())) {
+    errors.push("Registration URL must be http(s)");
+  }
+  /*
+   * Poster URL has a second valid shape: /api/poster/<id>, which is exactly
+   * what every curator upload produces (lib/posterStore.ts) — the image is
+   * re-hosted on our own origin rather than linked externally. The plain
+   * http(s)-only check rejected that shape outright, so this ran before the
+   * publish request even reached the server and blocked every uploaded poster
+   * with this exact message, regardless of the same fix already made in
+   * app/api/admin/curator/approve/route.ts.
+   */
+  const poster = draft.posterImageUrl.trim();
+  if (poster && !/^https?:\/\/\S+$/i.test(poster) && !/^\/api\/poster\/\d+$/.test(poster)) {
+    errors.push("Poster URL must be http(s)");
   }
   return errors;
 }
