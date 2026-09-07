@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
-import { SKIP_SPLASH_INLINE_SCRIPT } from "@/lib/client/splashGate";
 import { gaInlineScript, gaMeasurementId } from "@/lib/client/analytics";
 import "./globals.css";
 
@@ -44,13 +43,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${archivo.variable} ${inter.variable} ${jetBrainsMono.variable} antialiased`}
     >
       <head>
-        {/* Marks back/forward navigations before the first paint so CSS can hide
-            the intro instantly. These routes are force-dynamic (no-store), which
-            disables the bfcache — Back re-fetches the document and would
-            otherwise replay the splash. Deciding this in React instead would
-            either mismatch hydration or flash the intro before removing it. */}
-        <script dangerouslySetInnerHTML={{ __html: SKIP_SPLASH_INLINE_SCRIPT }} />
-
         {/* Analytics. Renders nothing at all when no measurement ID is
             configured, so dev and preview builds send no traffic. */}
         {gaId && (

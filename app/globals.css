@@ -130,16 +130,6 @@ body {
     opacity: 1;
   }
 }
-@keyframes scene-splash-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-
 .scene-rise {
   animation: scene-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
@@ -157,17 +147,6 @@ body {
 .scene-fade-in {
   animation: scene-fade-in 0.28s ease both;
 }
-.scene-splash-out {
-  animation: scene-splash-out 0.48s ease forwards;
-}
-
-/* Set by the inline script in app/layout.tsx on a Back/Forward navigation.
-   Hiding via CSS (rather than not rendering) keeps the server and client markup
-   identical, so hydration stays clean and the intro never flashes. */
-[data-skip-splash="1"] .scene-splash {
-  display: none !important;
-}
-
 /* Ticket notch: a punched hole that reveals the page ground behind the card.
    Must match --color-background, not --color-card, or the "hole" looks filled. */
 .ticket-notch {

@@ -5,10 +5,8 @@ import type { PublicEvent } from "@/lib/events";
 import { FIELD_CARDS } from "@/lib/fieldCards";
 import { bySoonest, deriveSceneStatus, isHiddenFromFeed, isNewlyDiscovered } from "@/lib/client/sceneEvent";
 import { useEventInteractions } from "@/lib/client/useEventInteractions";
-import { markSplashConsumed, shouldPlaySplash } from "@/lib/client/splashGate";
 import { SceneHeader } from "@/components/scene/SceneHeader";
 import { FieldsGrid, SceneFooter, SceneHero, SectionHead } from "@/components/scene/SceneHero";
-import { SplashScreen } from "@/components/scene/SplashScreen";
 import { TabbedFeed } from "@/components/scene/TabbedFeed";
 import { EventCard } from "@/components/scene/EventCard";
 import { EventDetail } from "@/components/scene/EventDetail";
@@ -24,11 +22,6 @@ export function SceneApp({
   deepLinkEventId: number | null;
   fetchFailed?: boolean;
 }) {
-  // A shared link is a direct request for one event — jumping through a 5s
-  // intro to reach it would be hostile, so the splash is skipped entirely.
-  // shouldPlaySplash() additionally suppresses it on client-side navigation
-  // back to Home (wordmark, "Back to all events"), which is not a page load.
-  const [showSplash, setShowSplash] = useState(deepLinkEventId === null && shouldPlaySplash());
   const [view, setView] = useState<"discover" | "saved">("discover");
   const feedRef = useRef<HTMLElement>(null);
   const interactions = useEventInteractions(events);
@@ -64,45 +57,12 @@ export function SceneApp({
     interactions.setOpenId(deepLinkEventId);
   }, [deepLinkEventId, events, interactions]);
 
-  // Marked after mount, not during render, so a re-render can't consume it.
-  useEffect(markSplashConsumed, []);
-
-  /*
-   * Start at the top when the intro plays.
-   *
-   * history.scrollRestoration defaults to "auto", so on a reload the browser
-   * silently restores the previous scroll position — underneath the splash,
-   * where nobody can see it happening. The intro then lifts to reveal the
-   * footer instead of the hero. Restoration is only suppressed when the splash
-   * is actually playing, so Back still returns you to where you were.
-   */
-  useEffect(() => {
-    if (!showSplash) return;
-    const previous = window.history.scrollRestoration;
-    window.history.scrollRestoration = "manual";
-    window.scrollTo(0, 0);
-    return () => {
-      window.history.scrollRestoration = previous;
-    };
-  }, [showSplash]);
-
   function scrollToFeed() {
     feedRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <div className="min-h-full">
-      {showSplash && (
-        <SplashScreen
-          onDone={() => {
-            // Belt and braces: anything that moved the page while the overlay
-            // was up is undone before it is revealed.
-            window.scrollTo(0, 0);
-            setShowSplash(false);
-          }}
-        />
-      )}
-
       <SceneHeader
         view={view}
         savedCount={interactions.savedIds.length}
