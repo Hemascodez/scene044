@@ -260,8 +260,35 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
   );
   const allowedDomains = allowedSources.map((s) => s.domain);
 
+  /*
+   * Rate-limited domains are excluded HERE, not just checked per-item below.
+   *
+   * The previous version selected an unordered LIMIT batch and skipped
+   * whatever turned out to be within its politeness window. Skipped items
+   * keep status='auto_processing', so if a few high-traffic domains
+   * (meetup.com, eventbrite.com) dominate the front of the table, Postgres
+   * returns that SAME batch — unordered LIMIT is stable in practice — on
+   * every subsequent call. The pipeline would then "process" 25 items and
+   * extract nothing, pass after pass, forever, while genuinely fetchable
+   * items sat further back in the table and were never reached. That is
+   * exactly why some categories' candidates could go a very long time without
+   * surfacing: their rows were simply behind the stuck block.
+   *
+   * Filtering by the same politeness window in SQL means a batch only ever
+   * contains rows that can actually be fetched right now, so real progress
+   * happens on every call rather than a plausible-looking no-op.
+   */
   const { rows: items } = await query<DiscoveryItemRow>(
-    "SELECT id, url, source_domain, query_id FROM discovery_items WHERE status = 'auto_processing' LIMIT $1",
+    `SELECT di.id, di.url, di.source_domain, di.query_id
+       FROM discovery_items di
+       LEFT JOIN sources s ON s.domain = di.source_domain
+      WHERE di.status = 'auto_processing'
+        AND (
+          s.last_fetched_at IS NULL
+          OR now() - s.last_fetched_at > (interval '1 hour' / GREATEST(COALESCE(s.rate_limit_per_hour, 30), 1))
+        )
+      ORDER BY di.id ASC
+      LIMIT $1`,
     [batchLimit],
   );
 
