@@ -90,6 +90,49 @@ async function main() {
   await query("DELETE FROM discovery_items WHERE url LIKE $1", [MARK]);
   await query("DELETE FROM sources WHERE domain LIKE $1", ["batchtest-%.invalid"]);
 
+  console.log("\n--- one prolific domain must not crowd out an entire batch ---");
+  await query("DELETE FROM discovery_items WHERE url LIKE $1", [MARK]);
+  await query("DELETE FROM sources WHERE domain LIKE $1", ["batchtest-%.invalid"]);
+
+  // Domain C: never fetched, 20 rows queued (simulates meetup.com's real backlog).
+  await query(
+    `INSERT INTO sources (domain, name, trust_tier, rate_limit_per_hour, active, last_fetched_at)
+     VALUES ('batchtest-c.invalid', 'C', 'auto_fetch', 120, true, NULL)`,
+  );
+  // Domain D: never fetched, only 1 row (a smaller community).
+  await query(
+    `INSERT INTO sources (domain, name, trust_tier, rate_limit_per_hour, active, last_fetched_at)
+     VALUES ('batchtest-d.invalid', 'D', 'auto_fetch', 120, true, NULL)`,
+  );
+  for (let i = 0; i < 20; i++) {
+    await query(
+      `INSERT INTO discovery_items (title, url, source_domain, status) VALUES ($1,$2,'batchtest-c.invalid','auto_processing')`,
+      [`C item ${i}`, `https://batchtest-c.invalid/scene044-batch-test-c${i}`],
+    );
+  }
+  await query(
+    `INSERT INTO discovery_items (title, url, source_domain, status) VALUES ($1,$2,'batchtest-d.invalid','auto_processing')`,
+    [`D item`, `https://batchtest-d.invalid/scene044-batch-test-d0`],
+  );
+
+  const { rows: batch } = await query<{ id: number; source_domain: string }>(
+    `SELECT DISTINCT ON (di.source_domain) di.id, di.source_domain
+       FROM discovery_items di
+       LEFT JOIN sources s ON s.domain = di.source_domain
+      WHERE di.status = 'auto_processing' AND di.url LIKE $1
+        AND (s.last_fetched_at IS NULL OR now() - s.last_fetched_at > (interval '1 hour' / GREATEST(COALESCE(s.rate_limit_per_hour, 30), 1)))
+      ORDER BY di.source_domain, di.id ASC
+      LIMIT 25`,
+    [MARK],
+  );
+  const cCount = batch.filter((r) => r.source_domain === "batchtest-c.invalid").length;
+  const dCount = batch.filter((r) => r.source_domain === "batchtest-d.invalid").length;
+  check("domain C (20 rows queued) contributes exactly 1 to the batch", cCount === 1, `got ${cCount}`);
+  check("domain D (1 row queued) still gets its turn in the same batch", dCount === 1, `got ${dCount}`);
+
+  await query("DELETE FROM discovery_items WHERE url LIKE $1", [MARK]);
+  await query("DELETE FROM sources WHERE domain LIKE $1", ["batchtest-%.invalid"]);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 }

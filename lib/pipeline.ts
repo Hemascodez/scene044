@@ -287,8 +287,29 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
    * contains rows that can actually be fetched right now, so real progress
    * happens on every call rather than a plausible-looking no-op.
    */
+  /*
+   * DISTINCT ON (di.source_domain): at most ONE item per domain per call.
+   *
+   * The rate-limit filter above stops a batch from being entirely stuck, but
+   * it does not stop a batch from being entirely ONE domain. If meetup.com has
+   * the deepest backlog, an unrestricted LIMIT after the filter still returns
+   * mostly meetup.com rows — the first one fetches and updates
+   * sources.last_fetched_at, and every other meetup.com row in that SAME batch
+   * then fails the per-item safety check below and is skipped. It still counts
+   * toward `processed`, so a pass could report processed: 25 while only 3 or 4
+   * items reached any real outcome — a batch that LOOKS like it did work while
+   * mostly spinning on one domain. This is exactly why some communities'
+   * candidates could sit for a very long time despite the queue visibly
+   * moving: one prolific source was consuming almost the whole batch, pass
+   * after pass, leaving little room for anyone else.
+   *
+   * One row per domain means a 25-item call now touches up to 25 DIFFERENT
+   * communities, not up to 25 items from however few communities happen to
+   * dominate discovery_items that day.
+   */
   const { rows: items } = await query<DiscoveryItemRow>(
-    `SELECT di.id, di.url, di.source_domain, di.query_id
+    `SELECT DISTINCT ON (di.source_domain)
+            di.id, di.url, di.source_domain, di.query_id
        FROM discovery_items di
        LEFT JOIN sources s ON s.domain = di.source_domain
       WHERE di.status = 'auto_processing'
@@ -296,7 +317,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
           s.last_fetched_at IS NULL
           OR now() - s.last_fetched_at > (interval '1 hour' / GREATEST(COALESCE(s.rate_limit_per_hour, 30), 1))
         )
-      ORDER BY di.id ASC
+      ORDER BY di.source_domain, di.id ASC
       LIMIT $1`,
     [batchLimit],
   );
