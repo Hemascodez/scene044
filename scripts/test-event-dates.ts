@@ -65,5 +65,43 @@ check(
   true,
 );
 
+
+console.log("\n--- the real bug: pipeline.ts calls with `${title} ${snippet}`, prefix mid-string ---");
+import { stripSnippetMetadataPrefix } from "../lib/eventDates";
+
+// Exactly how lib/pipeline.ts builds the string: title first, snippet after.
+const asPipelineCalls = (title: string, snippet: string) =>
+  snippetLooksPast(`${title} ${stripSnippetMetadataPrefix(snippet)}`, NOW);
+
+check(
+  "false positive (#91), title+snippet concatenated like the real call site",
+  asPipelineCalls(
+    "National Cyber Security Research Council's Post - LinkedIn",
+    "19 Apr 2026 · Workshop & National Cyber Security Conference 2026 - Chennai Edition The National Cyber Security Research Council (NCSRC) is proud to",
+  ),
+  false,
+);
+check(
+  "false positive (#1), title+snippet concatenated like the real call site",
+  asPipelineCalls(
+    "Chennai AI Innovation Meetup 2026 at IIT Madras Research Park - LinkedIn",
+    "10 May 2026 · Hands-on AI Agent & RAG system building with real-world healthcare use cases.",
+  ),
+  false,
+);
+check(
+  "genuinely past (#93), title+snippet concatenated — still correctly rejected",
+  asPipelineCalls(
+    "Null Chennai post - LinkedIn",
+    "15 Jan 2025 · Hey All, Join us for the upcoming Null Chennai and OWASP Chennai Chapter monthly meetup! Date: January 18, 2025 Time: 10:00 AM",
+  ),
+  true,
+);
+check(
+  "stripping a bare snippet directly still works (the case my first fix tested)",
+  stripSnippetMetadataPrefix("19 Apr 2026 · Workshop text").startsWith("Workshop"),
+  true,
+);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

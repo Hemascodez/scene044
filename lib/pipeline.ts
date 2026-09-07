@@ -18,7 +18,7 @@ import {
 } from "@/lib/dedup";
 import { importPosterFromUrl } from "@/lib/posterStore";
 import { summarizeEvent } from "@/lib/summarize";
-import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS, snippetLooksPast } from "@/lib/eventDates";
+import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS, snippetLooksPast, stripSnippetMetadataPrefix } from "@/lib/eventDates";
 import { safeFetchText } from "@/lib/safeFetch";
 import type { ExtractionMeta } from "@/lib/types";
 
@@ -210,7 +210,16 @@ export async function runDiscovery(opts: {
      * here is silent and permanent, so one future date anywhere keeps the
      * candidate.
      */
-    if (snippetLooksPast(`${row.title ?? ""} ${row.snippet ?? ""}`)) {
+    /*
+     * The metadata-date prefix (see stripSnippetMetadataPrefix) belongs to the
+     * SNIPPET field specifically — that is where search engines put it — so it
+     * must be stripped before concatenating with the title. Stripping the
+     * combined string instead puts the prefix mid-string, past where the
+     * anchor can match, and silently changes nothing. This exact ordering
+     * mistake shipped once already.
+     */
+    const cleanedSnippet = stripSnippetMetadataPrefix(row.snippet ?? "");
+    if (snippetLooksPast(`${row.title ?? ""} ${cleanedSnippet}`)) {
       await query(
         "UPDATE discovery_items SET status = 'rejected', rejection_reason = 'past_event_snippet' WHERE id = $1",
         [row.id],

@@ -168,8 +168,22 @@ export function datesInSnippet(text: string): number[] {
 const SNIPPET_METADATA_PREFIX =
   /^\s*\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{4}\s*[·\-–—]\s*/i;
 
+/**
+ * Strips ONLY the leading metadata date, so this must run on the raw snippet
+ * BEFORE it is combined with a title or anything else. The caller
+ * (lib/pipeline.ts) does `${title} ${snippet}` — concatenating first and
+ * calling this after would put the prefix in the middle of that string, past
+ * where the `^` anchor can ever match, and silently do nothing. That exact
+ * mistake shipped once already: isolated tests calling this on a bare snippet
+ * passed, while the real call site never stripped anything, because the
+ * stripping happened after concatenation instead of before it.
+ */
+export function stripSnippetMetadataPrefix(snippet: string): string {
+  return snippet.replace(SNIPPET_METADATA_PREFIX, "");
+}
+
 export function snippetLooksPast(text: string, now: number = Date.now()): boolean {
-  const dates = datesInSnippet(text.replace(SNIPPET_METADATA_PREFIX, ""));
+  const dates = datesInSnippet(stripSnippetMetadataPrefix(text));
   if (dates.length === 0) return false;
   const cutoff = now - EVENT_END_GRACE_MS;
   return dates.every((d) => d + ASSUMED_DURATION_MS < cutoff);
