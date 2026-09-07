@@ -18,6 +18,11 @@ const QUEUE_STATUSES: Record<string, DiscoveryItemStatus[]> = {
   needs_date_review: ["needs_date_review"],
   duplicates: ["duplicate"],
   errors: ["error"],
+  // `new`/`auto_processing` are pipeline-internal states with no other
+  // curator-visible queue — without this tab, a candidate rate-limited or
+  // waiting its turn in extraction is indistinguishable from one that was
+  // never discovered at all.
+  in_progress: ["new", "auto_processing"],
 };
 
 const LIMIT = 200;

@@ -35,6 +35,7 @@ import {
 
 const QUEUES: { key: QueueKey; label: string; glyph: string }[] = [
   { key: "pending", label: "Pending", glyph: "◐" },
+  { key: "in_progress", label: "In pipeline", glyph: "⋯" },
   { key: "needs_correction", label: "Needs correction", glyph: "✎" },
   { key: "duplicates", label: "Merged duplicates", glyph: "≈" },
   { key: "published", label: "Published", glyph: "✓" },
@@ -46,6 +47,7 @@ const QUEUES: { key: QueueKey; label: string; glyph: string }[] = [
 
 const EMPTY_COPY: Record<QueueKey, string> = {
   pending: "The pending queue is clear. New search-discovered candidates land here newest-first.",
+  in_progress: "Nothing mid-pipeline. Candidates not yet extracted or waiting their turn land here.",
   needs_correction: "Nothing parked for correction. Drafts you save for later appear here.",
   duplicates: "No merged duplicates. Items merged into an existing event show up here.",
   published: "",
@@ -520,6 +522,11 @@ function QueueRow({
         {item.event_id && (
           <Pill tone="green" glyph="✓">
             event #{item.event_id}
+          </Pill>
+        )}
+        {(item.status === "new" || item.status === "auto_processing") && (
+          <Pill tone="amber" glyph="⋯">
+            {item.status === "new" ? "queued" : "fetching / rate-limited"}
           </Pill>
         )}
         <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.12em] text-[#5f7568]">

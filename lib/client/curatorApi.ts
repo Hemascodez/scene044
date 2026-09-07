@@ -20,7 +20,8 @@ export type QueueKey =
   | "expired"
   | "needs_date_review"
   | "rejected"
-  | "errors";
+  | "errors"
+  | "in_progress";
 
 export interface QueueItem {
   id: number;
