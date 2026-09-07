@@ -47,7 +47,7 @@ export function useEventInteractions(events: PublicEvent[]) {
     () => lastViewedStore.getServerSnapshot().eventId,
   );
 
-  // They opened a registration page in a new tab; ask about it when they return.
+  // They opened a registration page and ask about it when they return.
   useEffect(() => {
     function onReturn() {
       if (document.visibilityState !== "visible") return;
@@ -56,6 +56,15 @@ export function useEventInteractions(events: PublicEvent[]) {
     }
     document.addEventListener("visibilitychange", onReturn);
     window.addEventListener("focus", onReturn);
+    /*
+     * On touch devices the registration link navigates same-tab (see
+     * usePointerType.ts), so "coming back" is a full reload via the browser's
+     * Back button, not a visibility/focus transition on an already-running
+     * page — this component mounts already visible, so neither listener ever
+     * fires. Checking once on mount catches that path; consumePendingViewedEvent
+     * is one-shot and MIN_AWAY_MS-gated, so this is a no-op otherwise.
+     */
+    onReturn();
     return () => {
       document.removeEventListener("visibilitychange", onReturn);
       window.removeEventListener("focus", onReturn);
