@@ -48,11 +48,12 @@ few hundred KB each — roughly 1,500 posters fills it.
 Add a **second service from the same repo**, then in its settings:
 
 - **Start command**: `npm run pipeline`
-- **Cron schedule**: `30 13 * * 1-3` — 19:00 IST, Monday to Wednesday
+- **Cron schedule**: `30 3,13 * * 1-3` — 09:00 and 19:00 IST, Monday to Wednesday
 
-Railway cron is UTC, so 19:00 IST is 13:30 UTC. Three runs a week is plenty:
-each one loops extraction until the queue drains or a 20-minute budget is
-spent, and organizers post further ahead than that.
+Railway cron is UTC, so 09:00 and 19:00 IST are 03:30 and 13:30 UTC — cron's
+comma syntax runs both from a single schedule line, no second service needed.
+Six runs a week: each one loops extraction until the queue drains or a
+20-minute budget is spent.
 
 `tsx` is a runtime **dependency**, not a devDependency, specifically for this
 service: Nixpacks builds with `NODE_ENV=production`, which skips devDependencies,
