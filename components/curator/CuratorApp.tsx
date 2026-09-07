@@ -193,6 +193,18 @@ export function CuratorApp() {
       const res = await addCandidate(url);
       setShowAdd(false);
       announce(res.reused ? "That URL was already in the queue — opened it" : "Created curator candidate");
+      /*
+       * A source or category filter left active from browsing (LinkedIn,
+       * design, whatever) can hide the very item just created if it happens to
+       * be a different source or category — it lands correctly in Pending on
+       * the server, but the filtered view keeps it invisible with no
+       * indication why. Clearing both guarantees the new candidate is the one
+       * thing on screen after adding it.
+       */
+      setSourceFilter("");
+      setCategoryFilter("");
+      setDomainFilter("all");
+      setSearch("");
       setQueue("pending");
       reload();
       setOpenId(res.discoveryItemId);
