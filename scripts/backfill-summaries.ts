@@ -1,13 +1,13 @@
 /**
- * Re-summarises events whose description was stored verbatim.
+ * Rebuilds editorial descriptions and perks for existing live events.
  *
  * The JSON-LD path wrote `description` straight through, so live events carry
  * the organizer's full copy — markdown, emoji, waitlist boilerplate and all.
  * This runs the same lib/summarize.ts pass the pipeline now applies, so
  * existing listings match new ones.
  *
- *   npx tsx --env-file=.env.local scripts/backfill-summaries.ts          # preview
- *   npx tsx --env-file=.env.local scripts/backfill-summaries.ts --write  # apply
+ *   npm run backfill:event-copy                     # preview
+ *   npm run backfill:event-copy -- --write          # apply
  */
 import { pool, query } from "../lib/db";
 import { summarizeEvent } from "../lib/summarize";
@@ -24,9 +24,9 @@ async function main() {
   }>(
     `SELECT id, title, summary, category, organizer_name, registration_deadline,
             start_at, end_at, is_online, venue_name, venue_address, price_type, price_note
-       FROM events
-      WHERE status IN ('live','updated') AND summary IS NOT NULL
-      ORDER BY length(summary) DESC`,
+      FROM events
+      WHERE status IN ('live','updated')
+      ORDER BY length(summary) DESC NULLS LAST`,
   );
 
   console.log(`${rows.length} event(s) to process — ${WRITE ? "WRITING" : "dry run"}\n`);
