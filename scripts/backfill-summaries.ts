@@ -8,6 +8,7 @@
  *
  *   npm run backfill:event-copy                     # preview
  *   npm run backfill:event-copy -- --write          # apply
+ *   npm run backfill:event-copy -- --missing-only    # only blank live copy
  */
 import { pool, query } from "../lib/db";
 import { normalizeDomain } from "../lib/domain";
@@ -21,6 +22,7 @@ import {
 import { summarizeEvent } from "../lib/summarize";
 
 const WRITE = process.argv.includes("--write");
+const MISSING_ONLY = process.argv.includes("--missing-only");
 
 async function main() {
   const { rows } = await query<{
@@ -36,10 +38,14 @@ async function main() {
             primary_source_url
       FROM events
       WHERE status IN ('live','updated')
+        AND ($1::boolean = false OR NULLIF(trim(summary), '') IS NULL)
       ORDER BY length(summary) DESC NULLS LAST`,
+    [MISSING_ONLY],
   );
 
-  console.log(`${rows.length} event(s) to process — ${WRITE ? "WRITING" : "dry run"}\n`);
+  console.log(
+    `${rows.length} event(s) to process${MISSING_ONLY ? " with missing descriptions" : ""} — ${WRITE ? "WRITING" : "dry run"}\n`,
+  );
 
   for (const ev of rows) {
     const before = ev.summary?.length ?? 0;
