@@ -19,8 +19,8 @@ import { extractModel } from "@/lib/extract";
 
 const MAX_SOURCE_CHARS = 6000;
 const MAX_SUPPORTING_CHARS = 6000;
-const MIN_WORDS = 90;
-const MAX_WORDS = 140;
+const MIN_WORDS = 60;
+const MAX_WORDS = 100;
 const MAX_OUTCOME_CHARS = 72;
 
 export interface EventIntro {
@@ -152,7 +152,7 @@ const TOOL: OpenAI.Responses.FunctionTool = {
     properties: {
       event_story: {
         type: ["string", "null"],
-        description: "90-140 word friendly event write-up in short Markdown paragraphs; null when evidence is insufficient",
+        description: "60-100 word friendly event summary in short Markdown paragraphs; null when evidence is insufficient",
       },
       what_you_get: {
         type: "array",
