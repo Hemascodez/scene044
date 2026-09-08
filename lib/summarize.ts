@@ -2,12 +2,12 @@ import OpenAI from "openai";
 import { extractModel } from "@/lib/extract";
 
 /**
- * Scene's Event Guide — turns verified event data into a short introduction.
+ * Scene's Event Friend — turns verified event data into a warm event story.
  *
  * Source descriptions are whatever the organizer wrote: currently averaging
  * ~950 characters and running to 4,600, full of markdown, emoji and waitlist
- * boilerplate. This rewrites them into a factual overview plus three concrete,
- * action-led outcomes.
+ * boilerplate. This rewrites them into a friendly, scannable story plus up to
+ * three concrete, action-led outcomes.
  *
  * The hard constraint is that it must stay HONEST. "Make it exciting, list the
  * perks" is precisely the instruction that makes a model invent speakers and
@@ -19,14 +19,15 @@ import { extractModel } from "@/lib/extract";
 
 const MAX_SOURCE_CHARS = 6000;
 const MAX_SUPPORTING_CHARS = 6000;
-const MIN_WORDS = 28;
-const MAX_WORDS = 55;
+const MIN_WORDS = 90;
+const MAX_WORDS = 140;
 const MAX_OUTCOME_CHARS = 72;
 
 export interface EventIntro {
   eventIntro: string | null;
   whyAttend: string[];
   registrationNote: string | null;
+  generationStatus: "generated" | "insufficient" | "error";
 }
 
 /** Phrases the brief rules out. Checked rather than merely requested. */
@@ -95,16 +96,25 @@ const ACTION_VERBS = [
 const ACTION_VERB_PATTERN = new RegExp(`^(?:${ACTION_VERBS.join("|")})\\b`, "i");
 
 const INSTRUCTIONS =
-  "You are Scene's event editor. Turn verified event information into concise, useful copy " +
-  "that helps someone decide whether to attend.\n\n" +
-  "VOICE. Use direct, specific, welcoming English. Clarity comes before personality. Do not " +
-  "open with a question, a lifestyle hook, a Chennai catchphrase or fake excitement. Do not " +
-  "use emojis; the interface provides the visual scan cues.\n\n" +
-  "STRUCTURE. event_story is one short paragraph of " + MIN_WORDS + "-" + MAX_WORDS + " words " +
-  "and two or three sentences. Start with what will happen at the event: the sessions, " +
-  "discussion, format or subject actually stated in the source. Then say who may find it " +
-  "useful and what concrete value the source supports. Name the host only when provided. " +
-  "Do not repeat the event title and do not include a list in event_story.\n\n" +
+  "You are Scene's Event Friend - the person in Chennai who always knows what interesting " +
+  "event is happening next and tells friends why it is worth showing up. Turn verified event " +
+  "information into an exciting, friendly event write-up for Scene.\n\n" +
+  "VOICE AND PERSONALITY. Write in clear, lively, welcoming English. Make it feel like it comes " +
+  "from someone who knows Chennai's event scene well. Use Chennai flavour lightly, not " +
+  "Tamil-heavy copy: at most one local phrase per event_story, and only when natural. Safe " +
+  "examples are \"scene\", \"semma\", and \"Namma Chennai\"; use \"Namma Chennai\" only when " +
+  "the supplied location confirms Chennai. Never use \"dei\", \"da\", \"machan\", \"machi\" or " +
+  "language that could feel exclusionary. Assume readers may be new to Chennai or from anywhere " +
+  "in India. Be playful and warm, but never confusing, overly casual, or full of inside jokes. " +
+  "Use 1-3 relevant emojis only when they improve scanning or add warmth. For cybersecurity, " +
+  "finance, or a formal conference, use a calmer but still friendly tone.\n\n" +
+  "EVENT STORY. Write " + MIN_WORDS + "-" + MAX_WORDS + " words of Markdown in short, easy-to-read " +
+  "paragraphs. Start with a playful, relevant hook based on the event topic. Then introduce the " +
+  "event in a human way: explain who would enjoy it, what will actually happen, what they may " +
+  "learn, try, discuss or take away, and why it may be worth their time. Name the host only when " +
+  "provided. End with a memorable, warm line. Mention registration closing only when a deadline " +
+  "is supplied. Do not repeat the event title. Do not add a \"Come for\" list inside event_story " +
+  "because what_you_get is rendered separately immediately below it.\n\n" +
   "what_you_get: return 0 to 3 distinct attendee outcomes, each at most " + MAX_OUTCOME_CHARS + " characters. " +
   "Derive them from explicit agenda items, activities, format details or outcomes in the supplied " +
   "event information. Return an empty array when the evidence does not support a concrete perk; " +
@@ -118,7 +128,7 @@ const INSTRUCTIONS =
   "SOURCE QUALITY. The description may be incomplete, promotional, or copied from an earlier " +
   "edition. Describe only the currently advertised event. If the evidence is merely an anecdote " +
   "about a previous attendee or edition and does not explain what will happen now, set event_story " +
-  "to null. A missing summary is better than confident-sounding filler.\n\n" +
+  "to null and what_you_get to an empty array. A missing summary is better than confident-sounding filler.\n\n" +
   "ACCURACY - CRITICAL. Use only information present in the supplied event data. Never " +
   "invent organisers, speakers, venues, ticket availability, workshops, food, networking, " +
   "deadlines or learning outcomes. Do NOT say \"hands-on\", \"live demo\", " +
@@ -142,7 +152,7 @@ const TOOL: OpenAI.Responses.FunctionTool = {
     properties: {
       event_story: {
         type: ["string", "null"],
-        description: "28-55 words about the current event in one factual paragraph; null when evidence is insufficient",
+        description: "90-140 word friendly event write-up in short Markdown paragraphs; null when evidence is insufficient",
       },
       what_you_get: {
         type: "array",
@@ -202,8 +212,7 @@ function introViolation(intro: string, title: string, source: string): string | 
   if (unearned) return unearned;
 
   const emoji = (intro.match(/\p{Extended_Pictographic}/gu) ?? []).length;
-  if (emoji > 0) return "uses emoji";
-  if (intro.includes("?")) return "opens or relies on a rhetorical question";
+  if (emoji > 3) return `uses ${emoji} emojis, at most 3 allowed`;
   // "Never repeat the event title" — compare on the distinctive part, since a
   // one-word overlap is unavoidable and not what the rule is about.
   const titleCore = title.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 4);
@@ -339,9 +348,14 @@ export async function summarizeEvent(input: {
       ? clean(parsed?.registration_note, 120)
       : null;
 
-    return { eventIntro: validIntro, whyAttend, registrationNote };
+    return {
+      eventIntro: validIntro,
+      whyAttend,
+      registrationNote,
+      generationStatus: validIntro || whyAttend.length > 0 ? "generated" : "insufficient",
+    };
   } catch (err) {
     console.warn(`summarize: failed for "${input.title.slice(0, 60)}"`, err);
-    return { eventIntro: null, whyAttend: [], registrationNote: null };
+    return { eventIntro: null, whyAttend: [], registrationNote: null, generationStatus: "error" };
   }
 }

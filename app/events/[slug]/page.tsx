@@ -8,9 +8,10 @@ import { formatSceneDateLong, formatSceneTime, relativeChecked } from "@/lib/cli
 import {
   audienceTagsFor,
   deriveSceneStatus,
-  eventShortIntro,
   eventSummaryBullets,
   posterFor,
+  toStoryParagraphs,
+  usableEventSummary,
 } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
 import {
@@ -93,7 +94,8 @@ export default async function EventPage({ params }: EventPageProps) {
   const poster = posterFor(event);
   const status = deriveSceneStatus(event);
   const audienceTags = audienceTagsFor(event);
-  const intro = eventShortIntro(event);
+  const storyParagraphs = toStoryParagraphs(usableEventSummary(event));
+  const hasStory = storyParagraphs.length > 0;
   const bullets = eventSummaryBullets(event);
   const heroByline = event.organizerName ?? (event.isOnline ? "Online event" : (event.venueName ?? event.city));
   const jsonLd = [eventBreadcrumbStructuredData(event), eventStructuredData(event)].filter(Boolean);
@@ -195,20 +197,30 @@ export default async function EventPage({ params }: EventPageProps) {
               <Notice flush>This event has ended. Browse the related field for upcoming events.</Notice>
             )}
 
-            {(intro || bullets.length > 0 || event.registrationNote) && (
+            {(hasStory || bullets.length > 0 || event.registrationNote) && (
               <section className={status === "confirmed" ? "" : "mt-7"} aria-label="Event guide">
-                {intro && (
+                {hasStory && (
                   <div>
                     <Mono className="text-[10px] text-primary-ink">About this event</Mono>
                     <h2 className="sr-only">About {event.title}</h2>
-                    <p className="mt-2 max-w-2xl text-base leading-relaxed text-foreground/75">{intro}</p>
+                    <div className="mt-2 max-w-2xl space-y-3 text-base leading-relaxed text-foreground/75">
+                      {storyParagraphs.map((paragraph, paragraphIndex) => (
+                        <p key={paragraphIndex}>
+                          {paragraph.map((segment, segmentIndex) => (
+                            segment.bold
+                              ? <strong key={segmentIndex} className="font-semibold text-foreground">{segment.text}</strong>
+                              : <span key={segmentIndex}>{segment.text}</span>
+                          ))}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                <EventGlance bullets={bullets} className={intro ? "mt-8" : ""} />
+                <EventGlance bullets={bullets} className={hasStory ? "mt-8" : ""} />
 
                 {event.registrationNote && (
-                  <p className={`${intro || bullets.length > 0 ? "mt-6" : ""} border-l-4 border-warn-ink bg-secondary px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn-ink`}>
+                  <p className={`${hasStory || bullets.length > 0 ? "mt-6" : ""} border-l-4 border-warn-ink bg-secondary px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn-ink`}>
                     Registration: {event.registrationNote}
                   </p>
                 )}

@@ -54,13 +54,19 @@ async function main() {
     console.log(`   ${before} -> ${after} chars (${words} words)`);
     console.log(`   ${out.eventIntro ?? "(none)"}`);
     console.log(`   why attend: ${out.whyAttend.length ? out.whyAttend.join(" · ") : "(none — description was vague)"}`);
-    console.log(`   registration: ${out.registrationNote ?? "(no deadline published)"}\n`);
+    console.log(`   registration: ${out.registrationNote ?? "(no deadline published)"}`);
+    console.log(`   generation: ${out.generationStatus}\n`);
 
-    if (WRITE) {
+    // A transient API/configuration error must never erase previously stored
+    // copy. "insufficient" is different: the model completed normally and
+    // explicitly found that the evidence did not support publishable copy.
+    if (WRITE && out.generationStatus !== "error") {
       await query(
         "UPDATE events SET summary = $1, highlights = $2, registration_note = $3, updated_at = now() WHERE id = $4",
         [out.eventIntro, out.whyAttend, out.registrationNote, ev.id],
       );
+    } else if (WRITE) {
+      console.log("   skipped write because generation failed\n");
     }
   }
 
