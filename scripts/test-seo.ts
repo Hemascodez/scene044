@@ -17,6 +17,7 @@ import {
   serializeJsonLd,
   truncateSeoText,
 } from "../lib/seo";
+import { eventTitleMatchScore, eventTitlesLikelyMatch } from "../lib/extract";
 
 let passed = 0;
 let failed = 0;
@@ -107,6 +108,19 @@ check(
 check("session labels become learning outcomes", actionizeEventHighlight("Sessions on AI and AI agents"), "Learn about AI and AI agents");
 check("panel labels become listening outcomes", actionizeEventHighlight("Panel on DevOps and cloud security"), "Hear perspectives on DevOps and cloud security");
 check("Q&A labels become participation outcomes", actionizeEventHighlight("Q&A with technical perspectives"), "Ask questions in the technical Q&A");
+check(
+  "listing title matcher finds the matching detail page",
+  eventTitlesLikelyMatch(
+    "She Builds Tech - Skillup Tamilnadu Session 9",
+    "She Builds Tech – Skillup Tamilnadu Session 9 | Azure Developer Community",
+  ),
+  true,
+);
+check(
+  "listing title matcher rejects a different event",
+  eventTitleMatchScore("She Builds Tech - Skillup Tamilnadu Session 9", "Chennai Founders Mixer") < 0.78,
+  true,
+);
 
 const shortened = truncateSeoText("word ".repeat(50), 40);
 check("SEO text respects maximum length", shortened.length <= 40, true);

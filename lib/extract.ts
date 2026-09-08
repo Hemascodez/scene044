@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import { safeFetchText } from "@/lib/safeFetch";
-import { normalizeUrl } from "@/lib/domain";
+import { normalizeDomain, normalizeUrl } from "@/lib/domain";
 import { findCheapEventDate, isPastEvent } from "@/lib/eventDates";
 import type { ExtractedEvent, PriceType } from "@/lib/types";
 
@@ -595,6 +595,131 @@ function findJsonLdEventLinks($: cheerio.CheerioAPI, pageUrl: string): EventLink
   return links;
 }
 
+const TITLE_MATCH_STOPWORDS = new Set([
+  "a", "an", "and", "at", "by", "event", "events", "for", "in", "of", "on", "the", "to", "with",
+]);
+
+function normalizedTitleWords(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((word) => word && !TITLE_MATCH_STOPWORDS.has(word));
+}
+
+/** Conservative title match used only to repair a listing URL into the
+ * corresponding event-detail URL. It intentionally favours shared distinctive
+ * words over platform boilerplate such as "event" and "Chennai". */
+export function eventTitleMatchScore(expected: string, candidate: string): number {
+  const expectedWords = normalizedTitleWords(expected);
+  const candidateWords = normalizedTitleWords(candidate);
+  if (expectedWords.length === 0 || candidateWords.length === 0) return 0;
+
+  const expectedText = expectedWords.join(" ");
+  const candidateText = candidateWords.join(" ");
+  if (expectedText === candidateText) return 1;
+  if (
+    expectedText.length >= 12
+    && (candidateText.includes(expectedText) || expectedText.includes(candidateText))
+  ) {
+    return 0.95;
+  }
+
+  const expectedSet = new Set(expectedWords);
+  const candidateSet = new Set(candidateWords);
+  let shared = 0;
+  for (const word of expectedSet) if (candidateSet.has(word)) shared++;
+  return (2 * shared) / (expectedSet.size + candidateSet.size);
+}
+
+export function eventTitlesLikelyMatch(expected: string, candidate: string): boolean {
+  return eventTitleMatchScore(expected, candidate) >= 0.78;
+}
+
+function uniqueEventLinks(links: EventLink[]): EventLink[] {
+  const byUrl = new Map<string, EventLink>();
+  for (const link of links) {
+    const existing = byUrl.get(link.url);
+    if (!existing || (!existing.title && link.title)) byUrl.set(link.url, link);
+  }
+  return [...byUrl.values()];
+}
+
+function findHtmlEventLinks(
+  $: cheerio.CheerioAPI,
+  pageUrl: string,
+  { meetupOnly = false }: { meetupOnly?: boolean } = {},
+): EventLink[] {
+  const links: EventLink[] = [];
+  const pageDomain = normalizeDomain(pageUrl);
+  const selfUrl = normalizeUrl(pageUrl);
+
+  for (const el of $("a[href]").toArray()) {
+    const href = $(el).attr("href");
+    if (!href) continue;
+
+    let url: string;
+    try {
+      url = normalizeUrl(new URL(href, pageUrl).toString());
+      if (url === selfUrl || normalizeDomain(url) !== pageDomain) continue;
+      if (meetupOnly && !/^\/[^/]+\/events\/\d+\/?$/i.test(new URL(url).pathname)) continue;
+    } catch {
+      continue;
+    }
+
+    const title = nullIfBlank([
+      $(el).attr("aria-label"),
+      $(el).attr("title"),
+      $(el).text().replace(/\s+/g, " "),
+    ].filter(Boolean).join(" "));
+    if (!title) continue;
+    links.push({ url, title, startAt: null });
+  }
+
+  return uniqueEventLinks(links);
+}
+
+function isKnownListingUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return normalizeDomain(url) === "meetup.com" && parsed.pathname.startsWith("/find/");
+  } catch {
+    return false;
+  }
+}
+
+/** Finds the specific detail page represented by `expectedTitle` when an old
+ * event record points to a platform listing/search page. JSON-LD is preferred;
+ * labelled anchors are a fallback for client-heavy platforms such as Meetup. */
+export async function findMatchingEventDetailUrl(
+  pageUrl: string,
+  allowedDomains: string[],
+  expectedTitle: string,
+): Promise<string | null> {
+  try {
+    const fetched = await safeFetchText(pageUrl, { allowedDomains });
+    if (!fetched.ok) return null;
+
+    const $ = cheerio.load(fetched.text);
+    const candidates = uniqueEventLinks([
+      ...findJsonLdEventLinks($, fetched.finalUrl),
+      ...findHtmlEventLinks($, fetched.finalUrl),
+    ]);
+
+    let best: { url: string; score: number } | null = null;
+    for (const candidate of candidates) {
+      if (!candidate.title) continue;
+      const score = eventTitleMatchScore(expectedTitle, candidate.title);
+      if (!best || score > best.score) best = { url: candidate.url, score };
+    }
+    return best && best.score >= 0.78 ? best.url : null;
+  } catch {
+    return null;
+  }
+}
+
 async function extractViaLlm(
   url: string,
   pageText: string,
@@ -740,6 +865,18 @@ export async function extractFromUrl(
     if (!fetched.ok) return { kind: "none" };
 
     const $ = cheerio.load(fetched.text);
+
+    // Meetup search pages can expose one child Event as a top-level JSON-LD
+    // node as well as listing many real detail links. Treating that arbitrary
+    // child as the page itself saved `/find/...` as an event source and later
+    // left descriptions unrecoverable. Known search/listing URLs win here.
+    if (isKnownListingUrl(fetched.finalUrl)) {
+      const listingLinks = uniqueEventLinks([
+        ...findJsonLdEventLinks($, fetched.finalUrl),
+        ...findHtmlEventLinks($, fetched.finalUrl, { meetupOnly: true }),
+      ]);
+      if (listingLinks.length > 0) return { kind: "event_list", links: listingLinks };
+    }
 
     /*
      * Order matters. A page that describes its OWN event wins, even when it

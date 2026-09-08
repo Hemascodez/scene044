@@ -118,6 +118,8 @@ const INSTRUCTIONS =
   "what_you_get: return 0 to 3 distinct attendee outcomes, each at most " + MAX_OUTCOME_CHARS + " characters. " +
   "Derive them from explicit agenda items, activities, format details or outcomes in the supplied " +
   "event information. Return an empty array when the evidence does not support a concrete perk; " +
+  "if event_story is null, what_you_get MUST also be an empty array because the description and " +
+  "attendee outcomes are one content unit. " +
   "never pad the list to reach three. Dates, venues and ticket prices are event facts, not perks. " +
   "Each returned outcome MUST begin with one of these action verbs: " + ACTION_VERBS.join(", ") + ". " +
   "Describe what the attendee can learn, hear, ask, see, try or discuss, not a vague topic " +
@@ -159,7 +161,8 @@ const TOOL: OpenAI.Responses.FunctionTool = {
         items: { type: "string" },
         minItems: 0,
         maxItems: 3,
-        description: "0-3 source-backed attendee outcomes, each action-led and <=72 characters",
+        description:
+          "0-3 source-backed attendee outcomes, each action-led and <=72 characters; must be empty when event_story is null",
       },
       registration_note: {
         type: ["string", "null"],
@@ -335,8 +338,10 @@ export async function summarizeEvent(input: {
     let outcomes = cleanOutcomes(parsed?.what_you_get);
 
     // Null/empty is a valid answer when the page lacks evidence. Retry only a
-    // concrete rule violation, then keep whichever independently valid pieces
-    // survive — the summary and perks do not depend on each other.
+    // concrete rule violation. The description and perks are validated
+    // separately during the retry so one weak field does not discard a strong
+    // description, but they are published atomically below: perks without the
+    // description that gives them context are a broken content state.
     const firstProblem = (intro ? introViolation(intro, input.title, source) : null)
       ?? outcomeViolation(outcomes, source);
     if (firstProblem) {
@@ -364,7 +369,7 @@ export async function summarizeEvent(input: {
       source,
       { allowTitleRepeat: true },
     ) ? intro : null;
-    const whyAttend = outcomeViolation(outcomes, source) ? [] : outcomes;
+    const whyAttend = validIntro && !outcomeViolation(outcomes, source) ? outcomes : [];
 
     // Belt and braces on the accuracy rule: with no deadline in our data there
     // is nothing for this to be derived from, so it must be null regardless of
@@ -377,7 +382,7 @@ export async function summarizeEvent(input: {
       eventIntro: validIntro,
       whyAttend,
       registrationNote,
-      generationStatus: validIntro || whyAttend.length > 0 ? "generated" : "insufficient",
+      generationStatus: validIntro ? "generated" : "insufficient",
     };
   } catch (err) {
     console.warn(`summarize: failed for "${input.title.slice(0, 60)}"`, err);
