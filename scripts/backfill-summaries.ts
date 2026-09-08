@@ -18,8 +18,12 @@ async function main() {
   const { rows } = await query<{
     id: number; title: string; summary: string | null; category: string;
     organizer_name: string | null; registration_deadline: string | null;
+    start_at: string | null; end_at: string | null; is_online: boolean;
+    venue_name: string | null; venue_address: string | null;
+    price_type: "free" | "paid" | null; price_note: string | null;
   }>(
-    `SELECT id, title, summary, category, organizer_name, registration_deadline
+    `SELECT id, title, summary, category, organizer_name, registration_deadline,
+            start_at, end_at, is_online, venue_name, venue_address, price_type, price_note
        FROM events
       WHERE status IN ('live','updated') AND summary IS NOT NULL
       ORDER BY length(summary) DESC`,
@@ -34,6 +38,13 @@ async function main() {
       rawSummary: ev.summary,
       category: ev.category,
       organizerName: ev.organizer_name,
+      startAt: ev.start_at,
+      endAt: ev.end_at,
+      isOnline: ev.is_online,
+      venueName: ev.venue_name,
+      venueAddress: ev.venue_address,
+      priceType: ev.price_type,
+      priceNote: ev.price_note,
       registrationDeadline: ev.registration_deadline,
     });
     const after = out.eventIntro?.length ?? 0;

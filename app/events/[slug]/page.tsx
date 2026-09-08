@@ -195,25 +195,25 @@ export default async function EventPage({ params }: EventPageProps) {
               <Notice flush>This event has ended. Browse the related field for upcoming events.</Notice>
             )}
 
-            <section className={status === "confirmed" ? "" : "mt-7"} aria-labelledby="about-event">
-              <Mono className="text-[10px] text-primary-ink">About this event</Mono>
-              <h2 id="about-event" className="sr-only">About {event.title}</h2>
-              {intro ? (
-                <p className="mt-2 max-w-2xl text-base leading-relaxed text-foreground/75">{intro}</p>
-              ) : (
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  The organizer has not published a detailed overview yet. Check the original source before making plans.
-                </p>
-              )}
+            {(intro || bullets.length > 0 || event.registrationNote) && (
+              <section className={status === "confirmed" ? "" : "mt-7"} aria-label="Event guide">
+                {intro && (
+                  <div>
+                    <Mono className="text-[10px] text-primary-ink">About this event</Mono>
+                    <h2 className="sr-only">About {event.title}</h2>
+                    <p className="mt-2 max-w-2xl text-base leading-relaxed text-foreground/75">{intro}</p>
+                  </div>
+                )}
 
-              <EventGlance bullets={bullets} className="mt-8" />
+                <EventGlance bullets={bullets} className={intro ? "mt-8" : ""} />
 
-              {event.registrationNote && (
-                <p className="mt-6 border-l-4 border-warn-ink bg-secondary px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn-ink">
-                  Registration: {event.registrationNote}
-                </p>
-              )}
-            </section>
+                {event.registrationNote && (
+                  <p className={`${intro || bullets.length > 0 ? "mt-6" : ""} border-l-4 border-warn-ink bg-secondary px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn-ink`}>
+                    Registration: {event.registrationNote}
+                  </p>
+                )}
+              </section>
+            )}
           </div>
 
           <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">

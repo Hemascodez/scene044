@@ -1,6 +1,6 @@
 import type { PublicEvent, PublicEventDetail } from "@/lib/events";
 import { formatSceneDate, formatSceneTime } from "@/lib/client/istTime";
-import { posterFor, toPlainSummary } from "@/lib/client/sceneEvent";
+import { posterFor, usableEventSummary } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
 
 export const SITE_NAME = "SCENE/044";
@@ -50,7 +50,7 @@ export function truncateSeoText(value: string, maxLength = 160): string {
 }
 
 export function eventSeoDescription(event: PublicEvent): string {
-  const summary = toPlainSummary(event.summary);
+  const summary = usableEventSummary(event);
   if (summary) return truncateSeoText(summary);
 
   const when = event.startAt

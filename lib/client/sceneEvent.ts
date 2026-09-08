@@ -64,7 +64,7 @@ export interface EventAudienceTag {
  * in the title, summary or source-grounded highlights. Category alone is not
  * enough to claim an event is suitable for a particular person. */
 export function audienceTagsFor(event: PublicEvent): EventAudienceTag[] {
-  const text = [event.title, toPlainSummary(event.summary), ...event.highlights]
+  const text = [event.title, usableEventSummary(event), ...event.highlights]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -101,10 +101,38 @@ function summarySentences(summary: string | null): string[] {
     .filter(Boolean);
 }
 
+function editionNumbers(value: string): number[] {
+  return [...value.matchAll(/(?:#|\bedition\s+)(\d{1,3})\b/gi)].map((match) => Number(match[1]));
+}
+
+/**
+ * Reject copy that clearly belongs to a different numbered edition.
+ *
+ * Some recurring-event pages expose the previous edition's anecdote as their
+ * JSON-LD description. Showing "#11" on a "#12" page is worse than omitting
+ * the description: it looks polished but describes the wrong event.
+ */
+export function usableEventSummary(event: Pick<PublicEvent, "title" | "summary">): string | null {
+  const summary = toPlainSummary(event.summary);
+  if (!summary) return null;
+
+  const titleEditions = editionNumbers(event.title);
+  const summaryEditions = editionNumbers(summary);
+  if (
+    titleEditions.length > 0
+    && summaryEditions.length > 0
+    && summaryEditions.some((edition) => !titleEditions.includes(edition))
+  ) {
+    return null;
+  }
+
+  return summary;
+}
+
 /** One concise, plain-text overview sentence. A rhetorical legacy hook is
  * skipped so the useful sentence does the work instead. */
 export function eventShortIntro(event: PublicEvent): string | null {
-  const sentences = summarySentences(event.summary);
+  const sentences = summarySentences(usableEventSummary(event));
   if (sentences.length === 0) return null;
   const useful = sentences[0].endsWith("?") && sentences.length > 1 ? sentences[1] : sentences[0];
   return shortPlainText(useful, 220);

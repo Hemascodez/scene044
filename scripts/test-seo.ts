@@ -5,6 +5,7 @@ import {
   audienceTagsFor,
   eventShortIntro,
   eventSummaryBullets,
+  usableEventSummary,
 } from "../lib/client/sceneEvent";
 import {
   absoluteUrl,
@@ -86,6 +87,22 @@ check(
   "rhetorical legacy hooks are skipped in the short overview",
   eventShortIntro({ ...event, summary: "Building AI systems and looking for sharper conversations? Hear practitioners discuss applied AI and cloud security." }),
   "Hear practitioners discuss applied AI and cloud security.",
+);
+check(
+  "copy from a previous numbered edition is hidden",
+  usableEventSummary({
+    title: "Build & Blend #12: Doing Things AI",
+    summary: "At Build & Blend #11, an attendee brought a problem from home.",
+  }),
+  null,
+);
+check(
+  "copy for the current numbered edition remains visible",
+  usableEventSummary({
+    title: "Build & Blend #12: Doing Things AI",
+    summary: "Build & Blend #12 is an open-laptop session for people working on AI projects.",
+  }),
+  "Build & Blend #12 is an open-laptop session for people working on AI projects.",
 );
 check("session labels become learning outcomes", actionizeEventHighlight("Sessions on AI and AI agents"), "Learn about AI and AI agents");
 check("panel labels become listening outcomes", actionizeEventHighlight("Panel on DevOps and cloud security"), "Hear perspectives on DevOps and cloud security");

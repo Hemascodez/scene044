@@ -18,8 +18,9 @@ import { extractModel } from "@/lib/extract";
  */
 
 const MAX_SOURCE_CHARS = 6000;
-const MIN_WORDS = 35;
-const MAX_WORDS = 65;
+const MAX_SUPPORTING_CHARS = 6000;
+const MIN_WORDS = 28;
+const MAX_WORDS = 55;
 const MAX_OUTCOME_CHARS = 72;
 
 export interface EventIntro {
@@ -104,17 +105,24 @@ const INSTRUCTIONS =
   "discussion, format or subject actually stated in the source. Then say who may find it " +
   "useful and what concrete value the source supports. Name the host only when provided. " +
   "Do not repeat the event title and do not include a list in event_story.\n\n" +
-  "what_you_get: exactly 3 distinct outcomes, each at most " + MAX_OUTCOME_CHARS + " characters. " +
-  "Each outcome MUST begin with one of these action verbs: " + ACTION_VERBS.join(", ") + ". " +
+  "what_you_get: return 0 to 3 distinct attendee outcomes, each at most " + MAX_OUTCOME_CHARS + " characters. " +
+  "Derive them from explicit agenda items, activities, format details or outcomes in the supplied " +
+  "event information. Return an empty array when the evidence does not support a concrete perk; " +
+  "never pad the list to reach three. Dates, venues and ticket prices are event facts, not perks. " +
+  "Each returned outcome MUST begin with one of these action verbs: " + ACTION_VERBS.join(", ") + ". " +
   "Describe what the attendee can learn, hear, ask, see, try or discuss, not a vague topic " +
   "label. For example, change \"Sessions on AI agents\" to \"Learn how AI agents are used\"; " +
   "change \"Panel on cloud security\" to \"Hear perspectives on cloud security\"; change " +
   "\"Technical Q&A\" to \"Ask technical questions during the Q&A\". Examples show style " +
   "only: use a detail only when it appears in the supplied event data.\n\n" +
+  "SOURCE QUALITY. The description may be incomplete, promotional, or copied from an earlier " +
+  "edition. Describe only the currently advertised event. If the evidence is merely an anecdote " +
+  "about a previous attendee or edition and does not explain what will happen now, set event_story " +
+  "to null. A missing summary is better than confident-sounding filler.\n\n" +
   "ACCURACY - CRITICAL. Use only information present in the supplied event data. Never " +
   "invent organisers, speakers, venues, ticket availability, workshops, food, networking, " +
   "deadlines or learning outcomes. Do NOT say \"hands-on\", \"live demo\", " +
-  "\"beginner-friendly\", \"free\" or \"limited seats\" unless the description explicitly says " +
+  "\"beginner-friendly\", \"free\" or \"limited seats\" unless the supplied event information explicitly says " +
   "so. If a detail is missing, leave it out naturally rather than hedging about it. Do not " +
   "call an event \"the best\", \"unmissable\" or \"life-changing\". Do not repeat the event " +
   "title. Avoid corporate filler: \"Join us for\", \"A community gathering\", \"Delve into\", " +
@@ -128,18 +136,20 @@ const TOOL: OpenAI.Responses.FunctionTool = {
   type: "function",
   name: "write_story",
   description: "Write a Scene Event Friend write-up for an event listing.",
-  strict: false,
+  strict: true,
   parameters: {
     type: "object",
     properties: {
       event_story: {
         type: ["string", "null"],
-        description: "35-65 words in one factual paragraph; no hook, list or emoji",
+        description: "28-55 words about the current event in one factual paragraph; null when evidence is insufficient",
       },
       what_you_get: {
         type: "array",
         items: { type: "string" },
-        description: "Exactly 3 source-backed outcomes, each action-led and <=72 characters",
+        minItems: 0,
+        maxItems: 3,
+        description: "0-3 source-backed attendee outcomes, each action-led and <=72 characters",
       },
       registration_note: {
         type: ["string", "null"],
@@ -204,7 +214,8 @@ function introViolation(intro: string, title: string, source: string): string | 
 }
 
 function outcomeViolation(outcomes: string[], source: string): string | null {
-  if (outcomes.length !== 3) return `returns ${outcomes.length} outcomes instead of exactly 3`;
+  if (outcomes.length > 3) return `returns ${outcomes.length} outcomes instead of at most 3`;
+  const seen = new Set<string>();
   for (const outcome of outcomes) {
     if (outcome.length > MAX_OUTCOME_CHARS) {
       return `outcome exceeds ${MAX_OUTCOME_CHARS} characters: "${outcome.slice(0, 50)}"`;
@@ -212,6 +223,9 @@ function outcomeViolation(outcomes: string[], source: string): string | null {
     if (!ACTION_VERB_PATTERN.test(outcome)) {
       return `outcome does not start with an action verb: "${outcome.slice(0, 50)}"`;
     }
+    const normalized = outcome.toLowerCase();
+    if (seen.has(normalized)) return `returns a duplicate outcome: "${outcome.slice(0, 50)}"`;
+    seen.add(normalized);
   }
   const unearned = earnedClaimViolation(outcomes.join(" "), source);
   return unearned;
@@ -222,36 +236,54 @@ function cleanOutcomes(value: unknown): string[] {
   return value
     .map((item) => clean(item, 240))
     .filter((item): item is string => !!item && item.length > 2)
-    .slice(0, 4);
+    .slice(0, 3);
 }
 
 /**
- * Returns the original summary untouched on failure — a long description beats
- * no description.
+ * Returns no editorial copy on failure. Publishing raw scraped copy as though
+ * the editor wrote it makes incomplete anecdotes and previous-edition blurbs
+ * look authoritative; absence is the more honest fallback.
  */
 export async function summarizeEvent(input: {
   title: string;
   rawSummary: string | null;
   category?: string | null;
   organizerName?: string | null;
+  startAt?: string | null;
+  endAt?: string | null;
+  isOnline?: boolean;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  priceType?: "free" | "paid" | null;
+  priceNote?: string | null;
   registrationDeadline?: string | null;
+  supportingText?: string | null;
   model?: string;
 }): Promise<EventIntro> {
-  const source = input.rawSummary?.trim();
-  if (!source) return { eventIntro: null, whyAttend: [], registrationNote: null };
+  const sourceDescription = input.rawSummary?.trim() ?? "";
+  const supportingText = input.supportingText?.trim() ?? "";
 
-  // Only facts we actually hold are offered to the model. An absent organiser
-  // or deadline is simply not mentioned, so it cannot be invented from a
-  // placeholder like "unknown".
+  // Only facts we actually hold are offered to the model. Empty fields are
+  // omitted so the model cannot turn placeholders such as "unknown" into copy.
   const facts = [
     `Title: ${input.title}`,
     input.category ? `Category: ${input.category}` : null,
     input.organizerName ? `Host: ${input.organizerName}` : null,
+    input.startAt ? `Starts: ${input.startAt}` : null,
+    input.endAt ? `Ends: ${input.endAt}` : null,
+    typeof input.isOnline === "boolean" ? `Format: ${input.isOnline ? "Online" : "In person"}` : null,
+    input.venueName ? `Venue: ${input.venueName}` : null,
+    input.venueAddress ? `Venue address: ${input.venueAddress}` : null,
+    input.priceType === "free" ? "Price: Free" : null,
+    input.priceType === "paid" ? `Price: ${input.priceNote ?? "Paid; amount not supplied"}` : null,
     input.registrationDeadline ? `Registration deadline: ${input.registrationDeadline}` : null,
-    `Description:\n${source.slice(0, MAX_SOURCE_CHARS)}`,
+    sourceDescription ? `Organizer description:\n${sourceDescription.slice(0, MAX_SOURCE_CHARS)}` : null,
+    supportingText ? `Supporting page text:\n${supportingText.slice(0, MAX_SUPPORTING_CHARS)}` : null,
   ]
     .filter(Boolean)
     .join("\n");
+
+  const source = facts;
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -282,24 +314,22 @@ export async function summarizeEvent(input: {
     let intro = clean(parsed?.event_story, 1200);
     let outcomes = cleanOutcomes(parsed?.what_you_get);
 
-    // One retry when a checkable rule was broken. Invalid pieces are discarded
-    // after that rather than publishing a vague or unsupported promise.
-    const firstProblem = intro
-      ? (introViolation(intro, input.title, source) ?? outcomeViolation(outcomes, source))
-      : "event_story is missing";
+    // Null/empty is a valid answer when the page lacks evidence. Retry only a
+    // concrete rule violation, then keep whichever independently valid pieces
+    // survive — the summary and perks do not depend on each other.
+    const firstProblem = (intro ? introViolation(intro, input.title, source) : null)
+      ?? outcomeViolation(outcomes, source);
     if (firstProblem) {
       console.warn(`summarize: retrying "${input.title.slice(0, 50)}" — ${firstProblem}`);
       const retry = await attempt(firstProblem);
       const retriedIntro = clean(retry?.event_story, 1200);
       const retriedOutcomes = cleanOutcomes(retry?.what_you_get);
-      if (retriedIntro) {
-        parsed = retry;
-        intro = retriedIntro;
-        outcomes = retriedOutcomes;
-      }
+      if (retriedIntro && !introViolation(retriedIntro, input.title, source)) intro = retriedIntro;
+      if (!outcomeViolation(retriedOutcomes, source)) outcomes = retriedOutcomes;
+      if (retry) parsed = retry;
     }
 
-    const validIntro = intro && !introViolation(intro, input.title, source) ? intro : input.rawSummary;
+    const validIntro = intro && !introViolation(intro, input.title, source) ? intro : null;
     const whyAttend = outcomeViolation(outcomes, source) ? [] : outcomes;
 
     // Belt and braces on the accuracy rule: with no deadline in our data there
@@ -312,6 +342,6 @@ export async function summarizeEvent(input: {
     return { eventIntro: validIntro, whyAttend, registrationNote };
   } catch (err) {
     console.warn(`summarize: failed for "${input.title.slice(0, 60)}"`, err);
-    return { eventIntro: input.rawSummary, whyAttend: [], registrationNote: null };
+    return { eventIntro: null, whyAttend: [], registrationNote: null };
   }
 }

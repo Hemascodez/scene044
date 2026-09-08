@@ -390,6 +390,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
       }
 
       const extractedEvent = outcome.kind === "event" ? outcome.event : null;
+      const supportingText = outcome.kind === "event" ? outcome.supportingText : null;
 
       if (!extractedEvent) {
         await markDiscoveryItem(item.id, "rejected", "extraction_failed", null, null);
@@ -490,7 +491,15 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         rawSummary: extractedEvent.summary,
         category: cat.category,
         organizerName: extractedEvent.organizerName,
+        startAt: extractedEvent.startAt,
+        endAt: extractedEvent.endAt,
+        isOnline: extractedEvent.isOnline,
+        venueName: extractedEvent.venueName,
+        venueAddress: extractedEvent.venueAddress,
+        priceType: extractedEvent.priceType,
+        priceNote: extractedEvent.priceNote,
         registrationDeadline: extractedEvent.registrationDeadline ?? null,
+        supportingText,
       });
 
       // Re-host the poster rather than hotlinking: source URLs rot, and

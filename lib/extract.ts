@@ -452,6 +452,20 @@ function pickPosterUrl(
   return null;
 }
 
+/** Visible page copy can contain agenda and format details omitted from a
+ * platform's terse JSON-LD description. Keep it as supporting evidence for
+ * the editorial pass; the extractor's structured fields remain authoritative. */
+function extractVisiblePageText($: cheerio.CheerioAPI): string | null {
+  const body = $("body").clone();
+  body.find("script, style, noscript").remove();
+  const text = body
+    .text()
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, PAGE_TEXT_MAX_CHARS);
+  return text || null;
+}
+
 function findJsonLdEvent($: cheerio.CheerioAPI): ExtractedEvent | null {
   const scripts = $('script[type="application/ld+json"]').toArray();
 
@@ -708,7 +722,7 @@ export function extractModel(): string {
  * threw away the majority of what discovery finds.
  */
 export type ExtractionOutcome =
-  | { kind: "event"; event: ExtractedEvent }
+  | { kind: "event"; event: ExtractedEvent; supportingText: string | null }
   | { kind: "event_list"; links: EventLink[] }
   /** The page states a date and it has already passed. Returned WITHOUT
    *  calling the model — there is nothing to learn from extracting an event
@@ -736,7 +750,7 @@ export async function extractFromUrl(
     const jsonLdEvent = findJsonLdEvent($);
     if (jsonLdEvent) {
       jsonLdEvent.posterImageUrl = pickPosterUrl($, fetched.finalUrl, jsonLdEvent.posterImageUrl);
-      return { kind: "event", event: jsonLdEvent };
+      return { kind: "event", event: jsonLdEvent, supportingText: extractVisiblePageText($) };
     }
 
     const links = findJsonLdEventLinks($, fetched.finalUrl);
@@ -761,19 +775,14 @@ export async function extractFromUrl(
       return { kind: "past_event", startAt: cheap.startAt, endAt: cheap.endAt, dateSource: cheap.source };
     }
 
-    $("script, style").remove();
-    const pageText = $("body")
-      .text()
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, PAGE_TEXT_MAX_CHARS);
+    const pageText = extractVisiblePageText($) ?? "";
 
     const viaLlm = await extractViaLlm(fetched.finalUrl, pageText, model);
     if (!viaLlm) return { kind: "none" };
     // The LLM never sees <head>, so the social tags are the only poster source
     // on this path.
     viaLlm.posterImageUrl = pickPosterUrl($, fetched.finalUrl, viaLlm.posterImageUrl);
-    return { kind: "event", event: viaLlm };
+    return { kind: "event", event: viaLlm, supportingText: pageText || null };
   } catch {
     return { kind: "none" };
   }
