@@ -9,7 +9,6 @@ import { SceneHeader } from "@/components/scene/SceneHeader";
 import { FieldsGrid, SceneFooter, SceneHero, SectionHead } from "@/components/scene/SceneHero";
 import { TabbedFeed } from "@/components/scene/TabbedFeed";
 import { EventCard } from "@/components/scene/EventCard";
-import { EventDetail } from "@/components/scene/EventDetail";
 import { ReturnPrompt } from "@/components/scene/ReturnPrompt";
 import { Btn, Mono } from "@/components/scene/ui";
 
@@ -85,7 +84,6 @@ export function SceneApp({
                   events={upcoming}
                   has={interactions.isSaved}
                   onToggleSave={interactions.toggleSaved}
-                  onOpen={interactions.setOpenId}
                   lastViewedId={interactions.lastViewedId}
                 />
               )}
@@ -107,7 +105,6 @@ export function SceneApp({
                       saved={interactions.isSaved(event.id)}
                       lastViewed={event.id === interactions.lastViewedId}
                       onToggleSave={() => interactions.toggleSaved(event.id)}
-                      onOpen={() => interactions.setOpenId(event.id)}
                     />
                   ))}
                 </div>
@@ -120,24 +117,12 @@ export function SceneApp({
           events={savedEvents}
           isSaved={interactions.isSaved}
           onToggleSave={interactions.toggleSaved}
-          onOpen={interactions.setOpenId}
           onDiscover={() => setView("discover")}
           lastViewedId={interactions.lastViewedId}
         />
       )}
 
       <SceneFooter />
-
-      {interactions.openEvent && (
-        <EventDetail
-          event={interactions.openEvent}
-          saved={interactions.isSaved(interactions.openEvent.id)}
-          onToggleSave={() => interactions.toggleSaved(interactions.openEvent!.id)}
-          onClose={() => interactions.setOpenId(null)}
-          onVisit={interactions.handleVisit}
-        />
-      )}
-
 
       {interactions.returnEvent && (
         <ReturnPrompt
@@ -155,14 +140,12 @@ function SavedView({
   events,
   isSaved,
   onToggleSave,
-  onOpen,
   onDiscover,
   lastViewedId,
 }: {
   events: PublicEvent[];
   isSaved: (id: number) => boolean;
   onToggleSave: (id: number) => void;
-  onOpen: (id: number) => void;
   onDiscover: () => void;
   lastViewedId: number | null;
 }) {
@@ -209,7 +192,6 @@ function SavedView({
               saved={isSaved(event.id)}
               lastViewed={event.id === lastViewedId}
               onToggleSave={() => onToggleSave(event.id)}
-              onOpen={() => onOpen(event.id)}
             />
           ))}
         </div>

@@ -6,7 +6,6 @@ import type { PublicEvent } from "@/lib/events";
 import { bySoonest, isHiddenFromFeed } from "@/lib/client/sceneEvent";
 import { useEventInteractions } from "@/lib/client/useEventInteractions";
 import { EventCard } from "@/components/scene/EventCard";
-import { EventDetail } from "@/components/scene/EventDetail";
 import { ReturnPrompt } from "@/components/scene/ReturnPrompt";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 
@@ -57,20 +56,9 @@ export function CategoryFeed({
               saved={interactions.isSaved(event.id)}
               lastViewed={event.id === interactions.lastViewedId}
               onToggleSave={() => interactions.toggleSaved(event.id)}
-              onOpen={() => interactions.setOpenId(event.id)}
             />
           ))}
         </div>
-      )}
-
-      {interactions.openEvent && (
-        <EventDetail
-          event={interactions.openEvent}
-          saved={interactions.isSaved(interactions.openEvent.id)}
-          onToggleSave={() => interactions.toggleSaved(interactions.openEvent!.id)}
-          onClose={() => interactions.setOpenId(null)}
-          onVisit={interactions.handleVisit}
-        />
       )}
 
       {interactions.returnEvent && (

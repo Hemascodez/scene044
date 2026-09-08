@@ -6,36 +6,15 @@ import { useSavedEvents } from "@/lib/client/useSavedEvents";
 import {
   consumePendingViewedEvent,
   lastViewedStore,
-  recordViewedEvent,
 } from "@/lib/client/lastViewedEvent";
-import {
-  closeModal,
-  getModalEventId,
-  getServerModalEventId,
-  openModal,
-  subscribeModalHistory,
-} from "@/lib/client/modalHistory";
 
 /**
- * Shared behaviour for any surface that lists events: the shortlist, which
- * detail modal is open, and the "did you register?" prompt after an outbound
- * click. Extracted so the home feed and the per-field pages can't drift apart.
+ * Shared behaviour for any surface that lists events: the shortlist and the
+ * "did you register?" prompt after an outbound click. Event cards navigate to
+ * permanent detail pages, so the home and category feeds share one route model.
  */
 export function useEventInteractions(events: PublicEvent[]) {
   const { ids, toggle, has } = useSavedEvents();
-  /* Open modal lives in history, not component state — see modalHistory.ts.
-     Read here rather than assigned from an effect, so there is no cascading
-     render and the server snapshot keeps hydration clean. */
-  const openId = useSyncExternalStore(
-    subscribeModalHistory,
-    getModalEventId,
-    getServerModalEventId,
-  );
-  const setOpenId = useCallback((id: number | null) => {
-    if (id === null) closeModal();
-    else openModal(id);
-  }, []);
-
   const [returnPromptId, setReturnPromptId] = useState<number | null>(null);
 
   // Read through the external store rather than an effect + setState: that
@@ -71,10 +50,6 @@ export function useEventInteractions(events: PublicEvent[]) {
     };
   }, []);
 
-  const handleVisit = useCallback((event: PublicEvent) => {
-    recordViewedEvent(event.id);
-  }, []);
-
   const byId = useCallback(
     (id: number | null) => (id === null ? null : events.find((e) => e.id === id) ?? null),
     [events],
@@ -84,11 +59,7 @@ export function useEventInteractions(events: PublicEvent[]) {
     savedIds: ids,
     toggleSaved: toggle,
     isSaved: has,
-    openId,
-    setOpenId,
-    openEvent: byId(openId),
     lastViewedId,
-    handleVisit,
     returnEvent: byId(returnPromptId),
     dismissReturnPrompt: useCallback(() => setReturnPromptId(null), []),
   };

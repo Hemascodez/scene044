@@ -45,13 +45,11 @@ export function TabbedFeed({
   events,
   has,
   onToggleSave,
-  onOpen,
   lastViewedId,
 }: {
   events: PublicEvent[];
   has: (id: number) => boolean;
   onToggleSave: (id: number) => void;
-  onOpen: (id: number) => void;
   lastViewedId: number | null;
 }) {
   const [active, setActive] = useState(0);
@@ -206,7 +204,6 @@ export function TabbedFeed({
                     saved={has(event.id)}
                     lastViewed={event.id === lastViewedId}
                     onToggleSave={() => onToggleSave(event.id)}
-                    onOpen={() => onOpen(event.id)}
                   />
                 ))}
               </div>

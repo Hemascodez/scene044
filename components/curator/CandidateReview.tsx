@@ -584,7 +584,7 @@ export function CandidateReview({
             <div className="flex flex-col gap-3">
               <AdminLabel>Public card preview — the real component</AdminLabel>
               <div className="bg-[#f4f2ea] p-5 text-[#14130d]">
-                <EventCard event={preview} saved={false} onToggleSave={() => {}} onOpen={() => {}} />
+                <EventCard event={preview} saved={false} onToggleSave={() => {}} />
               </div>
             </div>
 
