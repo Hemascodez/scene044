@@ -99,6 +99,12 @@ export function formatSceneDate(iso: string): string {
   return `${WEEKDAY_LABELS[p.weekday]}, ${p.day} ${MONTH_LABELS[p.month - 1]}`;
 }
 
+/** Complete date for standalone event pages and other search-facing detail. */
+export function formatSceneDateLong(iso: string): string {
+  const p = getISTParts(new Date(iso));
+  return `${WEEKDAY_LABELS[p.weekday]}, ${p.day} ${MONTH_LABELS[p.month - 1]} ${p.year}`;
+}
+
 /** "5:00 pm" — the stub's headline time. */
 export function formatSceneTime(iso: string): string {
   const p = getISTParts(new Date(iso));

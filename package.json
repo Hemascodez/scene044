@@ -13,6 +13,7 @@
     "pipeline": "tsx scripts/run-pipeline.ts",
     "migrate": "tsx scripts/migrate.ts",
     "whatsapp-digest": "node --import tsx scripts/send-whatsapp-digest.ts",
+    "test:seo": "node --import tsx scripts/test-seo.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts"
   },
   "dependencies": {

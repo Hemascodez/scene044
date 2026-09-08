@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import type { PublicEvent } from "@/lib/events";
+import { eventPath } from "@/lib/seo";
 import { countdown, formatSceneDate, formatSceneTime, relativeChecked } from "@/lib/client/istTime";
 import { deriveSceneStatus, isNewlyDiscovered, posterFor } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
-import { Btn, FreshnessDot, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
+import { FreshnessDot, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
 
 export function EventCard({
   event,
@@ -34,6 +35,16 @@ export function EventCard({
   const [pressed, setPressed] = useState(false);
   const showImage = !posterFailed;
   const fieldLabel = getFieldCardForCategory(event.category)?.label ?? event.category;
+  const href = eventPath(event);
+
+  function openInModal(e: React.MouseEvent<HTMLAnchorElement>) {
+    // Keep normal browser behaviour for new-tab, copy-link and modified clicks.
+    // A plain click retains the existing fast modal experience, while the real
+    // href gives crawlers and no-JavaScript visitors a permanent event page.
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onOpen();
+  }
 
   return (
     <article
@@ -56,9 +67,9 @@ export function EventCard({
 
       <div className="flex flex-col border-2 border-foreground bg-card shadow-[4px_4px_0_0] shadow-foreground transition-transform duration-200 group-hover:-translate-y-0.5 group-has-[:active]:-translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-has-[:active]:translate-y-0 sm:min-h-[188px] sm:flex-row">
         {/* STUB — poster on top when stacked, on the left when wide */}
-        <button
-          type="button"
-          onClick={onOpen}
+        <a
+          href={href}
+          onClick={openInModal}
           aria-label={`View details for ${event.title}`}
           className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-muted text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:aspect-auto sm:w-[136px]"
         >
@@ -129,7 +140,7 @@ export function EventCard({
               )}
             </span>
           )}
-        </button>
+        </a>
 
         {/* PERFORATION — horizontal when stacked, vertical when wide */}
         <div className="relative h-0 border-t-2 border-dashed border-foreground sm:h-auto sm:w-0 sm:border-l-2 sm:border-t-0">
@@ -149,15 +160,15 @@ export function EventCard({
             <StatusBadge status={status} />
           </div>
 
-          <button
-            type="button"
-            onClick={onOpen}
+          <a
+            href={href}
+            onClick={openInModal}
             className="min-w-0 text-left focus-visible:underline focus-visible:outline-none"
           >
             <h3 className="line-clamp-2 font-display text-base font-bold leading-tight tracking-tight break-words transition-colors group-hover:text-primary-ink group-has-[:active]:text-primary-ink">
               {event.title}
             </h3>
-          </button>
+          </a>
 
           <div className="flex min-w-0 flex-col gap-1 text-xs">
             <span className="flex min-w-0 items-center gap-1.5">
@@ -216,9 +227,13 @@ export function EventCard({
           </div>
 
           <div className="mt-auto flex min-w-0 items-center gap-2 border-t-2 border-dashed border-foreground/25 pt-2.5">
-            <Btn variant="solid" onClick={onOpen} className="!px-3 !py-2 !text-[10px]">
+            <a
+              href={href}
+              onClick={openInModal}
+              className="inline-flex items-center justify-center gap-2 border-2 border-foreground bg-foreground px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-background transition-all duration-150 hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0.5"
+            >
               View event →
-            </Btn>
+            </a>
             <span className="flex-1 truncate font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
               {event.lastVerifiedAt ? `Checked ${relativeChecked(event.lastVerifiedAt)}` : "Not re-checked yet"}
             </span>

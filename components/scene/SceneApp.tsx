@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { PublicEvent } from "@/lib/events";
 import { FIELD_CARDS } from "@/lib/fieldCards";
 import { bySoonest, deriveSceneStatus, isHiddenFromFeed, isNewlyDiscovered } from "@/lib/client/sceneEvent";
@@ -15,17 +15,14 @@ import { Btn, Mono } from "@/components/scene/ui";
 
 export function SceneApp({
   events,
-  deepLinkEventId,
   fetchFailed = false,
 }: {
   events: PublicEvent[];
-  deepLinkEventId: number | null;
   fetchFailed?: boolean;
 }) {
   const [view, setView] = useState<"discover" | "saved">("discover");
   const feedRef = useRef<HTMLElement>(null);
   const interactions = useEventInteractions(events);
-  const hasOpenedDeepLink = useRef(false);
 
   const upcoming = useMemo(() => events.filter((e) => !isHiddenFromFeed(e)).sort(bySoonest), [events]);
   // Wrapped, not passed by reference: `.filter` would hand the array index in
@@ -48,14 +45,6 @@ export function SceneApp({
       ]),
     );
   }, [upcoming]);
-
-  // Open the shared event's detail once the data is on screen.
-  useEffect(() => {
-    if (hasOpenedDeepLink.current || deepLinkEventId === null) return;
-    if (!events.some((e) => e.id === deepLinkEventId)) return;
-    hasOpenedDeepLink.current = true;
-    interactions.setOpenId(deepLinkEventId);
-  }, [deepLinkEventId, events, interactions]);
 
   function scrollToFeed() {
     feedRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });

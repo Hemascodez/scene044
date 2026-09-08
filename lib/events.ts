@@ -5,20 +5,27 @@ import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS } from "@/lib/eventDates";
 /**
  * Lifecycle states we surface publicly.
  *
- * `pending_review` is withheld (not curated yet) and `expired` is withheld
- * (the feed derives expiry from `startAt`, which stays correct even when the
- * nightly freshness sweep hasn't run). Cancelled/postponed/stale ARE surfaced
- * on purpose: someone who saved an event needs to find out it was called off,
- * and silently dropping it from the feed is how they'd end up travelling to a
- * venue for nothing.
+ * `pending_review` is withheld because it is not curated yet. `expired` is
+ * withheld from feeds but remains available on its permanent detail URL. The
+ * feed also derives expiry from `startAt`, which stays correct when the nightly
+ * freshness sweep is behind. Cancelled/postponed events are surfaced on
+ * purpose: silently dropping one is how someone ends up travelling to a venue
+ * for an event that was called off.
  */
 export type PublicEventStatus = "live" | "updated" | "postponed" | "cancelled";
+export type PublicEventPageStatus = PublicEventStatus | "expired";
 
-const PUBLIC_STATUSES: readonly PublicEventStatus[] = [
+const PUBLIC_FEED_STATUSES: readonly PublicEventStatus[] = [
   "live",
   "updated",
   "postponed",
   "cancelled",
+];
+
+/** Published events keep a permanent detail page after they finish. */
+export const PUBLIC_EVENT_PAGE_STATUSES: readonly PublicEventPageStatus[] = [
+  ...PUBLIC_FEED_STATUSES,
+  "expired",
 ];
 
 export interface PublicEvent {
@@ -43,9 +50,26 @@ export interface PublicEvent {
   primarySourceDomain: string;
   /** Extra domains the same event was found on — powers the "also seen on" line. */
   otherSourceDomains: string[];
-  status: PublicEventStatus;
+  status: PublicEventPageStatus;
   discoveredAt: string;
   lastVerifiedAt: string | null;
+}
+
+/** Fields only the server-rendered event page needs. They stay out of the
+ * browse-feed payload so every visitor doesn't download every source URL and
+ * street address. */
+export interface PublicEventDetail extends PublicEvent {
+  venueAddress: string | null;
+  primarySourceUrl: string;
+  updatedAt: string;
+}
+
+export interface PublicEventSitemapEntry {
+  id: number;
+  title: string;
+  category: Category;
+  posterImageUrl: string | null;
+  updatedAt: string;
 }
 
 export function parseCategoryParam(raw: string | null): Category | null {
@@ -124,7 +148,7 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
        )
        AND ($2::text[] IS NULL OR e.category = ANY($2::text[]))
      ORDER BY e.start_at ASC NULLS LAST, e.id ASC`,
-    [PUBLIC_STATUSES, categories, EVENT_END_GRACE_MS + ASSUMED_DURATION_MS],
+    [PUBLIC_FEED_STATUSES, categories, EVENT_END_GRACE_MS + ASSUMED_DURATION_MS],
   );
 
   return rows.map(({ sourceDomains, primarySourceDomain, ...rest }) => {
@@ -140,13 +164,11 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
 }
 
 /**
- * Single-event lookup for link-preview metadata (see app/page.tsx's
- * generateMetadata). Deliberately skips the "upcoming only" and category
- * filters `getPublicEvents` applies for the feed: a shared link to a past or
- * out-of-category event should still preview correctly, it just won't be
- * listed in the browsable feed.
+ * Single-event lookup for the canonical detail page and link-preview metadata.
+ * Deliberately skips the "upcoming only" and category filters the feed applies:
+ * a shared link to a past event should remain useful after the event ends.
  */
-export async function getPublicEventById(id: number): Promise<PublicEvent | null> {
+export async function getPublicEventById(id: number): Promise<PublicEventDetail | null> {
   const { rows } = await query<{
     id: number;
     title: string;
@@ -158,16 +180,19 @@ export async function getPublicEventById(id: number): Promise<PublicEvent | null
     endAt: string | null;
     isOnline: boolean;
     venueName: string | null;
+    venueAddress: string | null;
     city: string;
     organizerName: string | null;
     posterImageUrl: string | null;
     priceType: PriceType | null;
     priceNote: string | null;
+    primarySourceUrl: string;
     primarySourceDomain: string;
     sourceDomains: string[] | null;
-    status: PublicEventStatus;
+    status: PublicEventPageStatus;
     discoveredAt: string;
     lastVerifiedAt: string | null;
+    updatedAt: string;
   }>(
     `SELECT
        e.id, e.title, e.summary, e.highlights, e.category, e.status,
@@ -176,11 +201,13 @@ export async function getPublicEventById(id: number): Promise<PublicEvent | null
        e.end_at            AS "endAt",
        e.is_online         AS "isOnline",
        e.venue_name        AS "venueName",
+       e.venue_address     AS "venueAddress",
        e.city,
        e.organizer_name    AS "organizerName",
        e.poster_image_url  AS "posterImageUrl",
        e.price_type        AS "priceType",
        e.price_note        AS "priceNote",
+       e.primary_source_url AS "primarySourceUrl",
        regexp_replace(e.primary_source_url, '^https?://(www\\.)?([^/]+).*$', '\\2') AS "primarySourceDomain",
        COALESCE((
          SELECT array_agg(DISTINCT es.source_domain ORDER BY es.source_domain)
@@ -188,10 +215,11 @@ export async function getPublicEventById(id: number): Promise<PublicEvent | null
          WHERE es.event_id = e.id
        ), '{}') AS "sourceDomains",
        e.created_at        AS "discoveredAt",
-       e.last_verified_at  AS "lastVerifiedAt"
+       e.last_verified_at  AS "lastVerifiedAt",
+       e.updated_at        AS "updatedAt"
      FROM events e
      WHERE e.id = $1 AND e.status = ANY($2::text[])`,
-    [id, PUBLIC_STATUSES],
+    [id, PUBLIC_EVENT_PAGE_STATUSES],
   );
 
   const row = rows[0];
@@ -203,4 +231,21 @@ export async function getPublicEventById(id: number): Promise<PublicEvent | null
     primarySourceDomain: primary,
     otherSourceDomains: (sourceDomains ?? []).map(bareDomain).filter((d) => d && d !== primary),
   };
+}
+
+/** Canonical event URLs and real modification dates for sitemap.xml. */
+export async function getPublicEventSitemapEntries(): Promise<PublicEventSitemapEntry[]> {
+  const { rows } = await query<PublicEventSitemapEntry>(
+    `SELECT
+       e.id,
+       e.title,
+       e.category,
+       e.poster_image_url AS "posterImageUrl",
+       e.updated_at       AS "updatedAt"
+     FROM events e
+     WHERE e.status = ANY($1::text[])
+     ORDER BY e.id ASC`,
+    [PUBLIC_EVENT_PAGE_STATUSES],
+  );
+  return rows;
 }

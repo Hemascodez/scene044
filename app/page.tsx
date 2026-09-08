@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { getPublicEventById, getPublicEvents, type PublicEvent } from "@/lib/events";
-import { posterFor } from "@/lib/client/sceneEvent";
+import { eventPath, serializeJsonLd, websiteStructuredData } from "@/lib/seo";
 import { SceneApp } from "@/components/scene/SceneApp";
 
 export const dynamic = "force-dynamic";
@@ -10,49 +11,50 @@ interface HomeProps {
 }
 
 function parseDeepLinkEventId(eventParam: string | undefined): number | null {
-  return typeof eventParam === "string" && /^\d+$/.test(eventParam) ? Number(eventParam) : null;
+  if (typeof eventParam !== "string" || !/^\d+$/.test(eventParam)) return null;
+  const id = Number(eventParam);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-/**
- * Per-event OpenGraph tags for `/?event={id}` links — otherwise a link shared
- * to WhatsApp/Twitter/LinkedIn falls back to the root layout's static site
- * description with no image, which is what motivated this (a shared event
- * link showed no poster). Falls back to that same static metadata (returns
- * {}) for the plain homepage and for an unknown/invalid id.
- */
-export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {
-  const id = parseDeepLinkEventId((await searchParams).event);
-  if (id === null) return {};
+const HOME_TITLE = "Tech Events in Chennai | Meetups, Conferences & Workshops — SCENE/044";
+const HOME_DESCRIPTION =
+  "Discover upcoming tech events in Chennai, including AI meetups, startup networking, developer conferences, workshops and hackathons. Updated by SCENE/044.";
 
-  const event = await getPublicEventById(id);
-  if (!event) return {};
-
-  const title = `${event.title} — SCENE/044`;
-  const description =
-    event.summary ?? `${event.title}. Found on SCENE/044, Chennai's tech events, discovered.`;
-  const poster = posterFor(event);
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: `/?event=${id}`,
-      siteName: "SCENE/044",
-      images: [{ url: poster.src }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [poster.src],
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    url: "/",
+    siteName: "SCENE/044",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    images: [{ url: "/stock/tech-1.jpg", alt: "Chennai's technology event scene" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    images: ["/stock/tech-1.jpg"],
+  },
+};
 
 export default async function Home({ searchParams }: HomeProps) {
   const deepLinkEventId = parseDeepLinkEventId((await searchParams).event);
+
+  // Preserve every previously shared `/?event=123` link while consolidating
+  // it into the event's permanent, descriptive canonical URL.
+  if (deepLinkEventId !== null) {
+    let linkedEvent = null;
+    try {
+      linkedEvent = await getPublicEventById(deepLinkEventId);
+    } catch (err) {
+      console.error(`Home: failed to resolve legacy event link ${deepLinkEventId}`, err);
+    }
+    if (linkedEvent) permanentRedirect(eventPath(linkedEvent));
+  }
 
   // One in-process query, not a self-fetch of /api/events: a single DB round
   // trip, and the feed can never disagree with itself because everything on
@@ -66,5 +68,13 @@ export default async function Home({ searchParams }: HomeProps) {
     fetchFailed = true;
   }
 
-  return <SceneApp events={events} deepLinkEventId={deepLinkEventId} fetchFailed={fetchFailed} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(websiteStructuredData()) }}
+      />
+      <SceneApp events={events} fetchFailed={fetchFailed} />
+    </>
+  );
 }

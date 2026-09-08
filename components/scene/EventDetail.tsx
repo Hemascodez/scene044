@@ -4,10 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PublicEvent } from "@/lib/events";
 import { formatSceneDate, formatSceneTime, relativeChecked } from "@/lib/client/istTime";
-import { deriveSceneStatus, posterFor, toStoryParagraphs } from "@/lib/client/sceneEvent";
+import {
+  audienceTagsFor,
+  deriveSceneStatus,
+  eventShortIntro,
+  eventSummaryBullets,
+  posterFor,
+} from "@/lib/client/sceneEvent";
 import { useOpensInNewTab } from "@/lib/client/usePointerType";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
+import { eventPath } from "@/lib/seo";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
+import { EventGlance } from "@/components/scene/EventGlance";
 import { Btn, BtnLink, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
 
 
@@ -30,7 +38,9 @@ export function EventDetail({
   const poster = posterFor(event);
   const [posterFailed, setPosterFailed] = useState(false);
   const fieldLabel = getFieldCardForCategory(event.category)?.label ?? event.category;
-  const story = toStoryParagraphs(event.summary);
+  const audienceTags = audienceTagsFor(event);
+  const intro = eventShortIntro(event);
+  const bullets = eventSummaryBullets(event);
   // Phones navigate in place so the Back button returns here; see the hook.
   const newTab = useOpensInNewTab();
 
@@ -71,7 +81,7 @@ export function EventDetail({
 
   function share() {
     const text = `${event.title}${event.startAt ? ` — ${formatSceneDate(event.startAt)}, ${formatSceneTime(event.startAt)} IST` : ""}. Found on SCENE/044.`;
-    const url = `${window.location.origin}/?event=${event.id}`;
+    const url = `${window.location.origin}${eventPath(event)}`;
     if (navigator.share) {
       navigator.share({ title: event.title, text, url }).catch(() => {
         /* dismissed by the user — not an error */
@@ -147,45 +157,21 @@ export function EventDetail({
                   {event.priceNote ?? "Paid"}
                 </span>
               )}
+              {audienceTags.map((tag) => (
+                <span
+                  key={tag.label}
+                  className="border border-foreground/35 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em]"
+                >
+                  #{tag.label}
+                </span>
+              ))}
             </div>
 
             <h2 className="font-display text-2xl font-black leading-tight tracking-tight">{event.title}</h2>
 
-            {story.map((paragraph, i) => (
-              <p key={i} className="mt-3 text-sm leading-relaxed text-foreground/80">
-                {paragraph.map((seg, j) =>
-                  seg.bold ? (
-                    <strong key={j} className="font-semibold text-foreground">
-                      {seg.text}
-                    </strong>
-                  ) : (
-                    <span key={j}>{seg.text}</span>
-                  ),
-                )}
-              </p>
-            ))}
+            {intro && <p className="mt-3 text-sm leading-relaxed text-foreground/70">{intro}</p>}
 
-            {/* Only ever renders what the organizer's own description stated —
-                lib/summarize.ts returns an empty list rather than inventing a
-                perk, so a vague listing simply shows nothing here. */}
-            {event.highlights.length > 0 && (
-              <div className="mt-4">
-                <Mono className="text-[10px] text-muted-foreground">What you get</Mono>
-                <ul className="mt-2 flex flex-wrap gap-1.5">
-                  {event.highlights.map((highlight) => (
-                    <li
-                      key={highlight}
-                      className="inline-flex items-center gap-1.5 border-2 border-foreground bg-card px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.1em]"
-                    >
-                      <span aria-hidden className="text-primary-ink">
-                        ▸
-                      </span>
-                      {highlight}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <EventGlance bullets={bullets} className="mt-5" />
 
             {status === "cancelled" && (
               <Alert tone="bad">This event has been cancelled by the organizer.</Alert>
@@ -207,8 +193,6 @@ export function EventDetail({
                 {event.registrationNote}
               </p>
             )}
-
-            <AlertsBanner categoryHint={fieldLabel} className="mt-5" />
 
             <div className="mt-4">
               <Row label="Date & time">
@@ -260,6 +244,8 @@ export function EventDetail({
                   : "Not re-checked since discovery"}
               </Row>
             </div>
+
+            <AlertsBanner categoryHint={fieldLabel} className="mt-5" />
           </div>
         </div>
 

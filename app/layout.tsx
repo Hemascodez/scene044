@@ -29,9 +29,9 @@ export const metadata: Metadata = {
   // to resolve to absolute URLs — WhatsApp/Twitter/LinkedIn crawlers fetch
   // og:image directly and can't resolve a relative path.
   metadataBase: new URL("https://scene044.in"),
-  title: "SCENE/044 — Chennai's tech events, discovered",
+  title: "Tech Events in Chennai | Meetups, Conferences & Workshops — SCENE/044",
   description:
-    "SCENE/044 automatically discovers Chennai professional and technology events from public sources and presents them in one feed.",
+    "Discover upcoming tech events in Chennai, including AI meetups, startup networking, developer conferences, workshops and hackathons. Updated by SCENE/044.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

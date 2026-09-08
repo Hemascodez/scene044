@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { EventStatus } from "@/lib/types";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
+import { eventPath } from "@/lib/seo";
 import { relativeChecked } from "@/lib/client/istTime";
 import { formatSceneDate, formatSceneTime } from "@/lib/client/istTime";
 import {
@@ -714,7 +715,7 @@ function PublishedList({
               </Select>
 
               <div className="flex gap-2">
-                <AdminLink href={`/?event=${event.id}`} variant="outline">
+                <AdminLink href={eventPath(event)} variant="outline">
                   View ↗
                 </AdminLink>
                 <AdminLink href={event.primarySourceUrl} variant="ghost">

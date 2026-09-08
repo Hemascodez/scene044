@@ -5,6 +5,7 @@ import type { PublicEvent } from "@/lib/events";
 import { CATEGORIES, type Category, type EventStatus } from "@/lib/types";
 import { FIELD_CARDS, getFieldCardForCategory } from "@/lib/fieldCards";
 import { stockPosterFor } from "@/lib/stockPosters";
+import { eventPath } from "@/lib/seo";
 import {
   draftToInstant,
   draftWarnings,
@@ -247,7 +248,7 @@ export function CandidateReview({
         res.status === "duplicate"
           ? `Merged into existing event #${res.eventId} — source added, no second card created`
           : `Published “${draft.title.trim()}” to the public feed`,
-        `/?event=${res.eventId}`,
+        eventPath({ id: res.eventId, title: draft.title.trim() }),
       );
     } catch (err) {
       setActionError(err instanceof CuratorApiError ? err.message : "Publish failed.");
@@ -870,7 +871,7 @@ function DedupPanel({
             UTC · {result.match.venue_name ?? (result.match.is_online ? "Online" : "no venue")}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <AdminLink href={`/?event=${result.match.id}`} variant="ghost">
+            <AdminLink href={eventPath({ id: result.match.id, title: result.match.title })} variant="ghost">
               Review existing ↗
             </AdminLink>
             {result.outcome === "high" ? (

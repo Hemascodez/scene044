@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublicEvents, type PublicEvent } from "@/lib/events";
 import { FIELD_CARDS, getFieldCardByKey } from "@/lib/fieldCards";
+import { stockPosterFor } from "@/lib/stockPosters";
+import { categorySeoDescription, categoryStructuredData, serializeJsonLd } from "@/lib/seo";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { SceneFooter, SectionHead } from "@/components/scene/SceneHero";
 import { CategoryFeed } from "@/components/scene/CategoryFeed";
@@ -16,9 +18,29 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   const { key } = await params;
   const card = getFieldCardByKey(key);
   if (!card) return { title: "Field not found — SCENE/044" };
+  const title = `${card.label} Events in Chennai | SCENE/044`;
+  const description = categorySeoDescription(card);
+  const canonical = `/category/${card.key}`;
+  const image = stockPosterFor(card.categories[0], 0);
   return {
-    title: `${card.label} events in Chennai — SCENE/044`,
-    description: card.description,
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      locale: "en_IN",
+      url: canonical,
+      siteName: "SCENE/044",
+      title,
+      description,
+      images: [{ url: image, alt: `${card.label} events in Chennai` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
   };
 }
 
@@ -33,9 +55,14 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   } catch (err) {
     console.error(`CategoryPage(${key}): failed to load events`, err);
   }
+  const description = categorySeoDescription(card);
 
   return (
     <div className="min-h-full">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(categoryStructuredData(card, events)) }}
+      />
       <SceneHeaderStatic />
 
       <section className="border-b-2 border-foreground bg-foreground text-background">
@@ -46,7 +73,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           <h1 className="mt-3 font-display text-4xl font-black leading-[0.98] tracking-tighter sm:text-5xl">
             {card.label}
           </h1>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-background/80">{card.description}</p>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-background/80">{description}</p>
         </div>
       </section>
 

@@ -23,6 +23,7 @@ export function deriveSceneStatus(event: PublicEvent, now: Date = new Date()): S
   // because "Cancelled" is the fact the visitor needs, not "Expired".
   if (event.status === "cancelled") return "cancelled";
   if (event.status === "postponed") return "postponed";
+  if (event.status === "expired") return "expired";
   if (!event.startAt) return "uncertain";
   if (isPastEvent(event.startAt, now)) return "expired";
   return "confirmed";
@@ -52,6 +53,93 @@ export function matchesSearch(event: PublicEvent, rawQuery: string): boolean {
   ]
     .filter((v): v is string => !!v)
     .some((v) => v.toLowerCase().includes(q));
+}
+
+export interface EventAudienceTag {
+  label: string;
+  emoji: string;
+}
+
+/** Audience labels are evidence-based: every tag requires an explicit phrase
+ * in the title, summary or source-grounded highlights. Category alone is not
+ * enough to claim an event is suitable for a particular person. */
+export function audienceTagsFor(event: PublicEvent): EventAudienceTag[] {
+  const text = [event.title, toPlainSummary(event.summary), ...event.highlights]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const rules: Array<EventAudienceTag & { test: RegExp }> = [
+    {
+      label: "Beginner friendly",
+      emoji: "🌱",
+      test: /\bbeginner(?:s|'s)?\b|beginner[- ]friendly|no (?:prior )?experience|no prerequisites?/i,
+    },
+    { label: "Students", emoji: "🎓", test: /\bstudents?\b|\bundergraduates?\b/i },
+    { label: "Professionals", emoji: "💼", test: /\bprofessionals?\b|working professionals?/i },
+    { label: "Founders", emoji: "🚀", test: /\bfounders?\b|startup leaders?/i },
+    { label: "Developers", emoji: "💻", test: /\bdevelopers?\b|software engineers?/i },
+    { label: "Designers", emoji: "🎨", test: /\bdesigners?\b|\bux\b|\bui\b/i },
+    { label: "Networking", emoji: "🤝", test: /\bnetworking\b|meet (?:other )?peers|connect with peers/i },
+  ];
+  return rules.filter((rule) => rule.test.test(text)).slice(0, 4).map(({ label, emoji }) => ({ label, emoji }));
+}
+
+function shortPlainText(value: string, maxLength = 180): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= maxLength) return compact;
+  const candidate = compact.slice(0, maxLength - 1);
+  const lastSpace = candidate.lastIndexOf(" ");
+  const end = lastSpace > maxLength * 0.65 ? lastSpace : candidate.length;
+  return `${candidate.slice(0, end).replace(/[\s,.;:—-]+$/g, "")}…`;
+}
+
+function summarySentences(summary: string | null): string[] {
+  const plain = toPlainSummary(summary);
+  if (!plain) return [];
+  return (plain.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [plain])
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+/** One concise, plain-text overview sentence. A rhetorical legacy hook is
+ * skipped so the useful sentence does the work instead. */
+export function eventShortIntro(event: PublicEvent): string | null {
+  const sentences = summarySentences(event.summary);
+  if (sentences.length === 0) return null;
+  const useful = sentences[0].endsWith("?") && sentences.length > 1 ? sentences[1] : sentences[0];
+  return shortPlainText(useful, 220);
+}
+
+/** Prefer the three source-grounded highlights. Older listings without them
+ * simply omit the numbered outcomes rather than turning descriptive prose
+ * into a promise the source never made. */
+export function actionizeEventHighlight(value: string): string {
+  const clean = shortPlainText(value, 90).replace(/[.!?]+$/g, "");
+  if (!clean) return "";
+  if (/^(learn|hear|ask|meet|build|practise|practice|understand|compare|discover|explore|see|try|discuss|get|gain)\b/i.test(clean)) {
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+  }
+
+  const session = clean.match(/^sessions?\s+(?:on|about|covering)\s+(.+)$/i);
+  if (session) return `Learn about ${session[1]}`;
+  const panel = clean.match(/^panels?\s+(?:on|about|covering)\s+(.+)$/i);
+  if (panel) return `Hear perspectives on ${panel[1]}`;
+  const questions = clean.match(/^q\s*&\s*a(?:\s+(?:on|about)\s+(.+)|\s+with\s+(.+))?$/i);
+  if (questions?.[1]) return `Ask questions about ${questions[1]}`;
+  if (questions) return "Ask questions in the technical Q&A";
+  const talk = clean.match(/^talks?\s+(?:on|about|covering)\s+(.+)$/i);
+  if (talk) return `Hear talks about ${talk[1]}`;
+  const founderTalk = clean.match(/^founder\s+talks?$/i);
+  if (founderTalk) return "Hear directly from founders";
+  const workshop = clean.match(/^workshops?\s+(?:on|about|covering)\s+(.+)$/i);
+  if (workshop) return `Practise ${workshop[1]} in a workshop`;
+  if (/^networking\b/i.test(clean)) return "Meet peers and build connections";
+
+  return `Explore ${clean.charAt(0).toLowerCase()}${clean.slice(1)}`;
+}
+
+export function eventSummaryBullets(event: PublicEvent): string[] {
+  return event.highlights.map(actionizeEventHighlight).filter(Boolean).slice(0, 3);
 }
 
 export interface ScenePoster {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { PUBLIC_EVENT_PAGE_STATUSES } from "@/lib/events";
 
 export async function GET(
   _request: Request,
@@ -12,8 +13,8 @@ export async function GET(
   }
 
   const { rows } = await query<{ primary_source_url: string }>(
-    "SELECT primary_source_url FROM events WHERE id = $1 AND status IN ('live', 'updated')",
-    [eventId],
+    "SELECT primary_source_url FROM events WHERE id = $1 AND status = ANY($2::text[])",
+    [eventId, PUBLIC_EVENT_PAGE_STATUSES],
   );
   const event = rows[0];
   if (!event) {
