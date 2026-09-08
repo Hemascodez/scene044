@@ -25,6 +25,7 @@ import {
 } from "@/lib/seo";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { EventGlance } from "@/components/scene/EventGlance";
+import { EventPageScrollReset } from "@/components/scene/EventPageScrollReset";
 import { EventPageActions } from "@/components/scene/EventPageActions";
 import { SceneFooter } from "@/components/scene/SceneHero";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
@@ -99,6 +100,7 @@ export default async function EventPage({ params }: EventPageProps) {
 
   return (
     <div className="min-h-full">
+      <EventPageScrollReset />
       {jsonLd.map((data, index) => (
         <script
           key={index}
