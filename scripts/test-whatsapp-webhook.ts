@@ -46,13 +46,28 @@ check("categoriesFromMessage: no Interested in line at all", categoriesFromMessa
 
 check("replyFor greets the sender by their parsed name", replyFor(REAL_MESSAGE).includes("Hey Priya!"), true);
 check(
+  "replyFor mirrors back their stated interests",
+  replyFor(REAL_MESSAGE).includes("noted you're into Artificial Intelligence, Design and UX"),
+  true,
+);
+check(
   "replyFor falls back to 'there' when name is 'Not provided'",
   replyFor("Name: Not provided\nInterested in: Not specified").includes("Hey there!"),
   true,
 );
 check(
+  "replyFor falls back to a generic clause when interests are 'Not specified'",
+  replyFor("Name: Not provided\nInterested in: Not specified").includes("got you noted"),
+  true,
+);
+check(
   "replyFor falls back to 'there' when there is no Name line at all",
   replyFor("gibberish, no fields here").includes("Hey there!"),
+  true,
+);
+check(
+  "replyFor falls back to a generic clause when there is no Interested in line at all",
+  replyFor("gibberish, no fields here").includes("got you noted"),
   true,
 );
 

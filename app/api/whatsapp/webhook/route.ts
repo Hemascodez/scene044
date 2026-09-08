@@ -73,7 +73,12 @@ export function categoriesFromMessage(text: string): Category[] {
 export function replyFor(text: string): string {
   const name = parseField(text, "Name");
   const greetingName = name && name !== "Not provided" ? name : "there";
-  return `Hey ${greetingName}! 🎉 Thanks for registering with SCENE/044 — got your interests noted. We'll send you Chennai tech event updates every week. Talk soon!`;
+
+  const interests = parseField(text, "Interested in");
+  const notedClause =
+    interests && interests !== "Not specified" ? `noted you're into ${interests}` : "got you noted";
+
+  return `Hey ${greetingName}! 🎉 Thanks for registering with SCENE/044 — ${notedClause}. We'll send you Chennai tech event updates every week. Talk soon!`;
 }
 
 /** True when `signature` (the request's X-Hub-Signature-256 header) is a
