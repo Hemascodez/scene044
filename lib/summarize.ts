@@ -200,7 +200,12 @@ function earnedClaimViolation(copy: string, source: string): string | null {
   return unearned ? `claims "${unearned.claim}" but the description never says so` : null;
 }
 
-function introViolation(intro: string, title: string, source: string): string | null {
+function introViolation(
+  intro: string,
+  title: string,
+  source: string,
+  { allowTitleRepeat = false }: { allowTitleRepeat?: boolean } = {},
+): string | null {
   const lower = intro.toLowerCase();
   const banned = BANNED.find((p) => lower.includes(p));
   if (banned) return `uses banned filler "${banned}"`;
@@ -216,7 +221,13 @@ function introViolation(intro: string, title: string, source: string): string | 
   // "Never repeat the event title" — compare on the distinctive part, since a
   // one-word overlap is unavoidable and not what the rule is about.
   const titleCore = title.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 4);
-  if (titleCore.length >= 2 && titleCore.every((w) => lower.includes(w))) return "repeats the event title";
+  if (
+    !allowTitleRepeat
+    && titleCore.length >= 2
+    && titleCore.every((w) => lower.includes(w))
+  ) {
+    return "repeats the event title";
+  }
   const words = wordCount(intro);
   if (words < MIN_WORDS || words > MAX_WORDS) return `${words} words, outside ${MIN_WORDS}-${MAX_WORDS}`;
   return null;
@@ -333,12 +344,26 @@ export async function summarizeEvent(input: {
       const retry = await attempt(firstProblem);
       const retriedIntro = clean(retry?.event_story, 1200);
       const retriedOutcomes = cleanOutcomes(retry?.what_you_get);
-      if (retriedIntro && !introViolation(retriedIntro, input.title, source)) intro = retriedIntro;
+      // Repeating the title is worth one rewrite attempt, but it is a minor
+      // style problem rather than a reason to publish an empty description.
+      // Critical failures (unsupported claims, length, banned language) still
+      // reject the retry completely.
+      if (
+        retriedIntro
+        && !introViolation(retriedIntro, input.title, source, { allowTitleRepeat: true })
+      ) {
+        intro = retriedIntro;
+      }
       if (!outcomeViolation(retriedOutcomes, source)) outcomes = retriedOutcomes;
       if (retry) parsed = retry;
     }
 
-    const validIntro = intro && !introViolation(intro, input.title, source) ? intro : null;
+    const validIntro = intro && !introViolation(
+      intro,
+      input.title,
+      source,
+      { allowTitleRepeat: true },
+    ) ? intro : null;
     const whyAttend = outcomeViolation(outcomes, source) ? [] : outcomes;
 
     // Belt and braces on the accuracy rule: with no deadline in our data there
