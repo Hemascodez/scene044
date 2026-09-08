@@ -133,7 +133,15 @@ export function SceneFooter() {
           </div>
         </div>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t-2 border-background/20 pt-5">
-          <Mono className="text-[10px] text-background/50">© 2026 SCENE/044 · Made in Chennai</Mono>
+          <div className="flex flex-wrap items-center gap-4">
+            <Mono className="text-[10px] text-background/50">© 2026 SCENE/044 · Made in Chennai</Mono>
+            <Link
+              href="/privacy"
+              className="font-mono text-[10px] uppercase tracking-[0.1em] text-background/50 underline underline-offset-2 hover:text-primary"
+            >
+              Privacy policy
+            </Link>
+          </div>
           <Mono className="text-[10px] text-background/50">
             Curiosity → discovery → confidence → action
           </Mono>
