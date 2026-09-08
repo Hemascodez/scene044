@@ -29,6 +29,23 @@ export interface SubscribeResult {
   unsubscribeToken: string;
 }
 
+export interface WhatsappSubscriber {
+  id: number;
+  phone: string;
+  name: string | null;
+  role: string | null;
+  message: string | null;
+  categories: Category[];
+  source: string;
+  consentNote: string | null;
+  status: SubscriberStatus;
+  createdAt: Date;
+}
+
+export interface WhatsappSubscribeResult extends SubscribeResult {
+  subscriber: WhatsappSubscriber;
+}
+
 /**
  * Lowercases and trims. Deliberately does NOT strip Gmail dots or +tags:
  * that's a guess about which provider treats them as equivalent, and getting
@@ -131,37 +148,94 @@ export async function subscribeEmail(opts: {
 /**
  * Records a WhatsApp opt-in from an inbound message.
  *
- * Called by a provider webhook once a messaging provider is chosen (AiSensy is
- * under evaluation). It is not wired to any route yet precisely because the
- * payload shape is provider-specific — this is the provider-agnostic half.
+ * Called by the verified Meta Cloud API webhook. Repeated messages update the
+ * same subscriber row, preserving structured fields that a later free-form
+ * message does not contain.
  */
 export async function recordWhatsappOptIn(opts: {
   phone: string;
+  name?: string | null;
+  role?: string | null;
+  message?: string | null;
   categories?: Category[];
+  /** True when the inbound message explicitly included the interests field.
+   *  This lets "All events" clear an earlier category selection while a
+   *  free-form follow-up message leaves that selection unchanged. */
+  replaceCategories?: boolean;
   source?: string;
   consentNote?: string | null;
-}): Promise<SubscribeResult | { ok: false; reason: "unparseable_phone" }> {
+}): Promise<WhatsappSubscribeResult | { ok: false; reason: "unparseable_phone" }> {
   const phone = normalizePhoneE164(opts.phone);
   if (!phone) return { ok: false, reason: "unparseable_phone" };
 
+  const name = opts.name?.trim().slice(0, 200) || null;
+  const role = opts.role?.trim().slice(0, 200) || null;
+  const message = opts.message?.trim().slice(0, 4096) || null;
   const token = newUnsubscribeToken();
-  const { rows } = await query<{ unsubscribe_token: string; inserted: boolean }>(
-    `INSERT INTO subscribers (channel, phone_e164, categories, unsubscribe_token, source, consent_note)
-     VALUES ('whatsapp', $1, $2, $3, $4, $5)
+  const { rows } = await query<{
+    id: number;
+    phone_e164: string;
+    name: string | null;
+    role: string | null;
+    message: string | null;
+    categories: Category[];
+    source: string;
+    consent_note: string | null;
+    status: SubscriberStatus;
+    created_at: Date;
+    unsubscribe_token: string;
+    inserted: boolean;
+  }>(
+    `INSERT INTO subscribers
+       (channel, phone_e164, name, role, message, categories, unsubscribe_token, source, consent_note)
+     VALUES ('whatsapp', $1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (phone_e164) WHERE phone_e164 IS NOT NULL
-     DO UPDATE SET status = 'active', unsubscribed_at = NULL
-     RETURNING unsubscribe_token, (xmax = 0) AS inserted`,
+     DO UPDATE SET
+       name = COALESCE(EXCLUDED.name, subscribers.name),
+       role = COALESCE(EXCLUDED.role, subscribers.role),
+       message = COALESCE(EXCLUDED.message, subscribers.message),
+       categories = CASE
+         WHEN $9::boolean THEN EXCLUDED.categories
+         ELSE subscribers.categories
+       END,
+       status = 'active',
+       unsubscribed_at = NULL
+     RETURNING id, phone_e164, name, role, message, categories, source,
+               consent_note, status, created_at, unsubscribe_token,
+               (xmax = 0) AS inserted`,
     [
       phone,
+      name,
+      role,
+      message,
       opts.categories ?? [],
       token,
       opts.source ?? "whatsapp_inbound",
       opts.consentNote ?? "User-initiated inbound WhatsApp message (wa.me link).",
+      opts.replaceCategories ?? false,
     ],
   );
 
   const row = rows[0];
-  return { ok: true, created: row?.inserted ?? false, unsubscribeToken: row?.unsubscribe_token ?? token };
+  if (!row) throw new Error("WhatsApp subscriber upsert returned no row");
+
+  return {
+    ok: true,
+    created: row.inserted,
+    unsubscribeToken: row.unsubscribe_token,
+    subscriber: {
+      id: row.id,
+      phone: row.phone_e164,
+      name: row.name,
+      role: row.role,
+      message: row.message,
+      categories: row.categories,
+      source: row.source,
+      consentNote: row.consent_note,
+      status: row.status,
+      createdAt: row.created_at,
+    },
+  };
 }
 
 /** Returns false only when the token matches nothing. Unsubscribing an

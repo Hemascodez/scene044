@@ -79,12 +79,35 @@ async function main() {
 
   console.log("\n--- whatsapp opt-in (webhook path) ---");
   await query("DELETE FROM subscribers WHERE phone_e164 = '+919999900001'");
-  const wa = await recordWhatsappOptIn({ phone: "+91 99999 00001" });
+  const wa = await recordWhatsappOptIn({
+    phone: "+91 99999 00001",
+    name: "Kavya",
+    role: "Founder",
+    message: "Name: Kavya\nI'm a: Founder",
+    categories: ["startups"],
+  });
   check("inbound message creates subscriber", wa.ok && wa.created, true);
   const waAgain = await recordWhatsappOptIn({ phone: "9999900001" });
   check("same number is idempotent", waAgain.ok && !waAgain.created, true);
   const bad = await recordWhatsappOptIn({ phone: "nope" });
   check("unparseable phone rejected", bad.ok, false);
+  const { rows: waRows } = await query<{
+    name: string | null; role: string | null; message: string | null; categories: string[];
+  }>("SELECT name, role, message, categories FROM subscribers WHERE phone_e164 = '+919999900001'");
+  check("WhatsApp name is stored", waRows[0]?.name, "Kavya");
+  check("WhatsApp role is stored", waRows[0]?.role, "Founder");
+  check("WhatsApp message is stored", waRows[0]?.message, "Name: Kavya\nI'm a: Founder");
+  check("empty repeat message does not erase categories", waRows[0]?.categories, ["startups"]);
+
+  await recordWhatsappOptIn({
+    phone: "9999900001",
+    categories: [],
+    replaceCategories: true,
+  });
+  const { rows: allEventsRows } = await query<{ categories: string[] }>(
+    "SELECT categories FROM subscribers WHERE phone_e164 = '+919999900001'",
+  );
+  check("explicit All events selection clears prior categories", allEventsRows[0]?.categories, []);
 
   console.log("\n--- wa.me link ---");
   const noNumber = { ...process.env };

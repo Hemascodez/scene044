@@ -247,6 +247,32 @@ export function CuratorApp() {
           </AdminLink>
           <AdminBtn
             variant="ghost"
+            title="Export WhatsApp Subscribers to Google Sheets"
+            onClick={async () => {
+              announce("Starting Google Sheets sync...");
+              try {
+                const { googleSignIn } = await import("@/lib/client/firebaseAuth");
+                const result = await googleSignIn();
+                if (!result) throw new Error("Google Sign-In failed or was cancelled.");
+
+                const res = await fetch("/api/admin/subscribers/sync-sheets", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${result.accessToken}` },
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Failed to sync to sheets");
+
+                announce("Synced successfully!", data.spreadsheetUrl);
+              } catch (err: unknown) {
+                console.error("Sheets sync error:", err);
+                announce(`Sync failed: ${err instanceof Error ? err.message : "Unexpected sync failure"}`);
+              }
+            }}
+          >
+            Sync to Sheets
+          </AdminBtn>
+          <AdminBtn
+            variant="ghost"
             title="End this curator session"
             onClick={async () => {
               await fetch("/api/admin/logout", { method: "POST" });

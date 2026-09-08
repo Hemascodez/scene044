@@ -7,7 +7,13 @@
 import { NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { pool, query } from "../lib/db";
-import { categoriesFromMessage, GET, isValidSignature, parseField, POST, replyFor } from "../app/api/whatsapp/webhook/route";
+import { GET, POST } from "../app/api/whatsapp/webhook/route";
+import {
+  categoriesFromMessage,
+  isValidSignature,
+  parseField,
+  replyFor,
+} from "../lib/whatsappWebhook";
 
 let pass = 0, fail = 0;
 function check(name: string, actual: unknown, expected: unknown) {
@@ -72,6 +78,14 @@ check(
 );
 
 async function main() {
+  // This is a DB/webhook test, not a live Google Sheets test. A developer may
+  // have production Sheets credentials in .env.local; remove them here so the
+  // synthetic subscriber below can never reach the real spreadsheet.
+  delete process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+  delete process.env.GOOGLE_SHEETS_TAB_NAME;
+  delete process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL;
+  delete process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+
   process.env.WHATSAPP_APP_SECRET = "test-app-secret";
   const body = JSON.stringify({ hello: "world" });
   const validSig = `sha256=${crypto.createHmac("sha256", "test-app-secret").update(body).digest("hex")}`;
@@ -136,13 +150,23 @@ async function main() {
   const postRes = await POST(postReq);
   check("POST acks with 200", postRes.status, 200);
 
-  const { rows } = await query<{ categories: string[]; status: string }>(
-    "SELECT categories, status FROM subscribers WHERE phone_e164 = $1",
+  const { rows } = await query<{
+    name: string | null; role: string | null; message: string | null;
+    categories: string[]; status: string;
+  }>(
+    "SELECT name, role, message, categories, status FROM subscribers WHERE phone_e164 = $1",
     [`+${testPhone}`],
   );
   check("POST recorded exactly one subscriber row", rows.length, 1);
   check("recorded subscriber has the mapped category", rows[0]?.categories, ["startups"]);
   check("recorded subscriber is active", rows[0]?.status, "active");
+  check("recorded subscriber has the parsed name", rows[0]?.name, "Kavya");
+  check("recorded subscriber has the parsed role", rows[0]?.role, "Founder or entrepreneur");
+  check(
+    "recorded subscriber keeps the inbound message",
+    rows[0]?.message,
+    "Name: Kavya\nI'm a: Founder or entrepreneur\nInterested in: Startups and Founders",
+  );
 
   await query("DELETE FROM subscribers WHERE phone_e164 = $1", [`+${testPhone}`]);
   delete process.env.WHATSAPP_APP_SECRET;

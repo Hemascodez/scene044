@@ -173,6 +173,9 @@ CREATE TABLE IF NOT EXISTS subscribers (
   -- Exactly one identifier is populated, matching `channel`.
   email TEXT,
   phone_e164 TEXT,                   -- E.164, digits only after '+', e.g. +919876543210
+  name TEXT,                         -- parsed from the user-initiated WhatsApp message
+  role TEXT,
+  message TEXT,                      -- original/latest inbound opt-in message
 
   -- Empty array means "everything" rather than "nothing" — a subscriber who
   -- ticks no boxes wants the whole feed, which is the common case.
@@ -202,6 +205,11 @@ CREATE TABLE IF NOT EXISTS subscribers (
     (channel = 'whatsapp' AND phone_e164 IS NOT NULL AND email IS NULL)
   )
 );
+
+-- Idempotent for databases created before WhatsApp profile details were kept.
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS role TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS message TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(lower(email)) WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_phone ON subscribers(phone_e164) WHERE phone_e164 IS NOT NULL;

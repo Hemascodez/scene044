@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import crypto from "node:crypto";
 import { recordWhatsappOptIn } from "@/lib/subscribers";
+import { upsertWhatsappSubscriberInGoogleSheet } from "@/lib/googleSheets";
 import { sendWhatsappText } from "@/lib/whatsappSend";
-import type { Category } from "@/lib/types";
+import {
+  categoriesFromMessage,
+  isValidSignature,
+  parseField,
+  replyFor,
+} from "@/lib/whatsappWebhook";
 
 /**
  * Receives inbound WhatsApp messages via Meta's Cloud API, records the
@@ -35,62 +40,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ error: "verification failed" }, { status: 403 });
 }
 
-/**
- * Best-effort label -> category mapping for the interests AlertsBanner.tsx
- * collects. Must stay in sync with its INTERESTS list. "All events" and
- * "Career and Networking" intentionally have no entry: an empty result
- * already means "everything" (see lib/subscribers.ts's sanitizeCategories),
- * and there is no category to narrow "Career and Networking" to.
- */
-const INTEREST_TO_CATEGORIES: Record<string, Category[]> = {
-  "Artificial Intelligence": ["ai"],
-  "Software Development": ["tech"],
-  "Design and UX": ["design"],
-  Marketing: ["marketing"],
-  Cybersecurity: ["cybersecurity"],
-  Data: ["data"],
-  "Startups and Founders": ["startups"],
-  Product: ["product"],
-};
-
-/** Pulls "Label: value" out of a multi-line message. Case-insensitive and
- *  anchored per-line since WhatsApp messages arrive with real newlines. */
-export function parseField(text: string, label: string): string | null {
-  const match = text.match(new RegExp(`^${label}:\\s*(.+)$`, "im"));
-  return match ? match[1].trim() : null;
-}
-
-export function categoriesFromMessage(text: string): Category[] {
-  const raw = parseField(text, "Interested in");
-  if (!raw || raw === "Not specified") return [];
-  const categories = new Set<Category>();
-  for (const label of raw.split(",").map((s) => s.trim())) {
-    for (const c of INTEREST_TO_CATEGORIES[label] ?? []) categories.add(c);
-  }
-  return [...categories];
-}
-
-export function replyFor(text: string): string {
-  const name = parseField(text, "Name");
-  const greetingName = name && name !== "Not provided" ? name : "there";
-
-  const interests = parseField(text, "Interested in");
-  const notedClause =
-    interests && interests !== "Not specified" ? `noted you're into ${interests}` : "got you noted";
-
-  return `Hey ${greetingName}! 🎉 Thanks for registering with SCENE/044 — ${notedClause}. We'll send you Chennai tech event updates every week. Talk soon!`;
-}
-
-/** True when `signature` (the request's X-Hub-Signature-256 header) is a
- *  valid HMAC-SHA256 of the raw body under the app secret — proves the
- *  request actually came from Meta, not an arbitrary POST to a guessed URL. */
-export function isValidSignature(rawBody: string, signature: string | null): boolean {
-  const secret = process.env.WHATSAPP_APP_SECRET;
-  if (!secret || !signature) return false;
-  const expected = `sha256=${crypto.createHmac("sha256", secret).update(rawBody).digest("hex")}`;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(signature);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+function optionalMessageField(text: string, label: string, placeholder: string): string | null {
+  const value = parseField(text, label);
+  return value && value !== placeholder ? value : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -121,8 +73,33 @@ export async function POST(request: NextRequest) {
           const body = String((message.text as { body?: string } | undefined)?.body ?? "");
           if (!from || !body) continue;
 
-          await recordWhatsappOptIn({ phone: from, categories: categoriesFromMessage(body) });
-          await sendWhatsappText(from, replyFor(body));
+          const optIn = await recordWhatsappOptIn({
+            phone: from,
+            name: optionalMessageField(body, "Name", "Not provided"),
+            role: optionalMessageField(body, "I'm a", "Not specified"),
+            message: body,
+            categories: categoriesFromMessage(body),
+            replaceCategories: parseField(body, "Interested in") !== null,
+          });
+
+          const replyPromise = sendWhatsappText(from, replyFor(body));
+          const sheetPromise = optIn.ok
+            ? upsertWhatsappSubscriberInGoogleSheet({
+                phone: optIn.subscriber.phone,
+                name: optIn.subscriber.name,
+                role: optIn.subscriber.role,
+                categories: optIn.subscriber.categories,
+                message: optIn.subscriber.message,
+                consentNote: optIn.subscriber.consentNote,
+                status: optIn.subscriber.status,
+                subscribedAt: optIn.subscriber.createdAt,
+              }).catch((error: unknown) => {
+                console.error("whatsapp webhook: Google Sheets sync failed", error);
+                return false;
+              })
+            : Promise.resolve(false);
+
+          await Promise.all([replyPromise, sheetPromise]);
         }
       }
     }

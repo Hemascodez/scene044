@@ -88,6 +88,27 @@ expect the existing build to pick them up. Rebuild.
 
 Leave it empty and the alerts banner does not render at all.
 
+### Automatic WhatsApp subscriber sync to Google Sheets
+
+The verified WhatsApp webhook automatically upserts each sender into one fixed
+spreadsheet. Replayed webhook deliveries update the row matching the phone
+number instead of adding duplicates.
+
+1. Enable the Google Sheets API in the Google Cloud project.
+2. Create a service account and a JSON key for it.
+3. Create a spreadsheet with a blank `Sheet1` tab (or set
+   `GOOGLE_SHEETS_TAB_NAME` to another blank tab).
+4. Share that spreadsheet with the service account's email as an **Editor**.
+5. Set `GOOGLE_SHEETS_SPREADSHEET_ID`,
+   `GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL`, and `GOOGLE_SHEETS_PRIVATE_KEY` on
+   the Railway web service. Copy `private_key` from the JSON key; Railway can
+   store it on one line with its `\\n` sequences intact.
+
+The sheet columns are Phone Number, Name, Role, Categories, Message, Consent
+Note, Status, and Subscribed At. Keep the configured tab blank on first use so
+the app can add those headers safely. Subscriber messages are personal data;
+restrict spreadsheet sharing to people who need access.
+
 ## 4. Secrets
 
 Generate fresh values for production — do not reuse the local ones:
