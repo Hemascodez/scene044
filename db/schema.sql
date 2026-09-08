@@ -258,14 +258,44 @@ CREATE TABLE IF NOT EXISTS subscriber_sends (
   subscriber_id INT NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE,
   channel TEXT NOT NULL,
   template_name TEXT,                -- Meta-approved template, for WhatsApp
-  provider TEXT,                     -- 'aisensy' | email provider, once chosen
+  provider TEXT,                     -- 'meta' | email provider, once chosen
   provider_message_id TEXT,
-  status TEXT NOT NULL DEFAULT 'queued', -- queued | sent | delivered | failed
+  campaign_key TEXT,                 -- e.g. whatsapp-weekly:2026-09-07
+  event_ids INT[] NOT NULL DEFAULT '{}',
+  template_payload JSONB,
+  attempt_count INT NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'queued', -- queued | sending | unknown | accepted | sent | delivered | read | failed
   error TEXT,
-  sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  accepted_at TIMESTAMPTZ,
+  provider_sent_at TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
+  read_at TIMESTAMPTZ,
+  failed_at TIMESTAMPTZ,
+  provider_status_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Idempotent for databases created before weekly WhatsApp campaigns existed.
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS campaign_key TEXT;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS event_ids INT[] NOT NULL DEFAULT '{}';
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS template_payload JSONB;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS attempt_count INT NOT NULL DEFAULT 0;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS provider_sent_at TIMESTAMPTZ;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS failed_at TIMESTAMPTZ;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS provider_status_at TIMESTAMPTZ;
+ALTER TABLE subscriber_sends ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
 CREATE INDEX IF NOT EXISTS idx_subscriber_sends_subscriber ON subscriber_sends(subscriber_id, sent_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriber_sends_weekly_campaign
+  ON subscriber_sends(subscriber_id, campaign_key)
+  WHERE campaign_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_subscriber_sends_provider_message
+  ON subscriber_sends(provider_message_id)
+  WHERE provider_message_id IS NOT NULL;
 
 ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;
 

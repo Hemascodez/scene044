@@ -11,7 +11,9 @@
     "start": "next start",
     "lint": "eslint",
     "pipeline": "tsx scripts/run-pipeline.ts",
-    "migrate": "tsx scripts/migrate.ts"
+    "migrate": "tsx scripts/migrate.ts",
+    "whatsapp-digest": "node --import tsx scripts/send-whatsapp-digest.ts",
+    "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4",

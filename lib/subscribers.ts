@@ -250,3 +250,44 @@ export async function unsubscribeByToken(token: string): Promise<boolean> {
   );
   return (rowCount ?? 0) > 0;
 }
+
+/** Handles STOP messages received from Meta before normal opt-in processing. */
+export async function unsubscribeWhatsappByPhone(rawPhone: string): Promise<WhatsappSubscriber | null> {
+  const phone = normalizePhoneE164(rawPhone);
+  if (!phone) return null;
+
+  const { rows } = await query<{
+    id: number;
+    phone_e164: string;
+    name: string | null;
+    role: string | null;
+    message: string | null;
+    categories: Category[];
+    source: string;
+    consent_note: string | null;
+    status: SubscriberStatus;
+    created_at: Date;
+  }>(
+    `UPDATE subscribers
+        SET status = 'unsubscribed',
+            unsubscribed_at = COALESCE(unsubscribed_at, now())
+      WHERE channel = 'whatsapp' AND phone_e164 = $1
+      RETURNING id, phone_e164, name, role, message, categories, source,
+                consent_note, status, created_at`,
+    [phone],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    phone: row.phone_e164,
+    name: row.name,
+    role: row.role,
+    message: row.message,
+    categories: row.categories,
+    source: row.source,
+    consentNote: row.consent_note,
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}

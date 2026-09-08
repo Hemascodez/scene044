@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { recordWhatsappOptIn } from "@/lib/subscribers";
+import {
+  recordWhatsappOptIn,
+  unsubscribeWhatsappByPhone,
+  type WhatsappSubscriber,
+} from "@/lib/subscribers";
 import { upsertWhatsappSubscriberInGoogleSheet } from "@/lib/googleSheets";
+import {
+  recordWhatsappDeliveryStatus,
+  type DeliveryStatus,
+} from "@/lib/whatsappDigest";
 import { sendWhatsappText } from "@/lib/whatsappSend";
 import {
   categoriesFromMessage,
+  isWhatsappStop,
   isValidSignature,
   parseField,
   replyFor,
+  whatsappMessageText,
 } from "@/lib/whatsappWebhook";
 
 /**
@@ -45,6 +55,51 @@ function optionalMessageField(text: string, label: string, placeholder: string):
   return value && value !== placeholder ? value : null;
 }
 
+function syncSubscriberToSheet(subscriber: WhatsappSubscriber): Promise<boolean> {
+  return upsertWhatsappSubscriberInGoogleSheet({
+    phone: subscriber.phone,
+    name: subscriber.name,
+    role: subscriber.role,
+    categories: subscriber.categories,
+    message: subscriber.message,
+    consentNote: subscriber.consentNote,
+    status: subscriber.status,
+    subscribedAt: subscriber.createdAt,
+  }).catch((error: unknown) => {
+    console.error("whatsapp webhook: Google Sheets sync failed", error);
+    return false;
+  });
+}
+
+const DELIVERY_STATUSES = new Set<DeliveryStatus>([
+  "accepted",
+  "sent",
+  "delivered",
+  "read",
+  "failed",
+]);
+
+function deliveryError(status: Record<string, unknown>): string | null {
+  const errors = Array.isArray(status.errors) ? status.errors : [];
+  if (errors.length === 0) return null;
+  return errors
+    .map((item) => {
+      const error = item as {
+        code?: unknown;
+        title?: unknown;
+        message?: unknown;
+        error_data?: { details?: unknown };
+      };
+      return [error.code, error.title, error.message, error.error_data?.details]
+        .filter((value) => value !== undefined && value !== null)
+        .map(String)
+        .join(" | ");
+    })
+    .filter(Boolean)
+    .join("; ")
+    .slice(0, 2000);
+}
+
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
@@ -66,12 +121,45 @@ export async function POST(request: NextRequest) {
       const changes = (entry.changes ?? []) as Record<string, unknown>[];
       for (const change of changes) {
         const value = change.value as Record<string, unknown> | undefined;
+
+        const statuses = (value?.statuses ?? []) as Record<string, unknown>[];
+        for (const status of statuses) {
+          const providerMessageId = String(status.id ?? "");
+          const providerStatus = String(status.status ?? "") as DeliveryStatus;
+          if (!providerMessageId || !DELIVERY_STATUSES.has(providerStatus)) continue;
+          const timestampSeconds = Number(status.timestamp);
+          const occurredAt = Number.isFinite(timestampSeconds)
+            ? new Date(timestampSeconds * 1000)
+            : undefined;
+          await recordWhatsappDeliveryStatus({
+            providerMessageId,
+            status: providerStatus,
+            occurredAt,
+            error: deliveryError(status),
+          });
+        }
+
         const messages = (value?.messages ?? []) as Record<string, unknown>[];
         for (const message of messages) {
-          if (message.type !== "text") continue;
           const from = String(message.from ?? "");
-          const body = String((message.text as { body?: string } | undefined)?.body ?? "");
+          const body = whatsappMessageText(message);
           if (!from || !body) continue;
+
+          // Opt-outs must run before the generic inbound-message upsert, which
+          // otherwise reactivates an unsubscribed row by design.
+          if (isWhatsappStop(body)) {
+            const subscriber = await unsubscribeWhatsappByPhone(from);
+            const confirmation = sendWhatsappText(
+              from,
+              "You've been unsubscribed from SCENE/044 WhatsApp updates. You won't receive future event digests.",
+            );
+            const sheetSync = subscriber ? syncSubscriberToSheet(subscriber) : Promise.resolve(false);
+            await Promise.all([confirmation, sheetSync]);
+            continue;
+          }
+
+          // Non-STOP button interactions are not subscription forms.
+          if (message.type !== "text") continue;
 
           const optIn = await recordWhatsappOptIn({
             phone: from,
@@ -84,19 +172,7 @@ export async function POST(request: NextRequest) {
 
           const replyPromise = sendWhatsappText(from, replyFor(body));
           const sheetPromise = optIn.ok
-            ? upsertWhatsappSubscriberInGoogleSheet({
-                phone: optIn.subscriber.phone,
-                name: optIn.subscriber.name,
-                role: optIn.subscriber.role,
-                categories: optIn.subscriber.categories,
-                message: optIn.subscriber.message,
-                consentNote: optIn.subscriber.consentNote,
-                status: optIn.subscriber.status,
-                subscribedAt: optIn.subscriber.createdAt,
-              }).catch((error: unknown) => {
-                console.error("whatsapp webhook: Google Sheets sync failed", error);
-                return false;
-              })
+            ? syncSubscriberToSheet(optIn.subscriber)
             : Promise.resolve(false);
 
           await Promise.all([replyPromise, sheetPromise]);

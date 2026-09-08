@@ -1,6 +1,6 @@
 # Deploying SCENE/044 — Railway + Supabase
 
-Two Railway services from one repo, plus a Supabase database. `next start`
+Four Railway services from one repo, plus a Supabase database. `next start`
 reads `PORT` from the environment and binds `0.0.0.0`, so Railway needs no
 extra port configuration.
 
@@ -77,6 +77,53 @@ be upcoming, and deletes orphaned poster bytes. Nothing else is deleted —
 expired rows stay for auditing and for a "what you missed" surface. Tune with `--max-minutes`,
 `--limit`, `--discover-only`, `--extract-only`, `--verify-only`.
 
+## 4. Wednesday WhatsApp digest service
+
+Add a **fourth service from the same repo**:
+
+- **Start command**: `npm run whatsapp-digest`
+- **Cron schedule**: `30 12 * * 3` — Wednesday 18:00 IST (Railway cron is UTC)
+- **Required variables**: `DATABASE_URL`, `WHATSAPP_ACCESS_TOKEN`,
+  `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_API_VERSION`,
+  `WHATSAPP_WEEKLY_TEMPLATE_NAME=scene044_weekly_digest`, and
+  `WHATSAPP_WEEKLY_TEMPLATE_LANGUAGE=en_US`
+- **Kill switch**: `WHATSAPP_DIGEST_ENABLED=false` during setup
+
+The digest service reads the same database as the web service. Its campaign
+ledger prevents a second invocation in the same IST week from sending to the
+same subscriber again. A request that may have reached Meta but returned no
+definitive response is recorded as `unknown` and is not retried.
+
+Roll out in this order:
+
+```bash
+npm run whatsapp-digest -- --dry-run
+```
+
+Inspect subscriber/event counts and the rendered blocks. Then set
+`WHATSAPP_TEST_RECIPIENT` to an opted-in internal number and run:
+
+```bash
+npm run whatsapp-digest -- --test
+```
+
+The test number must first opt in through WhatsApp so it has an active
+subscriber row. Test mode sends only to that number and writes an isolated
+`whatsapp-weekly-test:*` ledger row, allowing the web-service webhook to change
+it from `accepted` to `delivered` without suppressing those events from the
+production digest. Only then set `WHATSAPP_DIGEST_ENABLED=true` on the digest
+service and enable its Wednesday cron.
+
+Verify the latest test callback in Postgres:
+
+```sql
+SELECT campaign_key, status, accepted_at, delivered_at, error
+FROM subscriber_sends
+WHERE campaign_key LIKE 'whatsapp-weekly-test:%'
+ORDER BY sent_at DESC
+LIMIT 1;
+```
+
 ### NEXT_PUBLIC_ variables must be set at BUILD time
 
 `NEXT_PUBLIC_WHATSAPP_NUMBER` is inlined into the client bundle when `next build` runs. Setting them only as runtime
@@ -109,7 +156,7 @@ Note, Status, and Subscribed At. Keep the configured tab blank on first use so
 the app can add those headers safely. Subscriber messages are personal data;
 restrict spreadsheet sharing to people who need access.
 
-## 4. Secrets
+## 5. Secrets
 
 Generate fresh values for production — do not reuse the local ones:
 
@@ -121,7 +168,7 @@ node -e "console.log('CRON_SECRET=' + require('crypto').randomBytes(32).toString
 were fine on localhost. Neither is fine once `/api/cron/*` and `/admin/*` are
 reachable from the internet.
 
-## 5. Domain
+## 6. Domain
 
 Add `scene044.in` in Railway's service settings and point the CNAME at the
 Railway target. Cloudflare is still worth using as the registrar and DNS host.
@@ -139,3 +186,9 @@ without the bearer token. Load the homepage and confirm events render.
 
 Trigger the cron service manually once from Railway's dashboard and confirm the
 logs show `pipeline finished in …s` and the process exits.
+
+For the digest service, leave `WHATSAPP_DIGEST_ENABLED=false` until Meta has
+approved the exact English (US) template in `docs/whatsapp-templates.md`. Both
+the web and digest services need the same permanent Meta token, phone number
+ID, and supported Graph API version; the web service needs them for the welcome
+and STOP confirmations, while the digest service uses them for templates.
