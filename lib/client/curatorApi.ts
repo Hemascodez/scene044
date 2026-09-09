@@ -50,11 +50,15 @@ export interface AdminEvent {
   endAt: string | null;
   isOnline: boolean;
   venueName: string | null;
+  venueAddress: string | null;
   city: string;
   organizerName: string | null;
   posterImageUrl: string | null;
   primarySourceUrl: string;
   summary: string | null;
+  highlights: string[];
+  priceType: PriceType | null;
+  priceNote: string | null;
   sourceType: "auto" | "curator";
   lastVerifiedAt: string | null;
   createdAt: string;
@@ -166,6 +170,7 @@ export function publishEvent(input: {
   discoveryItemId: number;
   title: string;
   summary: string | null;
+  highlights: string[];
   category: Category;
   startAt: string | null;
   endAt: string | null;
@@ -184,6 +189,30 @@ export function publishEvent(input: {
     "/api/admin/curator/approve",
     { method: "POST", body: JSON.stringify(input) },
   );
+}
+
+export function updatePublishedEvent(input: {
+  eventId: number;
+  title: string;
+  summary: string | null;
+  highlights: string[];
+  category: Category;
+  startAt: string | null;
+  endAt: string | null;
+  isOnline: boolean;
+  venueName: string | null;
+  venueAddress: string | null;
+  organizerName: string | null;
+  posterImageUrl: string | null;
+  priceType: PriceType | null;
+  priceNote: string | null;
+  primarySourceUrl: string | null;
+  status: EventStatus;
+}) {
+  return request<{ eventId: number; status: EventStatus }>("/api/admin/events/update", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export function saveDraft(discoveryItemId: number, draft: CuratorDraft, note?: string) {

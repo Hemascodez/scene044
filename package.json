@@ -14,6 +14,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "whatsapp-digest": "node --import tsx scripts/send-whatsapp-digest.ts",
     "test:seo": "node --import tsx scripts/test-seo.ts",
+    "test:curator": "node --import tsx scripts/test-curator-draft-validation.ts && node --import tsx scripts/test-admin-event-update.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
     "backfill:event-copy": "node --import tsx scripts/backfill-summaries.ts"
   },

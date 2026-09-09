@@ -12,6 +12,7 @@ import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/l
 export interface CuratorDraft {
   title: string;
   summary: string;
+  highlights: string[];
   category: Category | "";
   startDate: string; // yyyy-mm-dd (IST)
   startTime: string; // HH:mm (IST)
@@ -34,6 +35,7 @@ export function emptyCuratorDraft(): CuratorDraft {
   return {
     title: "",
     summary: "",
+    highlights: [],
     category: "",
     startDate: "",
     startTime: "",
@@ -112,6 +114,17 @@ export function validateDraftForPublish(draft: CuratorDraft): string[] {
   if (poster && !/^https?:\/\/\S+$/i.test(poster) && !/^\/api\/poster\/\d+$/.test(poster)) {
     errors.push("Poster URL must be http(s)");
   }
+  if (draft.highlights.length > 3) errors.push("At most 3 perks allowed");
+  const highlights = draft.highlights.map((perk) => perk.trim()).filter(Boolean);
+  if (highlights.some((perk) => perk.length > 72)) errors.push("Perks must be 72 characters or fewer");
+  if (new Set(highlights.map((perk) => perk.toLowerCase())).size !== highlights.length) {
+    errors.push("Perks must be unique");
+  }
+  if (highlights.length > 0 && !draft.summary.trim()) {
+    errors.push("Perks require a summary");
+  }
+  const summaryWords = draft.summary.trim().split(/\s+/).filter(Boolean).length;
+  if (summaryWords > 100) errors.push("Description must be 100 words or fewer");
   return errors;
 }
 

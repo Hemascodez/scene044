@@ -25,6 +25,7 @@ import {
   type QueueKey,
 } from "@/lib/client/curatorApi";
 import { CandidateReview } from "@/components/curator/CandidateReview";
+import { PublishedEventEditor } from "@/components/curator/PublishedEventEditor";
 import {
   AdminBtn,
   AdminLink,
@@ -72,6 +73,7 @@ export function CuratorApp() {
   const [reloadToken, setReloadToken] = useState(0);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [editEventId, setEditEventId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [domainFilter, setDomainFilter] = useState("all");
   const [dirty, setDirty] = useState(false);
@@ -171,6 +173,8 @@ export function CuratorApp() {
         setShowHelp((s) => !s);
       } else if (e.key === "Escape" && openId !== null) {
         guard(() => setOpenId(null));
+      } else if (e.key === "Escape" && editEventId !== null) {
+        guard(() => setEditEventId(null));
       } else if ((e.key === "j" || e.key === "k") && filtered.length > 0) {
         const idx = filtered.findIndex((i) => i.id === openId);
         const next = e.key === "j" ? filtered[idx + 1] ?? filtered[0] : filtered[idx - 1] ?? filtered[filtered.length - 1];
@@ -179,7 +183,7 @@ export function CuratorApp() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filtered, openId, guard]);
+  }, [filtered, openId, editEventId, guard]);
 
   async function quickAction(item: QueueItem, action: "irrelevant" | "expired" | "rejected" | "reopen") {
     try {
@@ -299,7 +303,7 @@ export function CuratorApp() {
                   key={q.key}
                   type="button"
                   aria-current={active ? "page" : undefined}
-                  onClick={() => guard(() => { setQueue(q.key); setOpenId(null); })}
+                  onClick={() => guard(() => { setQueue(q.key); setOpenId(null); setEditEventId(null); })}
                   className={`flex shrink-0 items-center justify-between gap-3 border px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.1em] transition-colors lg:shrink ${
                     active
                       ? "border-[#39ff9b] bg-[#0f2a1c] text-[#5effb0]"
@@ -358,12 +362,20 @@ export function CuratorApp() {
               />
             </div>
           ) : queue === "published" ? (
-            <PublishedList
-              events={published}
-              loading={loading}
-              onStatus={changeEventStatus}
-              onRefresh={reload}
-            />
+            editEventId !== null && published.find((event) => event.id === editEventId) ? (
+              <PublishedEventEditor
+                event={published.find((event) => event.id === editEventId)!}
+                onDirtyChange={setDirty}
+                onCancel={() => guard(() => setEditEventId(null))}
+                onDone={(msg) => { setDirty(false); setEditEventId(null); announce(msg); reload(); }}
+              />
+            ) : <PublishedList
+                events={published}
+                loading={loading}
+                onStatus={changeEventStatus}
+                onRefresh={reload}
+                onEdit={(event) => { setDirty(false); setEditEventId(event.id); }}
+              />
           ) : (
             <div className="p-4 lg:p-6">
               <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -614,11 +626,13 @@ function PublishedList({
   loading,
   onStatus,
   onRefresh,
+  onEdit,
 }: {
   events: AdminEvent[];
   loading: boolean;
   onStatus: (event: AdminEvent, status: EventStatus) => void;
   onRefresh: () => void;
+  onEdit: (event: AdminEvent) => void;
 }) {
   const [q, setQ] = useState("");
   const list = events.filter(
@@ -721,6 +735,9 @@ function PublishedList({
                 <AdminLink href={event.primarySourceUrl} variant="ghost">
                   Source ↗
                 </AdminLink>
+                <AdminBtn variant="outline" onClick={() => onEdit(event)}>
+                  Edit
+                </AdminBtn>
               </div>
             </li>
           ))}

@@ -17,6 +17,7 @@ interface ApproveBody {
   discoveryItemId: number;
   title: string;
   summary: string | null;
+  highlights?: string[];
   category: Category;
   startAt: string | null;
   endAt: string | null;
@@ -107,6 +108,26 @@ export async function POST(request: Request) {
   if (body.priceType != null && body.priceType !== "free" && body.priceType !== "paid") {
     return NextResponse.json({ error: "priceType must be 'free', 'paid' or null" }, { status: 400 });
   }
+  if (body.highlights && (!Array.isArray(body.highlights) || body.highlights.some((value) => typeof value !== "string"))) {
+    return NextResponse.json({ error: "highlights must be an array of strings" }, { status: 400 });
+  }
+  if ((body.highlights?.length ?? 0) > 3) {
+    return NextResponse.json({ error: "at most 3 highlights allowed" }, { status: 400 });
+  }
+  const highlights = (body.highlights ?? []).map((value) => value.trim()).filter(Boolean);
+  if (highlights.length > 0 && !body.summary?.trim()) {
+    return NextResponse.json({ error: "highlights require a summary" }, { status: 400 });
+  }
+  if (highlights.some((perk) => perk.length > 72)) {
+    return NextResponse.json({ error: "highlights must be 72 characters or fewer" }, { status: 400 });
+  }
+  if (new Set(highlights.map((perk) => perk.toLowerCase())).size !== highlights.length) {
+    return NextResponse.json({ error: "highlights must be unique" }, { status: 400 });
+  }
+  const summaryWords = body.summary?.trim().split(/\s+/).filter(Boolean).length ?? 0;
+  if (summaryWords > 100) {
+    return NextResponse.json({ error: "summary must be 100 words or fewer" }, { status: 400 });
+  }
 
   try {
     const { rows } = await query<{ id: number; url: string; source_domain: string; status: string }>(
@@ -158,11 +179,12 @@ export async function POST(request: Request) {
     const {
       rows: [eventRow],
     } = await query<{ id: number }>(
-      `INSERT INTO events (title, summary, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'curator',$14,$15, now()) RETURNING id`,
+      `INSERT INTO events (title, summary, highlights, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'curator',$15,$16, now()) RETURNING id`,
       [
         body.title.trim(),
         body.summary ?? null,
+        highlights,
         body.category,
         body.startAt ?? null,
         body.endAt ?? null,

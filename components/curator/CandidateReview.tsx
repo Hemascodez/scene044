@@ -71,7 +71,7 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     summary: draft.summary || null,
     // Curator-entered events skip the summarizer pass, so there are no
     // highlights to show — an empty list renders nothing, which is correct.
-    highlights: [],
+    highlights: draft.highlights,
     registrationNote: null,
     category: (draft.category || "tech") as Category,
     startAt: draftToInstant(draft.startDate, draft.startTime),
@@ -104,7 +104,11 @@ export function CandidateReview({
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const [draft, setDraft] = useState<CuratorDraft>(item.curator_draft ?? emptyCuratorDraft());
+  const [draft, setDraft] = useState<CuratorDraft>(() => ({
+    ...emptyCuratorDraft(),
+    ...(item.curator_draft ?? {}),
+    highlights: item.curator_draft?.highlights ?? [],
+  }));
   const [started, setStarted] = useState(Boolean(item.curator_draft));
   const [dirty, setDirty] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -161,6 +165,7 @@ export function CandidateReview({
         ...prev,
         title: e.title ?? prev.title,
         summary: e.summary ?? prev.summary,
+        highlights: prev.highlights,
         category: result.categorization?.category ?? prev.category,
         startDate: start.date || prev.startDate,
         startTime: start.time || prev.startTime,
@@ -229,6 +234,7 @@ export function CandidateReview({
         discoveryItemId: item.id,
         title: draft.title.trim(),
         summary: draft.summary.trim() || null,
+        highlights: draft.highlights.map((perk) => perk.trim()).filter(Boolean),
         category: draft.category as Category,
         startAt: draftToInstant(draft.startDate, draft.startTime),
         endAt: draftToInstant(draft.endDate, draft.endTime),
@@ -437,6 +443,8 @@ export function CandidateReview({
               <Field label="Summary" hint="Shown in the event detail view">
                 <TextArea rows={3} value={draft.summary} onChange={(e) => set("summary", e.target.value)} />
               </Field>
+
+              <PerksEditor value={draft.highlights} onChange={(next) => set("highlights", next)} />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Category" required>
@@ -676,7 +684,7 @@ export function CandidateReview({
  * never depends on someone else's CDN staying up. Leaving it blank is a valid
  * choice: the card falls back to the category Scene image.
  */
-function PosterField({
+export function PosterField({
   value,
   category,
   onChange,
@@ -810,6 +818,55 @@ function PosterField({
         onChange={(e) => upload(e.target.files?.[0] ?? null)}
       />
     </div>
+  );
+}
+
+export function PerksEditor({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  function move(index: number, direction: -1 | 1) {
+    const next = [...value];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  }
+
+  return (
+    <Field label="Perks" hint="What attendees get · up to 3 · shown in this order">
+      <div className="flex flex-col gap-2">
+        {value.map((perk, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <TextInput
+              value={perk}
+              onChange={(e) => onChange(value.map((item, i) => (i === index ? e.target.value : item)))}
+              placeholder="e.g. Practical workshop"
+              aria-label={`Perk ${index + 1}`}
+            />
+            <div className="flex shrink-0 gap-1">
+              <AdminBtn variant="ghost" onClick={() => move(index, -1)} disabled={index === 0} title="Move perk up">
+                ↑
+              </AdminBtn>
+              <AdminBtn variant="ghost" onClick={() => move(index, 1)} disabled={index === value.length - 1} title="Move perk down">
+                ↓
+              </AdminBtn>
+              <AdminBtn variant="ghost" onClick={() => onChange(value.filter((_, i) => i !== index))} title="Remove perk">
+                Remove
+              </AdminBtn>
+            </div>
+          </div>
+        ))}
+        {value.length < 3 && (
+          <AdminBtn variant="outline" onClick={() => onChange([...value, ""])} className="self-start">
+            + Add perk
+          </AdminBtn>
+        )}
+      </div>
+    </Field>
   );
 }
 
