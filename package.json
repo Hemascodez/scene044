@@ -12,6 +12,7 @@
     "lint": "eslint",
     "pipeline": "tsx scripts/run-pipeline.ts",
     "migrate": "tsx scripts/migrate.ts",
+    "migrate:event-metadata": "node --import tsx scripts/migrate-event-metadata.ts",
     "whatsapp-digest": "node --import tsx scripts/send-whatsapp-digest.ts",
     "test:seo": "node --import tsx scripts/test-seo.ts",
     "test:curator": "node --import tsx scripts/test-curator-draft-validation.ts && node --import tsx scripts/test-admin-event-update.ts",

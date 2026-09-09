@@ -14,6 +14,8 @@ const valid = {
   title: "Scene Event",
   summary: "A clear, source-backed description of the event.",
   highlights: ["Meet local peers", "Explore practical examples"],
+  tags: ["Community", "Hands-on"],
+  isPromoted: true,
   category: "tech",
   startAt: "2026-09-20T04:30:00.000Z",
   endAt: "2026-09-20T06:30:00.000Z",
@@ -32,9 +34,13 @@ const normalized = normalizeAdminEventUpdate(valid);
 check("accepts a complete published-event update", normalized.ok);
 check("strips tracking parameters and fragments", normalized.ok && normalized.value.primarySourceUrl === "https://example.com/event");
 check("keeps self-hosted poster URLs", normalized.ok && normalized.value.posterImageUrl === "/api/poster/12");
+check("keeps curator tags", normalized.ok && normalized.value.tags.join(",") === "Community,Hands-on");
+check("keeps promoted placement", normalized.ok && normalized.value.isPromoted === true);
 check("rejects four perks", !normalizeAdminEventUpdate({ ...valid, highlights: ["One", "Two", "Three", "Four"] }).ok);
 check("rejects perks without a description", !normalizeAdminEventUpdate({ ...valid, summary: null }).ok);
 check("rejects duplicate perks", !normalizeAdminEventUpdate({ ...valid, highlights: ["Meet peers", "meet peers"] }).ok);
+check("rejects more than six tags", !normalizeAdminEventUpdate({ ...valid, tags: ["1", "2", "3", "4", "5", "6", "7"] }).ok);
+check("rejects duplicate tags", !normalizeAdminEventUpdate({ ...valid, tags: ["Community", "community"] }).ok);
 check("rejects an invalid source URL", !normalizeAdminEventUpdate({ ...valid, primarySourceUrl: "javascript:alert(1)" }).ok);
 check("rejects an end before the start", !normalizeAdminEventUpdate({ ...valid, endAt: "2026-09-19T06:30:00.000Z" }).ok);
 check("requires a venue for in-person events", !normalizeAdminEventUpdate({ ...valid, venueName: null, venueAddress: null }).ok);

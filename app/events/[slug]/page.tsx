@@ -125,7 +125,12 @@ export default async function EventPage({ params }: EventPageProps) {
               <span className="bg-primary px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-foreground">
                 {fieldName}
               </span>
-              <StatusBadge status={status} />
+                <StatusBadge status={status} />
+                {event.isPromoted && (
+                  <span className="bg-primary-ink px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                    Promoted
+                  </span>
+                )}
               {event.priceType === "free" && (
                 <span
                   className="bg-signal-ink px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white"

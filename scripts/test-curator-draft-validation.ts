@@ -28,6 +28,8 @@ const base: CuratorDraft = {
   organizerName: "",
   summary: "",
   highlights: [],
+  tags: [],
+  isPromoted: false,
   registrationUrl: "",
   posterImageUrl: "",
   priceType: "" as const,

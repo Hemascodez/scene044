@@ -311,6 +311,12 @@ ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;
 -- price. `summary` is rewritten by the same pass into 1-2 scannable sentences.
 ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '{}';
 
+-- Curator-authored discovery labels and paid/editorial placement. Manual tags
+-- supplement evidence-derived audience labels; promotion is a separate boolean
+-- so ordering never depends on a magic tag string.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS is_promoted BOOLEAN NOT NULL DEFAULT false;
+
 -- Registration deadline, when the source publishes one. schema.org puts this on
 -- offers.validThrough (when ticket sales end), which is the only structured
 -- signal any of our sources carry for it. Null is common and must stay null:

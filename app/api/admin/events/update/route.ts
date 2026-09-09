@@ -20,14 +20,16 @@ export async function POST(request: Request) {
 
   try {
     const result = await query<{ id: number; status: EventStatus }>(
-      `UPDATE events SET title=$1, summary=$2, highlights=$3, category=$4, start_at=$5, end_at=$6,
-       is_online=$7, venue_name=$8, venue_address=$9, organizer_name=$10, poster_image_url=$11,
-       price_type=$12, price_note=$13, primary_source_url=$14, status=$15,
+      `UPDATE events SET title=$1, summary=$2, highlights=$3, tags=$4, is_promoted=$5,
+       category=$6, start_at=$7, end_at=$8,
+       is_online=$9, venue_name=$10, venue_address=$11, organizer_name=$12, poster_image_url=$13,
+       price_type=$14, price_note=$15, primary_source_url=$16, status=$17,
        last_verified_at=now(), updated_at=now()
-       WHERE id=$16 RETURNING id, status`,
-      [event.title, event.summary, event.highlights, event.category, event.startAt, event.endAt,
-       event.isOnline, event.venueName, event.venueAddress, event.organizerName, event.posterImageUrl,
-       event.priceType, event.priceNote, event.primarySourceUrl, event.status, event.eventId],
+       WHERE id=$18 RETURNING id, status`,
+      [event.title, event.summary, event.highlights, event.tags, event.isPromoted, event.category,
+       event.startAt, event.endAt, event.isOnline, event.venueName, event.venueAddress,
+       event.organizerName, event.posterImageUrl, event.priceType, event.priceNote,
+       event.primarySourceUrl, event.status, event.eventId],
     );
     if (!result.rows[0]) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json({ ok: true, eventId: result.rows[0].id, status: result.rows[0].status });

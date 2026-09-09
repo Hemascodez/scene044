@@ -15,7 +15,7 @@ import {
   updatePublishedEvent,
   type AdminEvent,
 } from "@/lib/client/curatorApi";
-import { PerksEditor, PosterField } from "@/components/curator/CandidateReview";
+import { PerksEditor, PosterField, TagsEditor } from "@/components/curator/CandidateReview";
 import {
   AdminBtn,
   AdminLabel,
@@ -42,6 +42,8 @@ function eventToDraft(event: AdminEvent): CuratorDraft {
     title: event.title,
     summary: event.summary ?? "",
     highlights: event.highlights ?? [],
+    tags: event.tags ?? [],
+    isPromoted: event.isPromoted,
     category: event.category,
     startDate: start.date,
     startTime: start.time,
@@ -107,6 +109,8 @@ export function PublishedEventEditor({
         title: draft.title.trim(),
         summary: draft.summary.trim() || null,
         highlights: draft.highlights.map((perk) => perk.trim()).filter(Boolean),
+        tags: draft.tags.map((tag) => tag.trim().replace(/^#+/, "")).filter(Boolean),
+        isPromoted: draft.isPromoted,
         category: draft.category as Category,
         startAt: draftToInstant(draft.startDate, draft.startTime),
         endAt: draftToInstant(draft.endDate, draft.endTime),
@@ -153,6 +157,13 @@ export function PublishedEventEditor({
             <TextArea rows={6} value={draft.summary} onChange={(e) => set("summary", e.target.value)} />
           </Field>
           <PerksEditor value={draft.highlights} onChange={(next) => set("highlights", next)} />
+          <TagsEditor value={draft.tags} onChange={(next) => set("tags", next)} />
+          <Field label="Placement" hint="Promoted events appear first, then sort by date">
+            <label className="flex min-h-10 items-center gap-2 text-sm">
+              <input type="checkbox" checked={draft.isPromoted} onChange={(e) => set("isPromoted", e.target.checked)} className="size-4 accent-[#39ff9b]" />
+              Mark as promoted
+            </label>
+          </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Category" required>

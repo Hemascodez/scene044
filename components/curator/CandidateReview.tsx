@@ -27,6 +27,7 @@ import {
 } from "@/lib/client/curatorApi";
 import { relativeChecked } from "@/lib/client/istTime";
 import { EventCard } from "@/components/scene/EventCard";
+import { PosterCropper } from "@/components/curator/PosterCropper";
 import {
   AdminBtn,
   AdminLabel,
@@ -72,6 +73,8 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     // Curator-entered events skip the summarizer pass, so there are no
     // highlights to show — an empty list renders nothing, which is correct.
     highlights: draft.highlights,
+    tags: draft.tags,
+    isPromoted: draft.isPromoted,
     registrationNote: null,
     category: (draft.category || "tech") as Category,
     startAt: draftToInstant(draft.startDate, draft.startTime),
@@ -108,6 +111,8 @@ export function CandidateReview({
     ...emptyCuratorDraft(),
     ...(item.curator_draft ?? {}),
     highlights: item.curator_draft?.highlights ?? [],
+    tags: item.curator_draft?.tags ?? [],
+    isPromoted: item.curator_draft?.isPromoted ?? false,
   }));
   const [started, setStarted] = useState(Boolean(item.curator_draft));
   const [dirty, setDirty] = useState(false);
@@ -166,6 +171,8 @@ export function CandidateReview({
         title: e.title ?? prev.title,
         summary: e.summary ?? prev.summary,
         highlights: prev.highlights,
+        tags: prev.tags,
+        isPromoted: prev.isPromoted,
         category: result.categorization?.category ?? prev.category,
         startDate: start.date || prev.startDate,
         startTime: start.time || prev.startTime,
@@ -235,6 +242,8 @@ export function CandidateReview({
         title: draft.title.trim(),
         summary: draft.summary.trim() || null,
         highlights: draft.highlights.map((perk) => perk.trim()).filter(Boolean),
+        tags: draft.tags.map((tag) => tag.trim().replace(/^#+/, "")).filter(Boolean),
+        isPromoted: draft.isPromoted,
         category: draft.category as Category,
         startAt: draftToInstant(draft.startDate, draft.startTime),
         endAt: draftToInstant(draft.endDate, draft.endTime),
@@ -445,6 +454,20 @@ export function CandidateReview({
               </Field>
 
               <PerksEditor value={draft.highlights} onChange={(next) => set("highlights", next)} />
+
+              <TagsEditor value={draft.tags} onChange={(next) => set("tags", next)} />
+
+              <Field label="Placement" hint="Promoted events appear first, then sort by date">
+                <label className="flex items-center gap-2 text-sm text-[#e9efe7]">
+                  <input
+                    type="checkbox"
+                    checked={draft.isPromoted}
+                    onChange={(e) => set("isPromoted", e.target.checked)}
+                    className="size-4 accent-[#39ff9b]"
+                  />
+                  Mark as promoted
+                </label>
+              </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Category" required>
@@ -697,7 +720,12 @@ export function PosterField({
   const [error, setError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importUrl, setImportUrl] = useState("");
+  const [cropSource, setCropSource] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => () => {
+    if (cropSource) URL.revokeObjectURL(cropSource);
+  }, [cropSource]);
 
   async function send(init: RequestInit) {
     setBusy(true);
@@ -721,11 +749,45 @@ export function PosterField({
     }
   }
 
+  function closeCrop() {
+    setCropSource(null);
+  }
+
   function upload(file: File | null) {
     if (!file) return;
+    setCropSource(URL.createObjectURL(file));
+  }
+
+  async function cropExisting() {
+    if (!value) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let localUrl = value;
+      if (/^https?:\/\//i.test(localUrl)) {
+        const imported = await fetch("/api/admin/curator/poster", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: localUrl }),
+        });
+        const importedBody = (await imported.json().catch(() => null)) as { url?: string; error?: string } | null;
+        if (!imported.ok || !importedBody?.url) throw new Error(importedBody?.error ?? "Could not prepare that image.");
+        localUrl = importedBody.url;
+      }
+      const response = await fetch(localUrl);
+      if (!response.ok) throw new Error(`Could not load that image (${response.status}).`);
+      setCropSource(URL.createObjectURL(await response.blob()));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not open the crop editor.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function storeCrop(blob: Blob) {
+    closeCrop();
     const form = new FormData();
-    form.append("file", file);
-    // No Content-Type header — the browser must set the multipart boundary.
+    form.append("file", new File([blob], "scene044-poster.jpg", { type: "image/jpeg" }));
     void send({ body: form });
   }
 
@@ -750,6 +812,9 @@ export function PosterField({
           <div className="flex flex-col gap-2">
             <AdminBtn variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
               Replace
+            </AdminBtn>
+            <AdminBtn variant="outline" onClick={() => void cropExisting()} disabled={busy}>
+              Adjust & crop
             </AdminBtn>
             <AdminBtn variant="ghost" onClick={() => onChange("")} disabled={busy}>
               Remove
@@ -815,8 +880,12 @@ export function PosterField({
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
-        onChange={(e) => upload(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          upload(e.target.files?.[0] ?? null);
+          e.currentTarget.value = "";
+        }}
       />
+      {cropSource && <PosterCropper source={cropSource} onCancel={closeCrop} onApply={storeCrop} />}
     </div>
   );
 }
@@ -863,6 +932,40 @@ export function PerksEditor({
         {value.length < 3 && (
           <AdminBtn variant="outline" onClick={() => onChange([...value, ""])} className="self-start">
             + Add perk
+          </AdminBtn>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+export function TagsEditor({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <Field label="Tags" hint="Up to 6 editorial labels · # is added automatically">
+      <div className="flex flex-col gap-2">
+        {value.map((tag, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <TextInput
+              value={tag}
+              onChange={(e) => onChange(value.map((item, i) => (i === index ? e.target.value : item)))}
+              placeholder="e.g. Women in tech"
+              aria-label={`Tag ${index + 1}`}
+              maxLength={25}
+            />
+            <AdminBtn variant="ghost" onClick={() => onChange(value.filter((_, i) => i !== index))}>
+              Remove
+            </AdminBtn>
+          </div>
+        ))}
+        {value.length < 6 && (
+          <AdminBtn variant="outline" onClick={() => onChange([...value, ""])} className="self-start">
+            + Add tag
           </AdminBtn>
         )}
       </div>

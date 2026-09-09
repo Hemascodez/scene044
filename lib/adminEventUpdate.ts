@@ -8,6 +8,8 @@ export interface NormalizedAdminEventUpdate {
   title: string;
   summary: string | null;
   highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
   category: Category;
   startAt: string;
   endAt: string | null;
@@ -86,6 +88,15 @@ export function normalizeAdminEventUpdate(input: unknown): AdminEventUpdateResul
     return fail("perks must be unique");
   }
 
+  if (!Array.isArray(body.tags) || body.tags.some((value) => typeof value !== "string")) {
+    return fail("tags must be an array of strings");
+  }
+  if (body.tags.length > 6) return fail("at most 6 tags allowed");
+  const tags = body.tags.map((tag) => tag.trim().replace(/^#+/, "")).filter(Boolean);
+  if (tags.some((tag) => tag.length > 24)) return fail("tags must be 24 characters or fewer");
+  if (new Set(tags.map((tag) => tag.toLowerCase())).size !== tags.length) return fail("tags must be unique");
+  if (typeof body.isPromoted !== "boolean") return fail("isPromoted must be a boolean");
+
   const status = body.status as EventStatus;
   if (!EDITABLE_STATUSES.includes(status)) return fail("invalid status");
   const primarySourceUrl = safeHttpUrl(body.primarySourceUrl);
@@ -103,6 +114,8 @@ export function normalizeAdminEventUpdate(input: unknown): AdminEventUpdateResul
       title,
       summary,
       highlights,
+      tags,
+      isPromoted: body.isPromoted,
       category: body.category as Category,
       startAt: new Date(startAt).toISOString(),
       endAt: endAt ? new Date(endAt).toISOString() : null,

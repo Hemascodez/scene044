@@ -691,6 +691,16 @@ function PublishedList({
                       Curator
                     </Pill>
                   )}
+                  {event.isPromoted && (
+                    <Pill tone="green" glyph="↑">
+                      Promoted
+                    </Pill>
+                  )}
+                  {event.tags.map((tag) => (
+                    <Pill key={tag} tone="muted" glyph="#">
+                      {tag}
+                    </Pill>
+                  ))}
                   {event.openReports > 0 && (
                     <Pill tone="red" glyph="!">
                       {event.openReports} report{event.openReports === 1 ? "" : "s"}

@@ -57,6 +57,8 @@ export interface AdminEvent {
   primarySourceUrl: string;
   summary: string | null;
   highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
   priceType: PriceType | null;
   priceNote: string | null;
   sourceType: "auto" | "curator";
@@ -171,6 +173,8 @@ export function publishEvent(input: {
   title: string;
   summary: string | null;
   highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
   category: Category;
   startAt: string | null;
   endAt: string | null;
@@ -196,6 +200,8 @@ export function updatePublishedEvent(input: {
   title: string;
   summary: string | null;
   highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
   category: Category;
   startAt: string | null;
   endAt: string | null;

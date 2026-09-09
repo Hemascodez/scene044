@@ -107,9 +107,18 @@ export function EventCard({
             )}
           </div>
 
-          {isNewlyDiscovered(event) && (
-            <span className="absolute left-0 top-0 m-1.5 bg-accent px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-accent-foreground">
-              New
+          {(event.isPromoted || isNewlyDiscovered(event)) && (
+            <span className="absolute left-0 top-0 m-1.5 flex flex-col items-start gap-1">
+              {event.isPromoted && (
+                <span className="bg-primary-ink px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
+                  Promoted
+                </span>
+              )}
+              {isNewlyDiscovered(event) && (
+                <span className="bg-accent px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-accent-foreground">
+                  New
+                </span>
+              )}
             </span>
           )}
           {/* Top-right stack. Both flags can apply at once, and the bottom of
@@ -143,8 +152,15 @@ export function EventCard({
             width to their full text length and push the whole card open. */}
         <div className="flex min-w-0 flex-1 flex-col gap-2 p-3.5">
           <div className="flex min-w-0 items-start justify-between gap-2">
-            <span className="min-w-0 truncate bg-foreground px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-background">
-              {fieldLabel}
+            <span className="flex min-w-0 flex-wrap items-center gap-1">
+              <span className="truncate bg-foreground px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-background">
+                {fieldLabel}
+              </span>
+              {event.tags.slice(0, 2).map((tag) => (
+                <span key={tag} className="border border-foreground/35 px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-[0.08em]">
+                  #{tag}
+                </span>
+              ))}
             </span>
             <StatusBadge status={status} />
           </div>

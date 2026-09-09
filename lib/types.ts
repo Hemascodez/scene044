@@ -81,6 +81,8 @@ export interface EventRecord {
   city: string;
   organizer_name: string | null;
   poster_image_url: string | null;
+  tags: string[];
+  is_promoted: boolean;
   price_type: PriceType | null;
   price_note: string | null;
   primary_source_url: string;

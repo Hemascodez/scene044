@@ -34,6 +34,10 @@ export interface PublicEvent {
   summary: string | null;
   /** Three short, source-grounded takeaways. Empty when the listing was vague. */
   highlights: string[];
+  /** Curator-authored labels, separate from evidence-derived audience tags. */
+  tags: string[];
+  /** Editorial placement: promoted events sort above the chronological feed. */
+  isPromoted: boolean;
   /** Only populated when the source published a deadline. Usually null. */
   registrationNote: string | null;
   category: Category;
@@ -96,6 +100,8 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
     title: string;
     summary: string | null;
     highlights: string[];
+    tags: string[];
+    isPromoted: boolean;
     registrationNote: string | null;
     category: Category;
     startAt: string | null;
@@ -114,7 +120,8 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
     lastVerifiedAt: string | null;
   }>(
     `SELECT
-       e.id, e.title, e.summary, e.highlights, e.category, e.status,
+       e.id, e.title, e.summary, e.highlights, e.tags,
+       e.is_promoted AS "isPromoted", e.category, e.status,
        e.registration_note AS "registrationNote",
        e.start_at          AS "startAt",
        e.end_at            AS "endAt",
@@ -147,7 +154,7 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
          OR COALESCE(e.end_at, e.start_at) > now() - ($3::bigint * interval '1 millisecond')
        )
        AND ($2::text[] IS NULL OR e.category = ANY($2::text[]))
-     ORDER BY e.start_at ASC NULLS LAST, e.id ASC`,
+     ORDER BY e.is_promoted DESC, e.start_at ASC NULLS LAST, e.id ASC`,
     [PUBLIC_FEED_STATUSES, categories, EVENT_END_GRACE_MS + ASSUMED_DURATION_MS],
   );
 
@@ -174,6 +181,8 @@ export async function getPublicEventById(id: number): Promise<PublicEventDetail 
     title: string;
     summary: string | null;
     highlights: string[];
+    tags: string[];
+    isPromoted: boolean;
     registrationNote: string | null;
     category: Category;
     startAt: string | null;
@@ -195,7 +204,8 @@ export async function getPublicEventById(id: number): Promise<PublicEventDetail 
     updatedAt: string;
   }>(
     `SELECT
-       e.id, e.title, e.summary, e.highlights, e.category, e.status,
+       e.id, e.title, e.summary, e.highlights, e.tags,
+       e.is_promoted AS "isPromoted", e.category, e.status,
        e.registration_note AS "registrationNote",
        e.start_at          AS "startAt",
        e.end_at            AS "endAt",

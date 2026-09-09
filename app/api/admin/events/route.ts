@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
               e.organizer_name AS "organizerName",
               e.poster_image_url AS "posterImageUrl",
               e.primary_source_url AS "primarySourceUrl",
-              e.summary, e.highlights, e.source_type AS "sourceType",
+              e.summary, e.highlights, e.tags, e.is_promoted AS "isPromoted", e.source_type AS "sourceType",
               e.price_type AS "priceType", e.price_note AS "priceNote",
               e.last_verified_at AS "lastVerifiedAt",
               e.created_at AS "createdAt",

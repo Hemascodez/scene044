@@ -13,6 +13,8 @@ export interface CuratorDraft {
   title: string;
   summary: string;
   highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
   category: Category | "";
   startDate: string; // yyyy-mm-dd (IST)
   startTime: string; // HH:mm (IST)
@@ -36,6 +38,8 @@ export function emptyCuratorDraft(): CuratorDraft {
     title: "",
     summary: "",
     highlights: [],
+    tags: [],
+    isPromoted: false,
     category: "",
     startDate: "",
     startTime: "",
@@ -125,6 +129,12 @@ export function validateDraftForPublish(draft: CuratorDraft): string[] {
   }
   const summaryWords = draft.summary.trim().split(/\s+/).filter(Boolean).length;
   if (summaryWords > 100) errors.push("Description must be 100 words or fewer");
+  const tags = draft.tags.map((tag) => tag.trim().replace(/^#+/, "")).filter(Boolean);
+  if (draft.tags.length > 6) errors.push("At most 6 tags allowed");
+  if (tags.some((tag) => tag.length > 24)) errors.push("Tags must be 24 characters or fewer");
+  if (new Set(tags.map((tag) => tag.toLowerCase())).size !== tags.length) {
+    errors.push("Tags must be unique");
+  }
   return errors;
 }
 
