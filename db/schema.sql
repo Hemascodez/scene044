@@ -595,3 +595,40 @@ CREATE TABLE IF NOT EXISTS venue_spaces (
 
 CREATE INDEX IF NOT EXISTS idx_venue_spaces_venue ON venue_spaces (venue_id, sort_order, id);
 
+
+-- ---------------------------------------------------------- Open venue reviews
+--
+-- Reviews used to require a completed SCENE booking (the INSERT ... SELECT
+-- gate on venue_bookings.status = 'completed'). That was the right default for
+-- a booking-generated review, but Time Cafe has organizers who booked directly
+-- and never went through SCENE — excluding them throws away exactly the trust
+-- signal the venue platform needs most.
+--
+-- `booking_id` becomes optional: a self-reported review has none. What used to
+-- guarantee "real" by construction (the booking gate) is replaced with a
+-- curator approval queue for the self-reported path only — booking-backed
+-- reviews still publish immediately, since the gate they came through already
+-- proved they're real.
+ALTER TABLE venue_reviews ALTER COLUMN booking_id DROP NOT NULL;
+ALTER TABLE venue_reviews DROP CONSTRAINT IF EXISTS venue_reviews_booking_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_venue_reviews_booking_unique
+  ON venue_reviews (booking_id) WHERE booking_id IS NOT NULL;
+
+-- Self-reported reviews have no booking row to join for who-and-what — asked
+-- directly instead.
+ALTER TABLE venue_reviews ADD COLUMN IF NOT EXISTS reviewer_name TEXT;
+ALTER TABLE venue_reviews ADD COLUMN IF NOT EXISTS event_type TEXT;
+
+-- 'booking' | 'self_reported'. Plain TEXT with no CHECK, same posture as
+-- events.source_type and discovery_items.origin elsewhere in this schema —
+-- validated at the application boundary, not the database.
+ALTER TABLE venue_reviews ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'booking';
+
+-- 'pending' | 'published' | 'rejected'. Booking-backed reviews are already
+-- proven real by the gate they came through, so they default to published;
+-- self-reported ones are inserted as 'pending' and need a curator's approval
+-- before the public read path returns them.
+ALTER TABLE venue_reviews ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published';
+
+CREATE INDEX IF NOT EXISTS idx_venue_reviews_pending
+  ON venue_reviews (status, created_at DESC) WHERE status = 'pending';

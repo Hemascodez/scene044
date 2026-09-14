@@ -155,3 +155,28 @@ export function fetchVenueEarnings(venueSlug?: string) {
   const params = venueSlug ? `?venue=${encodeURIComponent(venueSlug)}` : "";
   return request<{ earnings: VenueEarnings }>(`/api/admin/venue-earnings${params}`);
 }
+
+export interface AdminVenueReview {
+  id: number;
+  bookingId: number | null;
+  venueSlug: string;
+  rating: number;
+  tags: string[];
+  comment: string | null;
+  source: "booking" | "self_reported";
+  status: "pending" | "published" | "rejected";
+  createdAt: string;
+  organizerName?: string;
+  eventType?: string;
+}
+
+export function fetchPendingVenueReviews() {
+  return request<{ reviews: AdminVenueReview[] }>("/api/admin/venue-reviews");
+}
+
+export function setVenueReviewStatus(id: number, status: "published" | "rejected") {
+  return request<{ review: AdminVenueReview }>(`/api/admin/venue-reviews/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}

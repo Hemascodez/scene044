@@ -17,17 +17,20 @@ import {
   checkInBooking,
   claimOverrunNotification,
   completeBooking,
+  createSelfReportedReview,
   createVenueBooking,
   createVenueReview,
   findOverrunBookings,
   getBookingByCheckinToken,
   getBookingByCode,
   listBookingOrders,
+  listPendingReviews,
   listVenueReviews,
   newBookingCode,
   newCheckinToken,
   orderTotalsByBooking,
   setBookingStatus,
+  setReviewStatus,
   summariseReviews,
   type NewBookingInput,
   type VenueReview,
@@ -64,6 +67,9 @@ function input(over: Partial<NewBookingInput> = {}): NewBookingInput {
 }
 
 async function cleanup() {
+  // Self-reported reviews have no booking to cascade from, so they need their
+  // own delete alongside the bookings (which cascade-delete their reviews).
+  await query("DELETE FROM venue_reviews WHERE venue_slug = $1", [SLUG]);
   await query("DELETE FROM venue_bookings WHERE venue_slug = $1", [SLUG]);
 }
 
@@ -183,6 +189,68 @@ async function main() {
   check("average is rounded to one decimal", summary.averageRating, 3.7);
   check("most-mentioned tag leads", summary.tagCounts[0], ["Wifi", 3]);
   check("no reviews means no average, not zero", summariseReviews([]).averageRating, null);
+
+  console.log("\n--- open reviews: self-reported, not gated to a booking ---");
+  const selfReported = await createSelfReportedReview({
+    venueSlug: SLUG,
+    reviewerName: "Someone who booked directly",
+    eventType: "Workshop",
+    rating: 4,
+    tags: ["Space"],
+    comment: "Ran a workshop here outside of SCENE — good room.",
+    photoIds: [],
+    photoConsent: false,
+  });
+  check("a self-reported review is created without a booking", selfReported.bookingId, null);
+  check("it starts pending, not published", selfReported.status, "pending");
+  check(
+    "a pending review does not appear on the public venue page",
+    (await listVenueReviews(SLUG)).some((r) => r.id === selfReported.id),
+    false,
+  );
+  const pending = await listPendingReviews();
+  check("it shows up in the curator's pending queue", pending.some((r) => r.id === selfReported.id), true);
+  check(
+    "the pending row carries the reviewer's own name, not a booking's",
+    pending.find((r) => r.id === selfReported.id)?.organizerName,
+    "Someone who booked directly",
+  );
+
+  const published = await setReviewStatus(selfReported.id, "published");
+  check("a curator can publish it", published?.status, "published");
+  check(
+    "once published, it appears on the public venue page",
+    (await listVenueReviews(SLUG)).some((r) => r.id === selfReported.id),
+    true,
+  );
+  check(
+    "and it no longer sits in the pending queue",
+    (await listPendingReviews()).some((r) => r.id === selfReported.id),
+    false,
+  );
+  check(
+    "a decided review cannot be re-decided",
+    await setReviewStatus(selfReported.id, "rejected"),
+    null,
+  );
+
+  const secondSelfReported = await createSelfReportedReview({
+    venueSlug: SLUG,
+    reviewerName: "A less happy visitor",
+    eventType: null,
+    rating: 3,
+    tags: [],
+    comment: null,
+    photoIds: [],
+    photoConsent: false,
+  });
+  const rejected = await setReviewStatus(secondSelfReported.id, "rejected");
+  check("a curator can reject one instead", rejected?.status, "rejected");
+  check(
+    "a rejected review never reaches the public page",
+    (await listVenueReviews(SLUG)).some((r) => r.id === secondSelfReported.id),
+    false,
+  );
 
   await cleanup();
   console.log(`\n${pass} passed, ${fail} failed`);

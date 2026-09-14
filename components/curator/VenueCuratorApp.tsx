@@ -9,15 +9,18 @@ import {
   deleteVenueBySlug,
   deleteVenueSpaceByRowId,
   fetchPartnerRequests,
+  fetchPendingVenueReviews,
   fetchVenueEarnings,
   fetchVenues,
   saveVenueSpace,
+  setVenueReviewStatus,
   updatePartnerRequest,
   updateVenueFields,
   uploadVenuePhoto,
   type AdminPartnerRequest,
   type AdminSpace,
   type AdminVenue,
+  type AdminVenueReview,
 } from "@/lib/client/venueAdminApi";
 import type { PartnerRequestStatus } from "@/lib/venueCatalog";
 import {
@@ -32,11 +35,12 @@ import {
   TextInput,
 } from "@/components/curator/adminUi";
 
-type Section = "venues" | "partners" | "earnings";
+type Section = "venues" | "partners" | "reviews" | "earnings";
 
 const SECTIONS: { key: Section; label: string; glyph: string }[] = [
   { key: "venues", label: "Venues", glyph: "◐" },
   { key: "partners", label: "Partner requests", glyph: "✉" },
+  { key: "reviews", label: "Reviews", glyph: "★" },
   { key: "earnings", label: "Earnings", glyph: "₹" },
 ];
 
@@ -46,6 +50,7 @@ export function VenueCuratorApp() {
   const [section, setSection] = useState<Section>("venues");
   const [venues, setVenues] = useState<AdminVenue[]>([]);
   const [partnerRequests, setPartnerRequests] = useState<AdminPartnerRequest[]>([]);
+  const [pendingReviews, setPendingReviews] = useState<AdminVenueReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
@@ -74,19 +79,33 @@ export function VenueCuratorApp() {
     }
   }, [announce]);
 
+  const reloadReviews = useCallback(async () => {
+    try {
+      const { reviews } = await fetchPendingVenueReviews();
+      setPendingReviews(reviews);
+    } catch (err) {
+      announce(err instanceof VenueAdminApiError ? err.message : "Failed to load reviews");
+    }
+  }, [announce]);
+
   useEffect(() => {
-    // Inlined rather than calling reloadVenues()/reloadPartners() directly:
-    // those are reused from mutation handlers to trigger a refetch, but the
-    // lint rule against setState-in-effect can't see past the await inside a
+    // Inlined rather than calling reloadVenues()/reloadPartners()/reloadReviews()
+    // directly: those are reused from mutation handlers to trigger a refetch, but
+    // the lint rule against setState-in-effect can't see past the await inside a
     // separately defined callback, so it flags the call site here even though
     // the actual state updates happen in a later microtask, same as below.
     let cancelled = false;
     (async () => {
       try {
-        const [{ venues: venueList }, { requests }] = await Promise.all([fetchVenues(), fetchPartnerRequests()]);
+        const [{ venues: venueList }, { requests }, { reviews }] = await Promise.all([
+          fetchVenues(),
+          fetchPartnerRequests(),
+          fetchPendingVenueReviews(),
+        ]);
         if (cancelled) return;
         setVenues(venueList);
         setPartnerRequests(requests);
+        setPendingReviews(reviews);
       } catch (err) {
         if (!cancelled) announce(err instanceof VenueAdminApiError ? err.message : "Failed to load");
       } finally {
@@ -96,7 +115,7 @@ export function VenueCuratorApp() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount; reloadVenues/reloadPartners are for post-mutation refetches, called from event handlers below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount; reloadVenues/reloadPartners/reloadReviews are for post-mutation refetches, called from event handlers below.
   }, []);
 
   const newPartnerCount = partnerRequests.filter((r) => r.status === "new").length;
@@ -135,7 +154,7 @@ export function VenueCuratorApp() {
           <nav className="flex gap-1 overflow-x-auto p-3 lg:flex-col lg:overflow-visible">
             {SECTIONS.map((s) => {
               const active = section === s.key;
-              const badge = s.key === "partners" ? newPartnerCount : 0;
+              const badge = s.key === "partners" ? newPartnerCount : s.key === "reviews" ? pendingReviews.length : 0;
               return (
                 <button
                   key={s.key}
@@ -179,6 +198,8 @@ export function VenueCuratorApp() {
             />
           ) : section === "partners" ? (
             <PartnersSection requests={partnerRequests} onReload={reloadPartners} announce={announce} />
+          ) : section === "reviews" ? (
+            <ReviewsSection reviews={pendingReviews} onReload={reloadReviews} announce={announce} />
           ) : (
             <EarningsSection venues={venues} />
           )}
@@ -999,6 +1020,101 @@ function PartnerRequestRow({
             Decline
           </AdminBtn>
         )}
+      </div>
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------- reviews
+
+function ReviewsSection({
+  reviews,
+  onReload,
+  announce,
+}: {
+  reviews: AdminVenueReview[];
+  onReload: () => Promise<void>;
+  announce: (msg: string) => void;
+}) {
+  return (
+    <div className="p-4 lg:p-6">
+      <h1 className="font-display text-xl font-black">Self-reported reviews</h1>
+      <p className="mt-1 text-sm text-[#8ba295]">
+        &quot;Already hosted here?&quot; submissions — not tied to a SCENE booking, so each one gets a quick
+        check before it goes on the venue page. Reviews from completed SCENE bookings publish automatically
+        and never appear here.
+      </p>
+
+      <ul className="mt-4 flex flex-col gap-3">
+        {reviews.map((review) => (
+          <ReviewRow key={review.id} review={review} onReload={onReload} announce={announce} />
+        ))}
+        {reviews.length === 0 && (
+          <li className="border border-dashed border-[#2c4236] p-8 text-center text-sm text-[#8ba295]">
+            Nothing pending.
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function ReviewRow({
+  review,
+  onReload,
+  announce,
+}: {
+  review: AdminVenueReview;
+  onReload: () => Promise<void>;
+  announce: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function decide(status: "published" | "rejected") {
+    setBusy(true);
+    try {
+      await setVenueReviewStatus(review.id, status);
+      announce(`Review by ${review.organizerName ?? "reviewer"} ${status}`);
+      await onReload();
+    } catch (err) {
+      announce(err instanceof VenueAdminApiError ? err.message : "Failed to update");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="border border-[#25382e] bg-[#101c16] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill tone="amber" glyph="★">
+          {review.venueSlug}
+        </Pill>
+        <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.1em] text-[#5f7568]">
+          {new Date(review.createdAt).toLocaleDateString("en-IN")}
+        </span>
+      </div>
+      <h3 className="mt-2 font-display text-lg font-bold">{review.organizerName ?? "Anonymous"}</h3>
+      <p className="text-sm text-[#a9bcb0]">
+        {review.eventType || "Event type not given"} · {review.rating}/5
+      </p>
+      {review.comment && <p className="mt-2 text-sm leading-relaxed text-[#c8d4cc]">{review.comment}</p>}
+      {review.tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {review.tags.map((tag) => (
+            <Pill key={tag} tone="muted" glyph="#">
+              {tag}
+            </Pill>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <AdminBtn variant="primary" disabled={busy} onClick={() => decide("published")}>
+          Publish
+        </AdminBtn>
+        <AdminBtn variant="danger" disabled={busy} onClick={() => decide("rejected")}>
+          Reject
+        </AdminBtn>
       </div>
     </li>
   );

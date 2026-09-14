@@ -1,4 +1,7 @@
 import { query } from "@/lib/db";
+import { REVIEW_TAGS, type ReviewTag } from "@/lib/venueReviewTags";
+
+export { REVIEW_TAGS, type ReviewTag };
 
 /**
  * Server-side venue bookings.
@@ -19,9 +22,8 @@ export type VenueBookingStatus =
   | "cancelled"
   | "expired";
 
-/** Aspect chips a reviewer can attribute their rating to. */
-export const REVIEW_TAGS = ["Wifi", "Food", "Vibe", "Space", "Location", "Staff", "Noise"] as const;
-export type ReviewTag = (typeof REVIEW_TAGS)[number];
+export type ReviewSource = "booking" | "self_reported";
+export type ReviewStatus = "pending" | "published" | "rejected";
 
 export const MIN_REVIEW_PHOTOS = 2;
 
@@ -62,15 +64,19 @@ export interface VenueBookingOrder {
 
 export interface VenueReview {
   id: number;
-  bookingId: number;
+  /** Null for a self-reported review — it was never tied to a SCENE booking. */
+  bookingId: number | null;
   venueSlug: string;
   rating: number;
   tags: string[];
   comment: string | null;
   photoIds: number[];
   photoConsent: boolean;
+  source: ReviewSource;
+  status: ReviewStatus;
   createdAt: string;
-  /** Joined for display in the host view. */
+  /** Booking-backed: joined from venue_bookings. Self-reported: the reviewer
+   *  typed these directly, since there is no booking row to join. */
   organizerName?: string;
   eventType?: string;
   eventDate?: string;
@@ -367,25 +373,30 @@ export interface NewReviewInput {
   photoConsent: boolean;
 }
 
+const REVIEW_COLUMNS = `
+  id, booking_id AS "bookingId", venue_slug AS "venueSlug", rating, tags,
+  comment, photo_ids AS "photoIds", photo_consent AS "photoConsent",
+  source, status, created_at AS "createdAt"
+`;
+
 /**
- * Records a review.
+ * Records a booking-backed review.
  *
  * The INSERT ... SELECT is the gate: the row only materialises if that booking
- * is actually `completed`. Combined with the unique constraint on booking_id,
- * a review cannot exist without a finished booking behind it and cannot be
- * submitted twice — which is what makes the public "reviews only come from
- * completed bookings" claim true by construction rather than by promise.
+ * is actually `completed`. Combined with the unique index on booking_id, a
+ * review cannot exist without a finished booking behind it and cannot be
+ * submitted twice — which is what makes "reviews only come from completed
+ * bookings" true by construction rather than by promise. Publishes
+ * immediately: the gate it just passed through is the proof.
  */
 export async function createVenueReview(input: NewReviewInput): Promise<VenueReview | null> {
   const { rows } = await query<VenueReview>(
     `INSERT INTO venue_reviews
-       (booking_id, venue_slug, rating, tags, comment, photo_ids, photo_consent)
-     SELECT id, $2, $3, $4, $5, $6, $7 FROM venue_bookings
+       (booking_id, venue_slug, rating, tags, comment, photo_ids, photo_consent, source, status)
+     SELECT id, $2, $3, $4, $5, $6, $7, 'booking', 'published' FROM venue_bookings
       WHERE id = $1 AND status = 'completed'
-     ON CONFLICT (booking_id) DO NOTHING
-     RETURNING id, booking_id AS "bookingId", venue_slug AS "venueSlug", rating, tags,
-               comment, photo_ids AS "photoIds", photo_consent AS "photoConsent",
-               created_at AS "createdAt"`,
+     ON CONFLICT (booking_id) WHERE booking_id IS NOT NULL DO NOTHING
+     RETURNING ${REVIEW_COLUMNS}`,
     [
       input.bookingId,
       input.venueSlug,
@@ -399,16 +410,62 @@ export async function createVenueReview(input: NewReviewInput): Promise<VenueRev
   return rows[0] ?? null;
 }
 
+export interface NewSelfReportedReviewInput {
+  venueSlug: string;
+  reviewerName: string;
+  eventType: string | null;
+  rating: number;
+  tags: string[];
+  comment: string | null;
+  photoIds: number[];
+  photoConsent: boolean;
+}
+
+/**
+ * Records a review from someone who hosted at the venue without going through
+ * a SCENE booking — "already hosted here? add your review" on the venue page.
+ *
+ * There is no booking to gate this on, so the thing that made booking-backed
+ * reviews trustworthy by construction (the completed-booking check) is
+ * replaced with a human one: this always lands `pending`, invisible to
+ * listVenueReviews' public callers until a curator approves it.
+ */
+export async function createSelfReportedReview(
+  input: NewSelfReportedReviewInput,
+): Promise<VenueReview> {
+  const { rows } = await query<VenueReview>(
+    `INSERT INTO venue_reviews
+       (venue_slug, reviewer_name, event_type, rating, tags, comment, photo_ids, photo_consent,
+        source, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'self_reported','pending')
+     RETURNING ${REVIEW_COLUMNS}, reviewer_name AS "organizerName", event_type AS "eventType"`,
+    [
+      input.venueSlug,
+      input.reviewerName,
+      input.eventType,
+      input.rating,
+      input.tags,
+      input.comment,
+      input.photoIds,
+      input.photoConsent,
+    ],
+  );
+  return rows[0];
+}
+
+/** Published reviews for the public venue page — the only status visitors
+ *  ever see, whichever source they came from. */
 export async function listVenueReviews(venueSlug: string, limit = 50): Promise<VenueReview[]> {
   const { rows } = await query<VenueReview>(
     `SELECT r.id, r.booking_id AS "bookingId", r.venue_slug AS "venueSlug", r.rating, r.tags,
             r.comment, r.photo_ids AS "photoIds", r.photo_consent AS "photoConsent",
-            r.created_at AS "createdAt",
-            b.organizer_name AS "organizerName", b.event_type AS "eventType",
+            r.source, r.status, r.created_at AS "createdAt",
+            COALESCE(b.organizer_name, r.reviewer_name) AS "organizerName",
+            COALESCE(b.event_type, r.event_type) AS "eventType",
             b.event_date AS "eventDate"
        FROM venue_reviews r
-       JOIN venue_bookings b ON b.id = r.booking_id
-      WHERE r.venue_slug = $1
+       LEFT JOIN venue_bookings b ON b.id = r.booking_id
+      WHERE r.venue_slug = $1 AND r.status = 'published'
       ORDER BY r.created_at DESC
       LIMIT $2`,
     [venueSlug, limit],
@@ -416,11 +473,34 @@ export async function listVenueReviews(venueSlug: string, limit = 50): Promise<V
   return rows;
 }
 
+/** Self-reported reviews awaiting a curator's approve/reject. */
+export async function listPendingReviews(limit = 100): Promise<VenueReview[]> {
+  const { rows } = await query<VenueReview>(
+    `SELECT ${REVIEW_COLUMNS}, reviewer_name AS "organizerName", event_type AS "eventType"
+       FROM venue_reviews
+      WHERE status = 'pending'
+      ORDER BY created_at ASC
+      LIMIT $1`,
+    [limit],
+  );
+  return rows;
+}
+
+export async function setReviewStatus(
+  id: number,
+  status: Exclude<ReviewStatus, "pending">,
+): Promise<VenueReview | null> {
+  const { rows } = await query<VenueReview>(
+    `UPDATE venue_reviews SET status = $2 WHERE id = $1 AND status = 'pending'
+     RETURNING ${REVIEW_COLUMNS}, reviewer_name AS "organizerName", event_type AS "eventType"`,
+    [id, status],
+  );
+  return rows[0] ?? null;
+}
+
 export async function getReviewForBooking(bookingId: number): Promise<VenueReview | null> {
   const { rows } = await query<VenueReview>(
-    `SELECT id, booking_id AS "bookingId", venue_slug AS "venueSlug", rating, tags, comment,
-            photo_ids AS "photoIds", photo_consent AS "photoConsent", created_at AS "createdAt"
-       FROM venue_reviews WHERE booking_id = $1`,
+    `SELECT ${REVIEW_COLUMNS} FROM venue_reviews WHERE booking_id = $1`,
     [bookingId],
   );
   return rows[0] ?? null;
@@ -446,4 +526,31 @@ export function summariseReviews(reviews: readonly VenueReview[]): ReviewSummary
     averageRating: Math.round((total / reviews.length) * 10) / 10,
     tagCounts: [...counts.entries()].sort((a, b) => b[1] - a[1]),
   };
+}
+
+export interface AspectScore {
+  tag: string;
+  /** How many reviewers picked this tag. */
+  count: number;
+  /** Share of all reviews that picked it, 0-100. */
+  percent: number;
+}
+
+/**
+ * Per-aspect signal (Wifi, Food, Clean, ...) for the venue page's score bars.
+ *
+ * There is no separate 1-5 rating per aspect in the data — a reviewer picks
+ * tags for what stood out, on a scale with no negative pole (satisfied/good/
+ * great). So a tag's count is read as "how many reviewers called this out",
+ * not as "how good it is" — an aspect nobody has mentioned is "not rated yet",
+ * never a bad score.
+ */
+export function aspectScores(reviews: readonly VenueReview[]): AspectScore[] {
+  if (reviews.length === 0) return [];
+  const { tagCounts } = summariseReviews(reviews);
+  return tagCounts.map(([tag, count]) => ({
+    tag,
+    count,
+    percent: Math.round((count / reviews.length) * 100),
+  }));
 }
