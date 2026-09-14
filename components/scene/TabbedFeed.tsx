@@ -52,11 +52,11 @@ export function TabbedFeed({
   onToggleSave: (id: number) => void;
   lastViewedId: number | null;
 }) {
-  // "Upcoming" is still the view visitors land on — the reorder above only
-  // changed which chip shows first, not what opens by default — so this is
-  // found by key rather than hardcoded to an index that would now be wrong.
+  // "This week" is the view visitors land on — found by key rather than
+  // hardcoded to an index, so a future reorder of PRESETS can't silently
+  // change what opens by default.
   const [active, setActive] = useState(() => {
-    const i = PRESETS.findIndex((p) => p.key === "upcoming");
+    const i = PRESETS.findIndex((p) => p.key === "this_week");
     return i === -1 ? 0 : i;
   });
   const [query, setQuery] = useState("");
