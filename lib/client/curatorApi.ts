@@ -50,17 +50,22 @@ export interface AdminEvent {
   endAt: string | null;
   isOnline: boolean;
   venueName: string | null;
+  venueAddress: string | null;
   city: string;
   organizerName: string | null;
   posterImageUrl: string | null;
   primarySourceUrl: string;
   summary: string | null;
+  highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
+  priceType: PriceType | null;
+  priceNote: string | null;
   sourceType: "auto" | "curator";
   lastVerifiedAt: string | null;
   createdAt: string;
   sourceCount: number;
   openReports: number;
-  promoted: boolean;
 }
 
 export interface DedupMatch {
@@ -168,7 +173,9 @@ export function publishEvent(input: {
   title: string;
   summary: string | null;
   gist?: string | null;
-  highlights?: string[];
+  highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
   category: Category;
   startAt: string | null;
   endAt: string | null;
@@ -187,6 +194,32 @@ export function publishEvent(input: {
     "/api/admin/curator/approve",
     { method: "POST", body: JSON.stringify(input) },
   );
+}
+
+export function updatePublishedEvent(input: {
+  eventId: number;
+  title: string;
+  summary: string | null;
+  highlights: string[];
+  tags: string[];
+  isPromoted: boolean;
+  category: Category;
+  startAt: string | null;
+  endAt: string | null;
+  isOnline: boolean;
+  venueName: string | null;
+  venueAddress: string | null;
+  organizerName: string | null;
+  posterImageUrl: string | null;
+  priceType: PriceType | null;
+  priceNote: string | null;
+  primarySourceUrl: string | null;
+  status: EventStatus;
+}) {
+  return request<{ eventId: number; status: EventStatus }>("/api/admin/events/update", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export interface GeneratedCopy {
@@ -260,9 +293,9 @@ export function setEventStatus(eventId: number, status: EventStatus) {
 
 /** Pins/unpins an event above the normal soonest-first order in every feed
  *  tab and category page (lib/client/sceneEvent.ts's byPromotedThenSoonest). */
-export function setEventPromoted(eventId: number, promoted: boolean) {
-  return request<{ eventId: number; promoted: boolean }>("/api/admin/events/promote", {
+export function setEventPromoted(eventId: number, isPromoted: boolean) {
+  return request<{ eventId: number; isPromoted: boolean }>("/api/admin/events/promote", {
     method: "POST",
-    body: JSON.stringify({ eventId, promoted }),
+    body: JSON.stringify({ eventId, isPromoted }),
   });
 }

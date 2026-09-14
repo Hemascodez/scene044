@@ -50,7 +50,7 @@ export function bySoonest(a: PublicEvent, b: PublicEvent): number {
  * theirs.
  */
 export function byPromotedThenSoonest(a: PublicEvent, b: PublicEvent): number {
-  if (a.promoted !== b.promoted) return a.promoted ? -1 : 1;
+  if (a.isPromoted !== b.isPromoted) return a.isPromoted ? -1 : 1;
   return bySoonest(a, b);
 }
 
@@ -63,6 +63,7 @@ export function matchesSearch(event: PublicEvent, rawQuery: string): boolean {
     event.venueName,
     event.summary,
     event.primarySourceDomain,
+    ...event.tags,
   ]
     .filter((v): v is string => !!v)
     .some((v) => v.toLowerCase().includes(q));
@@ -94,7 +95,15 @@ export function audienceTagsFor(event: PublicEvent): EventAudienceTag[] {
     { label: "Designers", emoji: "🎨", test: /\bdesigners?\b|\bux\b|\bui\b/i },
     { label: "Networking", emoji: "🤝", test: /\bnetworking\b|meet (?:other )?peers|connect with peers/i },
   ];
-  return rules.filter((rule) => rule.test.test(text)).slice(0, 4).map(({ label, emoji }) => ({ label, emoji }));
+  const manual = event.tags.map((label) => ({ label, emoji: "" }));
+  const derived = rules.filter((rule) => rule.test.test(text)).map(({ label, emoji }) => ({ label, emoji }));
+  const seen = new Set<string>();
+  return [...manual, ...derived].filter((tag) => {
+    const key = tag.label.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 6);
 }
 
 function shortPlainText(value: string, maxLength = 180): string {

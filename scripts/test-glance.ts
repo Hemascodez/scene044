@@ -26,6 +26,8 @@ function evt(over: Partial<GlanceInput> = {}): GlanceInput {
     title: "Chennai AI Meetup",
     summary: "An evening of talks.",
     highlights: [],
+    tags: [],
+    isPromoted: false,
     registrationNote: null,
     category: "ai",
     startAt: "2026-09-19T04:00:00.000Z",

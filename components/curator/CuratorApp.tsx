@@ -26,6 +26,7 @@ import {
   type QueueKey,
 } from "@/lib/client/curatorApi";
 import { CandidateReview } from "@/components/curator/CandidateReview";
+import { PublishedEventEditor } from "@/components/curator/PublishedEventEditor";
 import {
   AdminBtn,
   AdminLink,
@@ -73,6 +74,7 @@ export function CuratorApp() {
   const [reloadToken, setReloadToken] = useState(0);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [editEventId, setEditEventId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [domainFilter, setDomainFilter] = useState("all");
   const [dirty, setDirty] = useState(false);
@@ -172,6 +174,8 @@ export function CuratorApp() {
         setShowHelp((s) => !s);
       } else if (e.key === "Escape" && openId !== null) {
         guard(() => setOpenId(null));
+      } else if (e.key === "Escape" && editEventId !== null) {
+        guard(() => setEditEventId(null));
       } else if ((e.key === "j" || e.key === "k") && filtered.length > 0) {
         const idx = filtered.findIndex((i) => i.id === openId);
         const next = e.key === "j" ? filtered[idx + 1] ?? filtered[0] : filtered[idx - 1] ?? filtered[filtered.length - 1];
@@ -180,7 +184,7 @@ export function CuratorApp() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filtered, openId, guard]);
+  }, [filtered, openId, editEventId, guard]);
 
   async function quickAction(item: QueueItem, action: "irrelevant" | "expired" | "rejected" | "reopen") {
     try {
@@ -229,8 +233,8 @@ export function CuratorApp() {
 
   async function togglePromoted(event: AdminEvent) {
     try {
-      await setEventPromoted(event.id, !event.promoted);
-      announce(`“${event.title}” ${event.promoted ? "unpromoted" : "promoted"}`);
+      await setEventPromoted(event.id, !event.isPromoted);
+      announce(`“${event.title}” ${event.isPromoted ? "unpromoted" : "promoted"}`);
       reload();
     } catch (err) {
       announce(err instanceof CuratorApiError ? err.message : "Could not change promotion");
@@ -313,7 +317,7 @@ export function CuratorApp() {
                   key={q.key}
                   type="button"
                   aria-current={active ? "page" : undefined}
-                  onClick={() => guard(() => { setQueue(q.key); setOpenId(null); })}
+                  onClick={() => guard(() => { setQueue(q.key); setOpenId(null); setEditEventId(null); })}
                   className={`flex shrink-0 items-center justify-between gap-3 border px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.1em] transition-colors lg:shrink ${
                     active
                       ? "border-[#39ff9b] bg-[#0f2a1c] text-[#5effb0]"
@@ -372,13 +376,21 @@ export function CuratorApp() {
               />
             </div>
           ) : queue === "published" ? (
-            <PublishedList
-              events={published}
-              loading={loading}
-              onStatus={changeEventStatus}
-              onPromote={togglePromoted}
-              onRefresh={reload}
-            />
+            editEventId !== null && published.find((event) => event.id === editEventId) ? (
+              <PublishedEventEditor
+                event={published.find((event) => event.id === editEventId)!}
+                onDirtyChange={setDirty}
+                onCancel={() => guard(() => setEditEventId(null))}
+                onDone={(msg) => { setDirty(false); setEditEventId(null); announce(msg); reload(); }}
+              />
+            ) : <PublishedList
+                events={published}
+                loading={loading}
+                onStatus={changeEventStatus}
+                onPromote={togglePromoted}
+                onRefresh={reload}
+                onEdit={(event) => { setDirty(false); setEditEventId(event.id); }}
+              />
           ) : (
             <div className="p-4 lg:p-6">
               <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -630,12 +642,14 @@ function PublishedList({
   onStatus,
   onPromote,
   onRefresh,
+  onEdit,
 }: {
   events: AdminEvent[];
   loading: boolean;
   onStatus: (event: AdminEvent, status: EventStatus) => void;
   onPromote: (event: AdminEvent) => void;
   onRefresh: () => void;
+  onEdit: (event: AdminEvent) => void;
 }) {
   const [q, setQ] = useState("");
   const list = events.filter(
@@ -686,11 +700,6 @@ function PublishedList({
             >
               <div className="min-w-[200px] flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  {event.promoted && (
-                    <Pill tone="green" glyph="★">
-                      Promoted
-                    </Pill>
-                  )}
                   <Pill tone="muted" glyph="#">
                     {getFieldCardForCategory(event.category)?.label ?? event.category}
                   </Pill>
@@ -699,6 +708,16 @@ function PublishedList({
                       Curator
                     </Pill>
                   )}
+                  {event.isPromoted && (
+                    <Pill tone="green" glyph="↑">
+                      Promoted
+                    </Pill>
+                  )}
+                  {event.tags.map((tag) => (
+                    <Pill key={tag} tone="muted" glyph="#">
+                      {tag}
+                    </Pill>
+                  ))}
                   {event.openReports > 0 && (
                     <Pill tone="red" glyph="!">
                       {event.openReports} report{event.openReports === 1 ? "" : "s"}
@@ -738,11 +757,11 @@ function PublishedList({
 
               <div className="flex gap-2">
                 <AdminBtn
-                  variant={event.promoted ? "primary" : "outline"}
+                  variant={event.isPromoted ? "primary" : "outline"}
                   onClick={() => onPromote(event)}
                   title="Pin above the normal soonest-first order in every feed tab"
                 >
-                  {event.promoted ? "★ Promoted" : "☆ Promote"}
+                  {event.isPromoted ? "★ Promoted" : "☆ Promote"}
                 </AdminBtn>
                 <AdminLink href={eventPath(event)} variant="outline">
                   View ↗
@@ -750,6 +769,9 @@ function PublishedList({
                 <AdminLink href={event.primarySourceUrl} variant="ghost">
                   Source ↗
                 </AdminLink>
+                <AdminBtn variant="outline" onClick={() => onEdit(event)}>
+                  Edit
+                </AdminBtn>
               </div>
             </li>
           ))}

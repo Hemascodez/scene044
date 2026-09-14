@@ -3,6 +3,7 @@ import { formatSceneDateLong } from "../lib/client/istTime";
 import {
   actionizeEventHighlight,
   audienceTagsFor,
+  byPromotedThenSoonest,
   eventShortIntro,
   eventSummaryBullets,
   usableEventSummary,
@@ -35,7 +36,8 @@ const event: PublicEventDetail = {
   summary: "Meet builders and learn what is changing in applied AI.",
   gist: "An evening of founder talks on applied AI, followed by open networking.",
   highlights: ["Founder talks"],
-  promoted: false,
+  tags: [],
+  isPromoted: false,
   registrationNote: null,
   category: "ai",
   startAt: "2026-09-27T04:00:00.000Z",
@@ -78,6 +80,19 @@ check(
   "category alone does not invent an audience",
   audienceTagsFor({ ...event, title: "AI Night", summary: "A talk about applied AI.", highlights: [] }),
   [],
+);
+check(
+  "manual tags appear before derived tags",
+  audienceTagsFor({ ...event, tags: ["Featured community"] })[0]?.label,
+  "Featured community",
+);
+check(
+  "promoted events sort before earlier standard events in the browse feed",
+  byPromotedThenSoonest(
+    { ...event, id: 2, isPromoted: true, startAt: "2026-12-10T10:00:00.000Z" },
+    { ...event, id: 1, isPromoted: false, startAt: "2026-09-10T10:00:00.000Z" },
+  ) < 0,
+  true,
 );
 check("scan bullets turn source highlights into actions", eventSummaryBullets(event), ["Hear directly from founders"]);
 check(

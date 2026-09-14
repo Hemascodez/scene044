@@ -313,6 +313,12 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '
 -- two are generated as one content unit (lib/summarize.ts).
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gist TEXT;
 
+-- Curator-authored discovery labels and paid/editorial placement. Manual tags
+-- supplement evidence-derived audience labels; promotion is a separate boolean
+-- so ordering never depends on a magic tag string.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS is_promoted BOOLEAN NOT NULL DEFAULT false;
+
 -- Registration deadline, when the source publishes one. schema.org puts this on
 -- offers.validThrough (when ticket sales end), which is the only structured
 -- signal any of our sources carry for it. Null is common and must stay null:
@@ -589,7 +595,3 @@ CREATE TABLE IF NOT EXISTS venue_spaces (
 
 CREATE INDEX IF NOT EXISTS idx_venue_spaces_venue ON venue_spaces (venue_id, sort_order, id);
 
--- Editorial promotion: a curator can pin a specific event above the normal
--- soonest-first order, in every tab of the discovery feed and every category
--- page. Off by default — nothing is promoted unless a curator says so.
-ALTER TABLE events ADD COLUMN IF NOT EXISTS promoted BOOLEAN NOT NULL DEFAULT false;

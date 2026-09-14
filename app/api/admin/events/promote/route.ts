@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { eventId?: number; promoted?: unknown };
+  let body: { eventId?: number; isPromoted?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -22,17 +22,18 @@ export async function POST(request: Request) {
   if (!Number.isInteger(eventId) || eventId <= 0) {
     return NextResponse.json({ error: "invalid eventId" }, { status: 400 });
   }
-  if (typeof body.promoted !== "boolean") {
-    return NextResponse.json({ error: "promoted must be a boolean" }, { status: 400 });
+  if (typeof body.isPromoted !== "boolean") {
+    return NextResponse.json({ error: "isPromoted must be a boolean" }, { status: 400 });
   }
 
   try {
-    const { rows } = await query<{ id: number; promoted: boolean }>(
-      `UPDATE events SET promoted = $1, updated_at = now() WHERE id = $2 RETURNING id, promoted`,
-      [body.promoted, eventId],
+    const { rows } = await query<{ id: number; isPromoted: boolean }>(
+      `UPDATE events SET is_promoted = $1, updated_at = now()
+       WHERE id = $2 RETURNING id, is_promoted AS "isPromoted"`,
+      [body.isPromoted, eventId],
     );
     if (rows.length === 0) return NextResponse.json({ error: "not found" }, { status: 404 });
-    return NextResponse.json({ ok: true, eventId: rows[0].id, promoted: rows[0].promoted });
+    return NextResponse.json({ ok: true, eventId: rows[0].id, isPromoted: rows[0].isPromoted });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err).slice(0, 500) }, { status: 500 });
   }

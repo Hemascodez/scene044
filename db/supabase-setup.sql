@@ -311,8 +311,18 @@ ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;
 -- price. `summary` is rewritten by the same pass into 1-2 scannable sentences.
 ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '{}';
 
--- One scannable sentence for the "At a glance" block (see db/schema.sql).
+-- One scannable sentence for the "At a glance" block that opens the event page.
+-- Its own column rather than the first sentence of `summary`, because the story
+-- is instructed to open with a hook: that opening line is usually rhetorical
+-- rather than the fact a scanner needs. Null whenever `summary` is null — the
+-- two are generated as one content unit (lib/summarize.ts).
 ALTER TABLE events ADD COLUMN IF NOT EXISTS gist TEXT;
+
+-- Curator-authored discovery labels and paid/editorial placement. Manual tags
+-- supplement evidence-derived audience labels; promotion is a separate boolean
+-- so ordering never depends on a magic tag string.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS is_promoted BOOLEAN NOT NULL DEFAULT false;
 
 -- Registration deadline, when the source publishes one. schema.org puts this on
 -- offers.validThrough (when ticket sales end), which is the only structured
@@ -429,5 +439,3 @@ INSERT INTO search_queries (query_text, category_hint, site_filter, active) VALU
 -- Events are NOT copied: the pipeline rediscovers them on its first run,
 -- and stale event rows would ship a feed that was already out of date.
 
--- Editorial promotion (see db/schema.sql for the full comment).
-ALTER TABLE events ADD COLUMN IF NOT EXISTS promoted BOOLEAN NOT NULL DEFAULT false;

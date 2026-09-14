@@ -17,13 +17,13 @@ function check(name: string, actual: unknown, expected: unknown) {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `  got=${JSON.stringify(actual)} want=${JSON.stringify(expected)}`}`);
 }
 
-function evt(id: number, startAt: string | null, promoted = false): PublicEvent {
+function evt(id: number, startAt: string | null, isPromoted = false): PublicEvent {
   return {
-    id, title: `Event ${id}`, summary: null, gist: null, highlights: [], registrationNote: null,
+    id, title: `Event ${id}`, summary: null, gist: null, highlights: [], tags: [], registrationNote: null,
     category: "ai", startAt, endAt: null, isOnline: false, venueName: null, city: "Chennai",
     organizerName: null, posterImageUrl: null, priceType: null, priceNote: null,
     primarySourceDomain: "example.com", otherSourceDomains: [], status: "live",
-    discoveredAt: "2026-09-01T00:00:00.000Z", lastVerifiedAt: null, promoted,
+    discoveredAt: "2026-09-01T00:00:00.000Z", lastVerifiedAt: null, isPromoted,
   } as unknown as PublicEvent;
 }
 

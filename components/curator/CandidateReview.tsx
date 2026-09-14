@@ -28,6 +28,7 @@ import {
 } from "@/lib/client/curatorApi";
 import { relativeChecked } from "@/lib/client/istTime";
 import { EventCard } from "@/components/scene/EventCard";
+import { PosterCropper } from "@/components/curator/PosterCropper";
 import {
   AdminBtn,
   AdminLabel,
@@ -71,6 +72,8 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     title: draft.title || "Untitled event",
     summary: draft.summary || null,
     highlights: draft.highlights.filter((h) => h.trim()),
+    tags: draft.tags,
+    isPromoted: draft.isPromoted,
     registrationNote: null,
     category: (draft.category || "tech") as Category,
     startAt: draftToInstant(draft.startDate, draft.startTime),
@@ -91,7 +94,6 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     lastVerifiedAt: new Date().toISOString(),
     // Not yet published, so there's nothing to have promoted — the preview is
     // never affected by promotion ordering anyway (it renders one card alone).
-    promoted: false,
   };
 }
 
@@ -106,11 +108,18 @@ export function CandidateReview({
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  // Merged over the empty defaults, not used as-is: a draft parked before
-  // `gist`/`highlights` existed on this shape would otherwise load with those
-  // fields `undefined`, and the gist field's own char-count hint dereferences
-  // `.length` on it unconditionally.
-  const [draft, setDraft] = useState<CuratorDraft>({ ...emptyCuratorDraft(), ...item.curator_draft });
+  // Merged over the empty defaults, not spread as-is: a draft parked before
+  // `gist`/`tags`/`isPromoted` existed on this shape would otherwise load with
+  // those fields `undefined`, and the gist field's own char-count hint
+  // dereferences `.length` on it unconditionally.
+  const [draft, setDraft] = useState<CuratorDraft>(() => ({
+    ...emptyCuratorDraft(),
+    ...(item.curator_draft ?? {}),
+    gist: item.curator_draft?.gist ?? "",
+    highlights: item.curator_draft?.highlights ?? [],
+    tags: item.curator_draft?.tags ?? [],
+    isPromoted: item.curator_draft?.isPromoted ?? false,
+  }));
   const [started, setStarted] = useState(Boolean(item.curator_draft));
   const [dirty, setDirty] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -170,6 +179,9 @@ export function CandidateReview({
         ...prev,
         title: e.title ?? prev.title,
         summary: e.summary ?? prev.summary,
+        highlights: prev.highlights,
+        tags: prev.tags,
+        isPromoted: prev.isPromoted,
         category: result.categorization?.category ?? prev.category,
         startDate: start.date || prev.startDate,
         startTime: start.time || prev.startTime,
@@ -291,7 +303,9 @@ export function CandidateReview({
         title: draft.title.trim(),
         summary: draft.summary.trim() || null,
         gist: draft.gist.trim() || null,
-        highlights: draft.highlights.filter((h) => h.trim()),
+        highlights: draft.highlights.map((perk) => perk.trim()).filter(Boolean),
+        tags: draft.tags.map((tag) => tag.trim().replace(/^#+/, "")).filter(Boolean),
+        isPromoted: draft.isPromoted,
         category: draft.category as Category,
         startAt: draftToInstant(draft.startDate, draft.startTime),
         endAt: draftToInstant(draft.endDate, draft.endTime),
@@ -513,18 +527,7 @@ export function CandidateReview({
                 />
               </Field>
 
-              <Field label="Highlights" hint="Up to 3 short attendee outcomes, one per line — the “What you'll get” list">
-                <TextArea
-                  rows={3}
-                  value={draft.highlights.join("\n")}
-                  onChange={(e) =>
-                    set(
-                      "highlights",
-                      e.target.value.split("\n").slice(0, 3),
-                    )
-                  }
-                />
-              </Field>
+              <PerksEditor value={draft.highlights} onChange={(next) => set("highlights", next)} />
 
               <div className="border border-dashed border-[#2c4236] bg-[#0d1712] p-3">
                 <AdminLabel>Ask AI to draft this</AdminLabel>
@@ -557,6 +560,20 @@ export function CandidateReview({
                 </div>
                 {generateCopyError && <p className="mt-2 text-xs text-[#ff8a7a]">{generateCopyError}</p>}
               </div>
+
+              <TagsEditor value={draft.tags} onChange={(next) => set("tags", next)} />
+
+              <Field label="Placement" hint="Promoted events appear first, then sort by date">
+                <label className="flex items-center gap-2 text-sm text-[#e9efe7]">
+                  <input
+                    type="checkbox"
+                    checked={draft.isPromoted}
+                    onChange={(e) => set("isPromoted", e.target.checked)}
+                    className="size-4 accent-[#39ff9b]"
+                  />
+                  Mark as promoted
+                </label>
+              </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Category" required>
@@ -796,7 +813,7 @@ export function CandidateReview({
  * never depends on someone else's CDN staying up. Leaving it blank is a valid
  * choice: the card falls back to the category Scene image.
  */
-function PosterField({
+export function PosterField({
   value,
   category,
   onChange,
@@ -809,7 +826,12 @@ function PosterField({
   const [error, setError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importUrl, setImportUrl] = useState("");
+  const [cropSource, setCropSource] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => () => {
+    if (cropSource) URL.revokeObjectURL(cropSource);
+  }, [cropSource]);
 
   async function send(init: RequestInit) {
     setBusy(true);
@@ -833,11 +855,45 @@ function PosterField({
     }
   }
 
+  function closeCrop() {
+    setCropSource(null);
+  }
+
   function upload(file: File | null) {
     if (!file) return;
+    setCropSource(URL.createObjectURL(file));
+  }
+
+  async function cropExisting() {
+    if (!value) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let localUrl = value;
+      if (/^https?:\/\//i.test(localUrl)) {
+        const imported = await fetch("/api/admin/curator/poster", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: localUrl }),
+        });
+        const importedBody = (await imported.json().catch(() => null)) as { url?: string; error?: string } | null;
+        if (!imported.ok || !importedBody?.url) throw new Error(importedBody?.error ?? "Could not prepare that image.");
+        localUrl = importedBody.url;
+      }
+      const response = await fetch(localUrl);
+      if (!response.ok) throw new Error(`Could not load that image (${response.status}).`);
+      setCropSource(URL.createObjectURL(await response.blob()));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not open the crop editor.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function storeCrop(blob: Blob) {
+    closeCrop();
     const form = new FormData();
-    form.append("file", file);
-    // No Content-Type header — the browser must set the multipart boundary.
+    form.append("file", new File([blob], "scene044-poster.jpg", { type: "image/jpeg" }));
     void send({ body: form });
   }
 
@@ -862,6 +918,9 @@ function PosterField({
           <div className="flex flex-col gap-2">
             <AdminBtn variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
               Replace
+            </AdminBtn>
+            <AdminBtn variant="outline" onClick={() => void cropExisting()} disabled={busy}>
+              Adjust & crop
             </AdminBtn>
             <AdminBtn variant="ghost" onClick={() => onChange("")} disabled={busy}>
               Remove
@@ -927,9 +986,96 @@ function PosterField({
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
-        onChange={(e) => upload(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          upload(e.target.files?.[0] ?? null);
+          e.currentTarget.value = "";
+        }}
       />
+      {cropSource && <PosterCropper source={cropSource} onCancel={closeCrop} onApply={storeCrop} />}
     </div>
+  );
+}
+
+export function PerksEditor({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  function move(index: number, direction: -1 | 1) {
+    const next = [...value];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  }
+
+  return (
+    <Field label="Perks" hint="What attendees get · up to 3 · shown in this order">
+      <div className="flex flex-col gap-2">
+        {value.map((perk, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <TextInput
+              value={perk}
+              onChange={(e) => onChange(value.map((item, i) => (i === index ? e.target.value : item)))}
+              placeholder="e.g. Practical workshop"
+              aria-label={`Perk ${index + 1}`}
+            />
+            <div className="flex shrink-0 gap-1">
+              <AdminBtn variant="ghost" onClick={() => move(index, -1)} disabled={index === 0} title="Move perk up">
+                ↑
+              </AdminBtn>
+              <AdminBtn variant="ghost" onClick={() => move(index, 1)} disabled={index === value.length - 1} title="Move perk down">
+                ↓
+              </AdminBtn>
+              <AdminBtn variant="ghost" onClick={() => onChange(value.filter((_, i) => i !== index))} title="Remove perk">
+                Remove
+              </AdminBtn>
+            </div>
+          </div>
+        ))}
+        {value.length < 3 && (
+          <AdminBtn variant="outline" onClick={() => onChange([...value, ""])} className="self-start">
+            + Add perk
+          </AdminBtn>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+export function TagsEditor({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <Field label="Tags" hint="Up to 6 editorial labels · # is added automatically">
+      <div className="flex flex-col gap-2">
+        {value.map((tag, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <TextInput
+              value={tag}
+              onChange={(e) => onChange(value.map((item, i) => (i === index ? e.target.value : item)))}
+              placeholder="e.g. Women in tech"
+              aria-label={`Tag ${index + 1}`}
+              maxLength={25}
+            />
+            <AdminBtn variant="ghost" onClick={() => onChange(value.filter((_, i) => i !== index))}>
+              Remove
+            </AdminBtn>
+          </div>
+        ))}
+        {value.length < 6 && (
+          <AdminBtn variant="outline" onClick={() => onChange([...value, ""])} className="self-start">
+            + Add tag
+          </AdminBtn>
+        )}
+      </div>
+    </Field>
   );
 }
 
