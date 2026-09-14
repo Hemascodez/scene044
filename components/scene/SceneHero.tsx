@@ -35,6 +35,12 @@ export function SceneHero({ onExplore }: { onExplore: () => void }) {
           >
             Explore the scene ↓
           </Btn>
+          <Link
+            href="/venues"
+            className="inline-flex items-center justify-center gap-2 border-2 border-background/50 px-4 py-2.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-background transition-colors hover:border-background hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-foreground"
+          >
+            Find a venue →
+          </Link>
           <Mono className="text-[10px] text-background/50">No account needed · Save locally</Mono>
         </div>
       </div>

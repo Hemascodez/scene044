@@ -18,6 +18,7 @@ import {
   fetchPublishedEvents,
   fetchQueue,
   type QueueFacets,
+  setEventPromoted,
   setEventStatus,
   setItemStatus,
   type AdminEvent,
@@ -226,6 +227,16 @@ export function CuratorApp() {
     }
   }
 
+  async function togglePromoted(event: AdminEvent) {
+    try {
+      await setEventPromoted(event.id, !event.promoted);
+      announce(`“${event.title}” ${event.promoted ? "unpromoted" : "promoted"}`);
+      reload();
+    } catch (err) {
+      announce(err instanceof CuratorApiError ? err.message : "Could not change promotion");
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0a130f] text-[#e9efe7]">
       <div aria-live="polite" className="sr-only">
@@ -243,6 +254,9 @@ export function CuratorApp() {
           <AdminBtn variant="ghost" onClick={() => setShowHelp(true)} title="Keyboard shortcuts (?)">
             ⌨
           </AdminBtn>
+          <AdminLink href="/admin/curator/venues" variant="ghost" newTab={false}>
+            Venues →
+          </AdminLink>
           <AdminLink href="/" variant="ghost" newTab={false}>
             Public site ↗
           </AdminLink>
@@ -362,6 +376,7 @@ export function CuratorApp() {
               events={published}
               loading={loading}
               onStatus={changeEventStatus}
+              onPromote={togglePromoted}
               onRefresh={reload}
             />
           ) : (
@@ -613,11 +628,13 @@ function PublishedList({
   events,
   loading,
   onStatus,
+  onPromote,
   onRefresh,
 }: {
   events: AdminEvent[];
   loading: boolean;
   onStatus: (event: AdminEvent, status: EventStatus) => void;
+  onPromote: (event: AdminEvent) => void;
   onRefresh: () => void;
 }) {
   const [q, setQ] = useState("");
@@ -669,6 +686,11 @@ function PublishedList({
             >
               <div className="min-w-[200px] flex-1">
                 <div className="flex flex-wrap items-center gap-2">
+                  {event.promoted && (
+                    <Pill tone="green" glyph="★">
+                      Promoted
+                    </Pill>
+                  )}
                   <Pill tone="muted" glyph="#">
                     {getFieldCardForCategory(event.category)?.label ?? event.category}
                   </Pill>
@@ -715,6 +737,13 @@ function PublishedList({
               </Select>
 
               <div className="flex gap-2">
+                <AdminBtn
+                  variant={event.promoted ? "primary" : "outline"}
+                  onClick={() => onPromote(event)}
+                  title="Pin above the normal soonest-first order in every feed tab"
+                >
+                  {event.promoted ? "★ Promoted" : "☆ Promote"}
+                </AdminBtn>
                 <AdminLink href={eventPath(event)} variant="outline">
                   View ↗
                 </AdminLink>

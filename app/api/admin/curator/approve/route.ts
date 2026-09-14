@@ -17,6 +17,12 @@ interface ApproveBody {
   discoveryItemId: number;
   title: string;
   summary: string | null;
+  /** One scannable sentence for "At a glance". Optional: older callers and a
+   *  curator who skipped it publish exactly as before — the page falls back
+   *  to the summary's first sentence (lib/client/sceneEvent.ts). */
+  gist?: string | null;
+  /** Up to 3 short attendee outcomes for the "What you'll get" list. */
+  highlights?: string[];
   category: Category;
   startAt: string | null;
   endAt: string | null;
@@ -158,11 +164,15 @@ export async function POST(request: Request) {
     const {
       rows: [eventRow],
     } = await query<{ id: number }>(
-      `INSERT INTO events (title, summary, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'curator',$14,$15, now()) RETURNING id`,
+      `INSERT INTO events (title, summary, gist, highlights, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'curator',$16,$17, now()) RETURNING id`,
       [
         body.title.trim(),
         body.summary ?? null,
+        (body.gist ?? "").toString().trim().slice(0, 140) || null,
+        Array.isArray(body.highlights)
+          ? body.highlights.filter((h): h is string => typeof h === "string" && h.trim() !== "").slice(0, 3)
+          : [],
         body.category,
         body.startAt ?? null,
         body.endAt ?? null,

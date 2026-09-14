@@ -306,6 +306,13 @@ ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;
 -- price. `summary` is rewritten by the same pass into 1-2 scannable sentences.
 ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '{}';
 
+-- One scannable sentence for the "At a glance" block that opens the event page.
+-- Its own column rather than the first sentence of `summary`, because the story
+-- is instructed to open with a hook: that opening line is usually rhetorical
+-- rather than the fact a scanner needs. Null whenever `summary` is null — the
+-- two are generated as one content unit (lib/summarize.ts).
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gist TEXT;
+
 -- Registration deadline, when the source publishes one. schema.org puts this on
 -- offers.validThrough (when ticket sales end), which is the only structured
 -- signal any of our sources carry for it. Null is common and must stay null:
@@ -358,3 +365,231 @@ CREATE INDEX IF NOT EXISTS idx_events_upcoming
 
 CREATE INDEX IF NOT EXISTS idx_discovery_items_curator_queue
   ON discovery_items (status, discovered_at DESC);
+
+-- ---------------------------------------------------------------- Venue booking
+--
+-- The venue side started as a browser-only prototype (localStorage), which was
+-- fine until two devices needed the same booking: the organizer shows a check-in
+-- QR on their phone and the venue owner scans it on theirs, and the owner's
+-- dashboard has to show a review the organizer wrote elsewhere. Neither is
+-- possible without a server, so bookings live here.
+--
+-- Holds organizer name/email/phone, so it takes the same posture as
+-- `subscribers`: RLS on with no policies, plus the REVOKE belt-and-braces. The
+-- app's own pg connection is the table owner and bypasses RLS.
+CREATE TABLE IF NOT EXISTS venue_bookings (
+  id SERIAL PRIMARY KEY,
+  -- Short, unambiguous, human-readable. Read aloud at reception and used to
+  -- attach food orders to the right event, so it avoids look-alike characters.
+  code TEXT NOT NULL UNIQUE,
+  -- Unguessable; the payload inside the check-in QR. Possession of this is what
+  -- authorizes marking the event started, so it is never derived from `code`.
+  checkin_token TEXT NOT NULL UNIQUE,
+  venue_slug TEXT NOT NULL,
+  venue_name TEXT NOT NULL,
+  space_id TEXT NOT NULL,
+  space_name TEXT NOT NULL,
+  -- Requested slot. `duration_hours` drives both the price and the live timer.
+  event_date DATE NOT NULL,
+  start_time TEXT NOT NULL,
+  duration_hours INT NOT NULL CHECK (duration_hours > 0),
+  people INT NOT NULL CHECK (people > 0),
+  event_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  organizer_name TEXT NOT NULL,
+  organizer_email TEXT NOT NULL,
+  organizer_phone TEXT NOT NULL,
+  trust_type TEXT,
+  trust_url TEXT,
+  whatsapp_opt_in BOOLEAN NOT NULL DEFAULT false,
+  email_opt_in BOOLEAN NOT NULL DEFAULT false,
+  hourly_rate INT,
+  total INT,
+  status TEXT NOT NULL DEFAULT 'requested'
+    CHECK (status IN ('requested','approved','confirmed','checked_in','completed','declined','cancelled','expired')),
+  -- Set when the owner scans the QR. `ends_at` is computed from it rather than
+  -- from the requested start, because the timer must follow when the event
+  -- actually began, not when it was booked to.
+  checked_in_at TIMESTAMPTZ,
+  ends_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  -- Set once the "your booked time is up" notification has gone out, so a
+  -- repeating sweep cannot send it twice.
+  overrun_notified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_bookings_host_queue
+  ON venue_bookings (venue_slug, status, event_date);
+
+-- The sweep that sends the overrun ping reads exactly this shape.
+CREATE INDEX IF NOT EXISTS idx_venue_bookings_running
+  ON venue_bookings (ends_at)
+  WHERE status = 'checked_in' AND overrun_notified_at IS NULL;
+
+ALTER TABLE venue_bookings ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    EXECUTE 'REVOKE ALL ON venue_bookings FROM anon';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    EXECUTE 'REVOKE ALL ON venue_bookings FROM authenticated';
+  END IF;
+END $$;
+
+-- Food and drink the venue owner attaches to a running event.
+--
+-- This is the "when several events run at once, who ordered what" answer: line
+-- items keyed to a booking, summed against the space's minimum food spend.
+CREATE TABLE IF NOT EXISTS venue_booking_orders (
+  id SERIAL PRIMARY KEY,
+  booking_id INT NOT NULL REFERENCES venue_bookings(id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  amount INT NOT NULL CHECK (amount >= 0),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_booking_orders_booking
+  ON venue_booking_orders (booking_id, created_at);
+
+-- Post-event reviews, written only by the organizer of a completed booking.
+--
+-- One review per booking (the unique constraint is the whole anti-astroturfing
+-- mechanism): you cannot review a venue you never booked, and you cannot review
+-- the same event twice. `rating` is the 1-5 emoji scale; `tags` are the aspect
+-- chips (wifi/food/vibe/space/location) the organizer picked.
+CREATE TABLE IF NOT EXISTS venue_reviews (
+  id SERIAL PRIMARY KEY,
+  booking_id INT NOT NULL UNIQUE REFERENCES venue_bookings(id) ON DELETE CASCADE,
+  venue_slug TEXT NOT NULL,
+  rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  comment TEXT,
+  -- Organizer's own event photos. Stored as ids into poster_uploads, reusing the
+  -- verified-magic-bytes path rather than inventing a second image pipeline.
+  photo_ids INT[] NOT NULL DEFAULT '{}',
+  -- Attendees appear in event photos, so publishing them needs explicit consent.
+  photo_consent BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_reviews_venue
+  ON venue_reviews (venue_slug, created_at DESC);
+
+ALTER TABLE venue_reviews ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    EXECUTE 'REVOKE ALL ON venue_reviews FROM anon';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    EXECUTE 'REVOKE ALL ON venue_reviews FROM authenticated';
+  END IF;
+END $$;
+
+-- Venue partner leads.
+--
+-- The "list your venue" form previously rendered a success message and threw the
+-- submission away, so every real lead was lost. These land in the curator queue
+-- instead, which is the only place anyone is watching.
+CREATE TABLE IF NOT EXISTS venue_partner_requests (
+  id SERIAL PRIMARY KEY,
+  contact_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  venue_name TEXT NOT NULL,
+  area TEXT NOT NULL,
+  link TEXT,
+  details TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new'
+    CHECK (status IN ('new','contacted','onboarding','listed','declined')),
+  curator_note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_partner_requests_queue
+  ON venue_partner_requests (status, created_at DESC);
+
+-- Contact details for a person who volunteered them: same posture as subscribers.
+ALTER TABLE venue_partner_requests ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    EXECUTE 'REVOKE ALL ON venue_partner_requests FROM anon';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    EXECUTE 'REVOKE ALL ON venue_partner_requests FROM authenticated';
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------- Venue catalog
+--
+-- Venue content moves out of the hardcoded TS registry (lib/venues.ts) and in
+-- here so the curator can add a venue and edit every field of its public page
+-- without a deploy. lib/venues.ts keeps the types and the pricing helpers, and
+-- scripts/seed-venues.ts seeds Time Cafe from the constant that used to be the
+-- only source of truth.
+--
+-- No RLS: this is public catalog content, the same class of data as `events`.
+CREATE TABLE IF NOT EXISTS venues (
+  id SERIAL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  area TEXT NOT NULL,
+  city TEXT NOT NULL DEFAULT 'Chennai',
+  address TEXT,
+  summary TEXT NOT NULL DEFAULT '',
+  -- 'coming-soon' renders a non-bookable teaser; 'hidden' keeps a draft out of
+  -- the public site entirely while the curator is still filling it in.
+  status TEXT NOT NULL DEFAULT 'hidden'
+    CHECK (status IN ('live','coming-soon','hidden')),
+  -- The venue's own public dining rating. Explicitly not an events rating, and
+  -- labelled that way wherever it is shown.
+  rating NUMERIC,
+  rating_count INT,
+  rating_url TEXT,
+  phone TEXT,
+  map_url TEXT,
+  map_embed_url TEXT,
+  photos TEXT[] NOT NULL DEFAULT '{}',
+  amenities TEXT[] NOT NULL DEFAULT '{}',
+  policies TEXT[] NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venues_public ON venues (status, name);
+
+-- The bookable rooms within a venue. Rates are nullable because a real space
+-- can be quote-only (Time Cafe's terrace), and null must never render as free.
+CREATE TABLE IF NOT EXISTS venue_spaces (
+  id SERIAL PRIMARY KEY,
+  venue_id INT NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+  space_key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  eyebrow TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  capacity TEXT NOT NULL DEFAULT '',
+  max_guests INT NOT NULL CHECK (max_guests > 0),
+  image TEXT,
+  amenities TEXT[] NOT NULL DEFAULT '{}',
+  community_rate INT,
+  production_rate INT,
+  minimum_food_spend INT,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (venue_id, space_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_spaces_venue ON venue_spaces (venue_id, sort_order, id);
+
+-- Editorial promotion: a curator can pin a specific event above the normal
+-- soonest-first order, in every tab of the discovery feed and every category
+-- page. Off by default — nothing is promoted unless a curator says so.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS promoted BOOLEAN NOT NULL DEFAULT false;

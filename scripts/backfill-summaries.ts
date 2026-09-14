@@ -117,6 +117,7 @@ async function main() {
     console.log(`   ${before} -> ${after} chars (${words} words)`);
     console.log(`   ${out.eventIntro ?? "(none)"}`);
     console.log(`   why attend: ${out.whyAttend.length ? out.whyAttend.join(" · ") : "(none — description was vague)"}`);
+    console.log(`   gist: ${out.gist ?? "(none)"}`);
     console.log(`   registration: ${out.registrationNote ?? "(no deadline published)"}`);
     console.log(`   generation: ${out.generationStatus}\n`);
 
@@ -130,9 +131,10 @@ async function main() {
                 highlights = $2,
                 registration_note = $3,
                 primary_source_url = COALESCE($4, primary_source_url),
+                gist = COALESCE($6, gist),
                 updated_at = now()
           WHERE id = $5`,
-        [out.eventIntro, out.whyAttend, out.registrationNote, recoveredSourceUrl, ev.id],
+        [out.eventIntro, out.whyAttend, out.registrationNote, recoveredSourceUrl, ev.id, out.gist],
       );
       if (recoveredSourceUrl) {
         await query(

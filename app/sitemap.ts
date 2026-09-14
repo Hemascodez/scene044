@@ -35,6 +35,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: `${BASE_URL}/venues`,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}/venues/time-cafe`,
+      changeFrequency: "weekly",
+      priority: 0.8,
+      images: [`${BASE_URL}/venues/time-cafe/interior-wide-2.jpeg`],
+    },
     ...FIELD_CARDS.map((card) => {
       const lastModified = events
         .filter((event) => card.categories.includes(event.category))

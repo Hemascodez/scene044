@@ -1,0 +1,9 @@
+import type { Metadata } from "next";
+import { PartnerForm } from "@/components/venues/PartnerForm";
+import { VenueIcon, VenueKicker } from "@/components/venues/VenueUi";
+
+export const metadata: Metadata = { title: "List your venue — SCENE/044" };
+
+export default function VenuePartnerPage() {
+  return <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_520px] lg:px-8 lg:py-20"><div className="lg:pt-8"><VenueKicker>Venue partners</VenueKicker><h1 className="mt-3 max-w-2xl font-display text-5xl font-black leading-[0.92] tracking-[-0.065em] sm:text-6xl">Put your space on Chennai&apos;s professional map.</h1><p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground">We&apos;re starting with a small group of cafes, studios, rooftops, and community spaces. SCENE handles the listing and booking flow; you stay in control of every request.</p><div className="mt-9 space-y-4">{[["check","Approve every request before payment"],["calendar","Block dates for private or manual bookings"],["wallet","See the organizer total and your 90% payout"],["shield","Receive verified organizer details and event context"]].map(([icon,text])=><div key={text} className="flex items-center gap-3 border-t border-foreground/15 pt-4 text-sm font-bold"><span className="grid size-9 place-items-center rounded-full bg-secondary"><VenueIcon name={icon as "check"|"calendar"|"wallet"|"shield"} className="size-4" /></span>{text}</div>)}</div><div className="mt-9 rounded-2xl bg-foreground p-5 text-sm leading-6 text-background/70"><strong className="text-background">Why manual onboarding now?</strong><br />Venue inventory becomes unreliable when anyone can publish. We&apos;ll first verify photos, room names, capacity, pricing, and the actual calendar with you. Self-serve onboarding comes after this pilot is stable.</div></div><PartnerForm /></div>;
+}

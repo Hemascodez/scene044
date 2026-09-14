@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { PublicEvent } from "@/lib/events";
 import { FIELD_CARDS } from "@/lib/fieldCards";
-import { bySoonest, deriveSceneStatus, isHiddenFromFeed, isNewlyDiscovered } from "@/lib/client/sceneEvent";
+import { bySoonest, byPromotedThenSoonest, deriveSceneStatus, isHiddenFromFeed, isNewlyDiscovered } from "@/lib/client/sceneEvent";
 import { useEventInteractions } from "@/lib/client/useEventInteractions";
 import { SceneHeader } from "@/components/scene/SceneHeader";
 import { FieldsGrid, SceneFooter, SceneHero, SectionHead } from "@/components/scene/SceneHero";
@@ -23,7 +23,10 @@ export function SceneApp({
   const feedRef = useRef<HTMLElement>(null);
   const interactions = useEventInteractions(events);
 
-  const upcoming = useMemo(() => events.filter((e) => !isHiddenFromFeed(e)).sort(bySoonest), [events]);
+  const upcoming = useMemo(
+    () => events.filter((e) => !isHiddenFromFeed(e)).sort(byPromotedThenSoonest),
+    [events],
+  );
   // Wrapped, not passed by reference: `.filter` would hand the array index in
   // as the optional `now` argument.
   const newlyDiscovered = useMemo(() => upcoming.filter((e) => isNewlyDiscovered(e)), [upcoming]);

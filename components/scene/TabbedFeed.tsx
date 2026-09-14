@@ -21,7 +21,6 @@ interface Preset {
  * lane under-reports by design instead of over-promising.
  */
 const PRESETS: Preset[] = [
-  { key: "upcoming", label: "Upcoming in Chennai", hint: "Soonest first · IST", test: () => true },
   {
     key: "this_week",
     label: "This week",
@@ -31,6 +30,7 @@ const PRESETS: Preset[] = [
       return bucket === "today" || bucket === "this_week" || bucket === "this_weekend";
     },
   },
+  { key: "upcoming", label: "Upcoming in Chennai", hint: "Soonest first · IST", test: () => true },
   {
     key: "free",
     label: "Free to attend",
@@ -52,7 +52,13 @@ export function TabbedFeed({
   onToggleSave: (id: number) => void;
   lastViewedId: number | null;
 }) {
-  const [active, setActive] = useState(0);
+  // "Upcoming" is still the view visitors land on — the reorder above only
+  // changed which chip shows first, not what opens by default — so this is
+  // found by key rather than hardcoded to an index that would now be wrong.
+  const [active, setActive] = useState(() => {
+    const i = PRESETS.findIndex((p) => p.key === "upcoming");
+    return i === -1 ? 0 : i;
+  });
   const [query, setQuery] = useState("");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 

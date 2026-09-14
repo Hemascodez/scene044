@@ -22,9 +22,15 @@ const MAX_SUPPORTING_CHARS = 6000;
 const MIN_WORDS = 60;
 const MAX_WORDS = 100;
 const MAX_OUTCOME_CHARS = 72;
+const MAX_GIST_CHARS = 140;
 
 export interface EventIntro {
   eventIntro: string | null;
+  /** One scannable sentence for the "At a glance" block. Deliberately its own
+   *  field rather than the story's first sentence: the story is instructed to
+   *  open with a hook, so its opening line is often rhetorical rather than the
+   *  thing a reader scanning the page actually needs. */
+  gist: string | null;
   whyAttend: string[];
   registrationNote: string | null;
   generationStatus: "generated" | "insufficient" | "error";
@@ -115,6 +121,13 @@ const INSTRUCTIONS =
   "provided. End with a memorable, warm line. Mention registration closing only when a deadline " +
   "is supplied. Do not repeat the event title. Do not add a \"Come for\" list inside event_story " +
   "because what_you_get is rendered separately immediately below it.\n\n" +
+  "GIST. Write one plain sentence of at most " + MAX_GIST_CHARS + " characters stating what actually " +
+  "happens at this event - the line someone scanning the page reads first. No hook, no question, no " +
+  "emoji, no marketing. Lead with the format and the subject, for example \"A hands-on workshop on " +
+  "building RAG pipelines, followed by open Q&A\". Do not repeat the event title, and do not restate " +
+  "the date, venue or price - those are shown as separate facts beside it. Set gist to null whenever " +
+  "event_story is null, because both describe the same event and one without the other is a broken " +
+  "content state.\n\n" +
   "what_you_get: return 0 to 3 distinct attendee outcomes, each at most " + MAX_OUTCOME_CHARS + " characters. " +
   "Derive them from explicit agenda items, activities, format details or outcomes in the supplied " +
   "event information. Return an empty array when the evidence does not support a concrete perk; " +
@@ -156,6 +169,11 @@ const TOOL: OpenAI.Responses.FunctionTool = {
         type: ["string", "null"],
         description: "60-100 word friendly event summary in short Markdown paragraphs; null when evidence is insufficient",
       },
+      gist: {
+        type: ["string", "null"],
+        description:
+          `one plain sentence <=${MAX_GIST_CHARS} chars stating what happens, no hook or emoji; null when event_story is null`,
+      },
       what_you_get: {
         type: "array",
         items: { type: "string" },
@@ -169,7 +187,7 @@ const TOOL: OpenAI.Responses.FunctionTool = {
         description: "Only when a deadline was supplied. Null otherwise.",
       },
     },
-    required: ["event_story", "what_you_get", "registration_note"],
+    required: ["event_story", "gist", "what_you_get", "registration_note"],
     additionalProperties: false,
   },
 };
@@ -254,6 +272,34 @@ function outcomeViolation(outcomes: string[], source: string): string | null {
   return unearned;
 }
 
+/**
+ * The gist is held to the same honesty rules as the story, plus two of its own:
+ * no emoji and no rhetorical opener. It is the first line a scanner reads, so a
+ * hook there wastes the one sentence that was supposed to carry the facts.
+ * Length is already guaranteed by `clean()`, so it isn't re-checked here.
+ */
+export function gistViolation(gist: string, source: string): string | null {
+  const lower = gist.toLowerCase();
+  const banned = BANNED.find((p) => lower.includes(p));
+  if (banned) return `gist uses banned filler "${banned}"`;
+
+  const address = BANNED_ADDRESS.find((w) => new RegExp(`\\b${w}\\b`, "i").test(gist));
+  if (address) return `gist uses excluded address term "${address}"`;
+
+  const unearned = earnedClaimViolation(gist, source);
+  if (unearned) return `gist ${unearned}`;
+
+  if (/\p{Extended_Pictographic}/u.test(gist)) return "gist contains an emoji";
+  if (gist.includes("?")) return "gist is phrased as a hook/question";
+  return null;
+}
+
+/** Normalises and hard-caps a gist. Exported so the cap is tested against the
+ *  real code path rather than a copy of it. */
+export function cleanGist(value: unknown): string | null {
+  return clean(value, MAX_GIST_CHARS);
+}
+
 function cleanOutcomes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -327,6 +373,7 @@ export async function summarizeEvent(input: {
     if (!call || call.type !== "function_call") return null;
     return JSON.parse(call.arguments) as {
       event_story?: unknown;
+      gist?: unknown;
       what_you_get?: unknown;
       registration_note?: unknown;
     };
@@ -335,6 +382,7 @@ export async function summarizeEvent(input: {
   try {
     let parsed = await attempt(null);
     let intro = clean(parsed?.event_story, 1200);
+    let gist = cleanGist(parsed?.gist);
     let outcomes = cleanOutcomes(parsed?.what_you_get);
 
     // Null/empty is a valid answer when the page lacks evidence. Retry only a
@@ -343,11 +391,13 @@ export async function summarizeEvent(input: {
     // description, but they are published atomically below: perks without the
     // description that gives them context are a broken content state.
     const firstProblem = (intro ? introViolation(intro, input.title, source) : null)
-      ?? outcomeViolation(outcomes, source);
+      ?? outcomeViolation(outcomes, source)
+      ?? (gist ? gistViolation(gist, source) : null);
     if (firstProblem) {
       console.warn(`summarize: retrying "${input.title.slice(0, 50)}" — ${firstProblem}`);
       const retry = await attempt(firstProblem);
       const retriedIntro = clean(retry?.event_story, 1200);
+      const retriedGist = cleanGist(retry?.gist);
       const retriedOutcomes = cleanOutcomes(retry?.what_you_get);
       // Repeating the title is worth one rewrite attempt, but it is a minor
       // style problem rather than a reason to publish an empty description.
@@ -360,6 +410,7 @@ export async function summarizeEvent(input: {
         intro = retriedIntro;
       }
       if (!outcomeViolation(retriedOutcomes, source)) outcomes = retriedOutcomes;
+      if (retriedGist && !gistViolation(retriedGist, source)) gist = retriedGist;
       if (retry) parsed = retry;
     }
 
@@ -370,6 +421,9 @@ export async function summarizeEvent(input: {
       { allowTitleRepeat: true },
     ) ? intro : null;
     const whyAttend = validIntro && !outcomeViolation(outcomes, source) ? outcomes : [];
+    // Same "one content unit" rule as whyAttend: no story means we could not
+    // describe the event honestly, so there is nothing to put in the glance.
+    const validGist = validIntro && gist && !gistViolation(gist, source) ? gist : null;
 
     // Belt and braces on the accuracy rule: with no deadline in our data there
     // is nothing for this to be derived from, so it must be null regardless of
@@ -380,12 +434,19 @@ export async function summarizeEvent(input: {
 
     return {
       eventIntro: validIntro,
+      gist: validGist,
       whyAttend,
       registrationNote,
       generationStatus: validIntro ? "generated" : "insufficient",
     };
   } catch (err) {
     console.warn(`summarize: failed for "${input.title.slice(0, 60)}"`, err);
-    return { eventIntro: null, whyAttend: [], registrationNote: null, generationStatus: "error" };
+    return {
+      eventIntro: null,
+      gist: null,
+      whyAttend: [],
+      registrationNote: null,
+      generationStatus: "error",
+    };
   }
 }

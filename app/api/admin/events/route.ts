@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { rows } = await query(
-      `SELECT e.id, e.title, e.category, e.status,
+      `SELECT e.id, e.title, e.category, e.status, e.promoted,
               e.start_at AS "startAt", e.end_at AS "endAt",
               e.is_online AS "isOnline", e.venue_name AS "venueName", e.city,
               e.organizer_name AS "organizerName",
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
               (SELECT count(*)::int FROM event_reports r WHERE r.event_id = e.id AND r.resolved_at IS NULL) AS "openReports"
        FROM events e
        WHERE ($1 = '' OR e.title ILIKE '%' || $1 || '%' OR COALESCE(e.organizer_name,'') ILIKE '%' || $1 || '%')
-       ORDER BY e.start_at ASC NULLS LAST, e.id DESC
+       ORDER BY e.promoted DESC, e.start_at ASC NULLS LAST, e.id DESC
        LIMIT 300`,
       [search],
     );

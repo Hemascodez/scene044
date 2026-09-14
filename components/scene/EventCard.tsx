@@ -107,10 +107,19 @@ export function EventCard({
             )}
           </div>
 
-          {isNewlyDiscovered(event) && (
-            <span className="absolute left-0 top-0 m-1.5 bg-accent px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-accent-foreground">
-              New
+          {/* Promoted takes the same corner "New" uses — it's the stronger,
+              deliberate signal (a curator chose this one), and both firing at
+              once would be redundant clutter on a card this small. */}
+          {event.promoted ? (
+            <span className="absolute left-0 top-0 m-1.5 bg-primary px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-primary-foreground">
+              ★ Promoted
             </span>
+          ) : (
+            isNewlyDiscovered(event) && (
+              <span className="absolute left-0 top-0 m-1.5 bg-accent px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-accent-foreground">
+                New
+              </span>
+            )
           )}
           {/* Top-right stack. Both flags can apply at once, and the bottom of
               the stub is already spoken for by the date/countdown overlay —

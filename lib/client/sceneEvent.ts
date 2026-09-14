@@ -1,6 +1,6 @@
 import type { PublicEvent } from "@/lib/events";
 import { stockPosterFor } from "@/lib/stockPosters";
-import { isPastEvent } from "@/lib/client/istTime";
+import { formatSceneDate, formatSceneTime, isPastEvent } from "@/lib/client/istTime";
 
 /**
  * The status the card actually renders, which is not the same as the database
@@ -39,6 +39,19 @@ export function bySoonest(a: PublicEvent, b: PublicEvent): number {
   const at = a.startAt ? Date.parse(a.startAt) : Number.POSITIVE_INFINITY;
   const bt = b.startAt ? Date.parse(b.startAt) : Number.POSITIVE_INFINITY;
   return at - bt || a.id - b.id;
+}
+
+/**
+ * `bySoonest`, but a curator's promoted pick outranks the date entirely.
+ *
+ * Used for the browse feed (every tab of TabbedFeed, every category page) —
+ * deliberately not for the saved-events list, which reflects the visitor's own
+ * choices and shouldn't get reordered by an editorial decision that isn't
+ * theirs.
+ */
+export function byPromotedThenSoonest(a: PublicEvent, b: PublicEvent): number {
+  if (a.promoted !== b.promoted) return a.promoted ? -1 : 1;
+  return bySoonest(a, b);
 }
 
 export function matchesSearch(event: PublicEvent, rawQuery: string): boolean {
@@ -168,6 +181,51 @@ export function actionizeEventHighlight(value: string): string {
 
 export function eventSummaryBullets(event: PublicEvent): string[] {
   return event.highlights.map(actionizeEventHighlight).filter(Boolean).slice(0, 3);
+}
+
+export interface GlanceFact {
+  label: string;
+  value: string;
+  /** Secondary line under the value — the street address, which is too long to
+   *  sit inline but is the one thing someone travelling actually needs. */
+  hint?: string;
+}
+
+/**
+ * The facts half of "At a glance" — the four things someone decides on before
+ * reading anything else.
+ *
+ * Derived entirely from columns we already hold, never from generated copy, so
+ * it cannot drift from the truth the way a model-written sentence could. A fact
+ * we don't have is omitted rather than guessed: "Price" disappears when the
+ * source never stated one, exactly as `priceType: null` requires.
+ */
+export function glanceFactsFor(event: PublicEvent & { venueAddress?: string | null }): GlanceFact[] {
+  const facts: GlanceFact[] = [];
+
+  facts.push({
+    label: "When",
+    value: event.startAt
+      ? `${formatSceneDate(event.startAt)} · ${formatSceneTime(event.startAt)}`
+        + (event.endAt ? ` – ${formatSceneTime(event.endAt)}` : "")
+      : "Not announced",
+  });
+
+  facts.push({
+    label: "Where",
+    value: event.isOnline ? "Online" : (event.venueName ?? event.city),
+    ...(event.isOnline || !event.venueAddress ? {} : { hint: event.venueAddress }),
+  });
+
+  if (event.priceType === "free") facts.push({ label: "Price", value: "Free" });
+  else if (event.priceType === "paid") facts.push({ label: "Price", value: event.priceNote ?? "Paid" });
+
+  const audience = audienceTagsFor(event);
+  if (audience.length > 0) {
+    facts.push({ label: "For", value: audience.map((tag) => tag.label).join(", ") });
+  }
+
+  return facts;
 }
 
 export interface ScenePoster {

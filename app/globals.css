@@ -44,6 +44,16 @@
   --color-signal-ink: #07713c; /* white 6.11:1 */
   --color-warn-ink: #8f4e00; /* white 6.45:1 */
 
+  /*
+   * Venue surface palette. Declared here (not only inside `.venue-surface`) so
+   * Tailwind generates real utilities — `bg-venue-card`, `border-venue-line`.
+   * The components previously hardcoded these hex literals in ~20 places, which
+   * meant a palette change was a find-and-replace rather than a token edit.
+   */
+  --color-venue-paper: #f7f5ee;
+  --color-venue-card: #fffef9;
+  --color-venue-line: rgba(20, 19, 13, 0.15);
+
   --font-display: var(--font-archivo);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
@@ -58,6 +68,58 @@ html {
 html,
 body {
   min-height: 100%;
+}
+
+/*
+ * Venue marketplace surface.
+ *
+ * The event feed keeps its sharp newsprint grammar. Venue booking needs a
+ * calmer, hospitality-led reading rhythm, so these pages opt into warmer
+ * paper, soft hairlines, and rounded functional surfaces without changing
+ * the global SCENE tokens or existing event components.
+ */
+.venue-surface {
+  /* Aliases kept so existing `var(--venue-*)` references keep working; the
+     values now come from the theme tokens above rather than being duplicated. */
+  --venue-paper: var(--color-venue-paper);
+  --venue-card: var(--color-venue-card);
+  --venue-line: var(--color-venue-line);
+  background:
+    radial-gradient(circle at 85% 8%, rgba(255, 45, 22, 0.045), transparent 28rem),
+    var(--venue-paper);
+}
+
+.venue-surface input,
+.venue-surface select,
+.venue-surface textarea,
+.venue-surface button {
+  font: inherit;
+}
+
+.venue-surface input[type="date"],
+.venue-surface input[type="time"] {
+  color-scheme: light;
+}
+
+.venue-surface :focus-visible {
+  scroll-margin-block: 7rem;
+}
+
+@media (max-width: 1023px) {
+  .venue-search-grid > * {
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .venue-surface *,
+  .venue-surface *::before,
+  .venue-surface *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
@@ -86,6 +148,23 @@ body {
   from {
     opacity: 0;
     transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/*
+ * The "subtle" entrance tier: 8px and 300ms, against scene-rise's 14px/500ms.
+ * Used where many small rows animate in sequence (the event page's glance
+ * facts and outcome rows) — at scene-rise's travel and duration a staggered
+ * run of them reads as sluggish rather than crisp. Deliberately no overshoot:
+ * these rows are dense informational UI, where a bounce reads as sloppy.
+ */
+@keyframes scene-rise-tight {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -130,8 +209,25 @@ body {
     opacity: 1;
   }
 }
+@keyframes venue-hero-drift {
+  from {
+    scale: 1.02;
+    translate: 0 0;
+  }
+  to {
+    scale: 1.07;
+    translate: -0.65% -0.35%;
+  }
+}
+.venue-hero-image {
+  animation: venue-hero-drift 16s ease-in-out infinite alternate;
+  will-change: scale, translate;
+}
 .scene-rise {
   animation: scene-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.scene-rise-tight {
+  animation: scene-rise-tight 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .scene-ticker {
   animation: scene-ticker 32s linear infinite;
@@ -182,9 +278,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .scene-rise,
+  .scene-rise-tight,
   .scene-ticker,
   .scene-blink,
-  .scene-flip-in {
+  .scene-flip-in,
+  .venue-hero-image {
     animation: none !important;
   }
   .scene-fade-in {

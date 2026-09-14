@@ -311,6 +311,9 @@ ALTER TABLE subscriber_sends ENABLE ROW LEVEL SECURITY;
 -- price. `summary` is rewritten by the same pass into 1-2 scannable sentences.
 ALTER TABLE events ADD COLUMN IF NOT EXISTS highlights TEXT[] NOT NULL DEFAULT '{}';
 
+-- One scannable sentence for the "At a glance" block (see db/schema.sql).
+ALTER TABLE events ADD COLUMN IF NOT EXISTS gist TEXT;
+
 -- Registration deadline, when the source publishes one. schema.org puts this on
 -- offers.validThrough (when ticket sales end), which is the only structured
 -- signal any of our sources carry for it. Null is common and must stay null:
@@ -425,3 +428,6 @@ INSERT INTO search_queries (query_text, category_hint, site_filter, active) VALU
 -- 34 sources, 43 search queries.
 -- Events are NOT copied: the pipeline rediscovers them on its first run,
 -- and stale event rows would ship a feed that was already out of date.
+
+-- Editorial promotion (see db/schema.sql for the full comment).
+ALTER TABLE events ADD COLUMN IF NOT EXISTS promoted BOOLEAN NOT NULL DEFAULT false;

@@ -12,6 +12,15 @@ import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/l
 export interface CuratorDraft {
   title: string;
   summary: string;
+  /** One scannable sentence for the event page's "At a glance" block. Same
+   *  field the extraction pipeline writes via lib/summarize.ts — a curator-
+   *  entered event skips that pass, so this is how it gets one too, either
+   *  typed by hand or filled by "Ask AI to draft this". */
+  gist: string;
+  /** Up to 3 short, concrete attendee outcomes — the "What you'll get" list
+   *  under the glance. Empty renders nothing, which is the honest default for
+   *  an event nobody has written outcomes for yet. */
+  highlights: string[];
   category: Category | "";
   startDate: string; // yyyy-mm-dd (IST)
   startTime: string; // HH:mm (IST)
@@ -34,6 +43,8 @@ export function emptyCuratorDraft(): CuratorDraft {
   return {
     title: "",
     summary: "",
+    gist: "",
+    highlights: [],
     category: "",
     startDate: "",
     startTime: "",
@@ -120,6 +131,10 @@ export function draftWarnings(draft: CuratorDraft): string[] {
   const warnings: string[] = [];
   if (!draft.startTime) warnings.push("No start time — the card will show 12:00 am");
   if (!draft.summary.trim()) warnings.push("No summary — the detail view will look bare");
+  if (!draft.gist.trim()) warnings.push("No gist — “At a glance” will fall back to the summary's first sentence");
+  if (draft.highlights.filter((h) => h.trim()).length === 0) {
+    warnings.push("No highlights — the “What you'll get” list will be empty");
+  }
   if (!draft.organizerName.trim()) warnings.push("No organizer — card shows “Organizer not available”");
   if (!draft.posterImageUrl.trim()) warnings.push("No poster — a category Scene image will be used");
   if (!draft.priceType) warnings.push("Price not stated — no Free/Paid chip will show, and it won't appear under “Free to attend”");

@@ -15,7 +15,8 @@
     "whatsapp-digest": "node --import tsx scripts/send-whatsapp-digest.ts",
     "test:seo": "node --import tsx scripts/test-seo.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
-    "backfill:event-copy": "node --import tsx scripts/backfill-summaries.ts"
+    "backfill:event-copy": "node --import tsx scripts/backfill-summaries.ts",
+    "seed:venues": "node --import tsx scripts/seed-venues.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4",
@@ -27,6 +28,7 @@
     "fastest-levenshtein": "^1.0.16",
     "firebase": "^12.18.0",
     "google-auth-library": "^11.0.2",
+    "motion": "^13.2.0",
     "next": "16.3.3",
     "openai": "^7.8.0",
     "pg": "^8.23.0",

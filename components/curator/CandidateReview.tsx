@@ -17,6 +17,7 @@ import {
 import {
   checkDuplicate,
   CuratorApiError,
+  generateEventCopy,
   publishEvent,
   rejectItem,
   runExtraction,
@@ -69,9 +70,7 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     id: item.id,
     title: draft.title || "Untitled event",
     summary: draft.summary || null,
-    // Curator-entered events skip the summarizer pass, so there are no
-    // highlights to show — an empty list renders nothing, which is correct.
-    highlights: [],
+    highlights: draft.highlights.filter((h) => h.trim()),
     registrationNote: null,
     category: (draft.category || "tech") as Category,
     startAt: draftToInstant(draft.startDate, draft.startTime),
@@ -90,6 +89,9 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     status: draft.status === "expired" ? "live" : draft.status,
     discoveredAt: item.discovered_at,
     lastVerifiedAt: new Date().toISOString(),
+    // Not yet published, so there's nothing to have promoted — the preview is
+    // never affected by promotion ordering anyway (it renders one card alone).
+    promoted: false,
   };
 }
 
@@ -104,12 +106,19 @@ export function CandidateReview({
   onCancel: () => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const [draft, setDraft] = useState<CuratorDraft>(item.curator_draft ?? emptyCuratorDraft());
+  // Merged over the empty defaults, not used as-is: a draft parked before
+  // `gist`/`highlights` existed on this shape would otherwise load with those
+  // fields `undefined`, and the gist field's own char-count hint dereferences
+  // `.length` on it unconditionally.
+  const [draft, setDraft] = useState<CuratorDraft>({ ...emptyCuratorDraft(), ...item.curator_draft });
   const [started, setStarted] = useState(Boolean(item.curator_draft));
   const [dirty, setDirty] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extraction, setExtraction] = useState<PreviewResult | null>(null);
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [generatingCopy, setGeneratingCopy] = useState(false);
+  const [generateCopyError, setGenerateCopyError] = useState<string | null>(null);
+  const [copySourceText, setCopySourceText] = useState("");
   const [relevance, setRelevance] = useState(0.8);
   const [dedup, setDedup] = useState<DedupResult | null>(null);
   const [dedupBusy, setDedupBusy] = useState(false);
@@ -186,6 +195,58 @@ export function CandidateReview({
     }
   }
 
+  /**
+   * "Ask AI to draft this" — runs the same editorial pass
+   * (lib/summarize.ts, via generate-copy/route.ts) the pipeline uses on every
+   * other event, so a curator-entered event gets the same "At a glance"
+   * gist/highlights instead of going without because it skipped extraction.
+   * Requires source text: with nothing to ground it, there's nothing to
+   * compress and sharpen, and the same honesty rules that apply everywhere
+   * else mean it can come back null rather than invent a plausible-looking
+   * summary from just a title.
+   */
+  async function generateCopy() {
+    if (!draft.title.trim() || !copySourceText.trim()) return;
+    setGeneratingCopy(true);
+    setGenerateCopyError(null);
+    try {
+      const { result } = await generateEventCopy({
+        title: draft.title.trim(),
+        category: draft.category || null,
+        organizerName: draft.organizerName.trim() || null,
+        startAt: draftToInstant(draft.startDate, draft.startTime),
+        endAt: draftToInstant(draft.endDate, draft.endTime),
+        isOnline: draft.isOnline,
+        venueName: draft.venueName.trim() || null,
+        venueAddress: draft.venueAddress.trim() || null,
+        priceType: draft.priceType || null,
+        priceNote: draft.priceNote.trim() || null,
+        sourceText: copySourceText.trim(),
+      });
+      if (result.generationStatus === "error") {
+        setGenerateCopyError("The AI pass failed — try again, or write the copy in by hand.");
+        return;
+      }
+      if (!result.eventIntro) {
+        setGenerateCopyError(
+          "The source text wasn't enough to write honest copy from — paste more of the organizer's own description, or write it in by hand.",
+        );
+        return;
+      }
+      setDraft((prev) => ({
+        ...prev,
+        summary: result.eventIntro ?? prev.summary,
+        gist: result.gist ?? prev.gist,
+        highlights: result.whyAttend.length > 0 ? result.whyAttend : prev.highlights,
+      }));
+      setDirty(true);
+    } catch (err) {
+      setGenerateCopyError(err instanceof CuratorApiError ? err.message : "Request failed.");
+    } finally {
+      setGeneratingCopy(false);
+    }
+  }
+
   const dedupInput = useMemo(
     () => ({
       title: draft.title.trim(),
@@ -229,6 +290,8 @@ export function CandidateReview({
         discoveryItemId: item.id,
         title: draft.title.trim(),
         summary: draft.summary.trim() || null,
+        gist: draft.gist.trim() || null,
+        highlights: draft.highlights.filter((h) => h.trim()),
         category: draft.category as Category,
         startAt: draftToInstant(draft.startDate, draft.startTime),
         endAt: draftToInstant(draft.endDate, draft.endTime),
@@ -437,6 +500,63 @@ export function CandidateReview({
               <Field label="Summary" hint="Shown in the event detail view">
                 <TextArea rows={3} value={draft.summary} onChange={(e) => set("summary", e.target.value)} />
               </Field>
+
+              <Field
+                label="Gist"
+                hint={`One plain sentence for "At a glance" — what actually happens. ${draft.gist.length}/140`}
+              >
+                <TextInput
+                  value={draft.gist}
+                  maxLength={140}
+                  onChange={(e) => set("gist", e.target.value)}
+                  placeholder="e.g. A hands-on workshop on building RAG pipelines, followed by open Q&A"
+                />
+              </Field>
+
+              <Field label="Highlights" hint="Up to 3 short attendee outcomes, one per line — the “What you'll get” list">
+                <TextArea
+                  rows={3}
+                  value={draft.highlights.join("\n")}
+                  onChange={(e) =>
+                    set(
+                      "highlights",
+                      e.target.value.split("\n").slice(0, 3),
+                    )
+                  }
+                />
+              </Field>
+
+              <div className="border border-dashed border-[#2c4236] bg-[#0d1712] p-3">
+                <AdminLabel>Ask AI to draft this</AdminLabel>
+                <p className="mt-1 text-xs leading-relaxed text-[#8ba295]">
+                  Paste the organizer&apos;s own description below, then generate a summary, gist, and
+                  highlights the same way the automated pipeline does for every other event. Nothing is
+                  invented — it comes back empty rather than confident-sounding if there isn&apos;t enough to
+                  go on.
+                </p>
+                <TextArea
+                  rows={3}
+                  className="mt-2"
+                  value={copySourceText}
+                  onChange={(e) => setCopySourceText(e.target.value)}
+                  placeholder="Paste the organizer's description, a snippet, or your own notes about the event…"
+                />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <AdminBtn
+                    variant="primary"
+                    onClick={generateCopy}
+                    disabled={generatingCopy || !draft.title.trim() || !copySourceText.trim()}
+                  >
+                    {generatingCopy ? "Writing…" : "✨ Generate summary, gist & highlights"}
+                  </AdminBtn>
+                  {!draft.title.trim() && (
+                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#5f7568]">
+                      Needs a title first
+                    </span>
+                  )}
+                </div>
+                {generateCopyError && <p className="mt-2 text-xs text-[#ff8a7a]">{generateCopyError}</p>}
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Category" required>

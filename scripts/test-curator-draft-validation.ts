@@ -27,6 +27,8 @@ const base: CuratorDraft = {
   venueAddress: "",
   organizerName: "",
   summary: "",
+  gist: "",
+  highlights: [],
   registrationUrl: "",
   posterImageUrl: "",
   priceType: "" as const,

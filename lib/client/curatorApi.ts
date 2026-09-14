@@ -60,6 +60,7 @@ export interface AdminEvent {
   createdAt: string;
   sourceCount: number;
   openReports: number;
+  promoted: boolean;
 }
 
 export interface DedupMatch {
@@ -166,6 +167,8 @@ export function publishEvent(input: {
   discoveryItemId: number;
   title: string;
   summary: string | null;
+  gist?: string | null;
+  highlights?: string[];
   category: Category;
   startAt: string | null;
   endAt: string | null;
@@ -184,6 +187,36 @@ export function publishEvent(input: {
     "/api/admin/curator/approve",
     { method: "POST", body: JSON.stringify(input) },
   );
+}
+
+export interface GeneratedCopy {
+  eventIntro: string | null;
+  gist: string | null;
+  whyAttend: string[];
+  registrationNote: string | null;
+  generationStatus: "generated" | "insufficient" | "error";
+}
+
+/** "Ask AI to draft this" for a curator-entered event — runs the same
+ *  editorial pass the pipeline uses on everything else (lib/summarize.ts),
+ *  fed with whatever facts and source text the curator has typed so far. */
+export function generateEventCopy(input: {
+  title: string;
+  category?: string | null;
+  organizerName?: string | null;
+  startAt?: string | null;
+  endAt?: string | null;
+  isOnline?: boolean;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  priceType?: string | null;
+  priceNote?: string | null;
+  sourceText: string;
+}) {
+  return request<{ result: GeneratedCopy }>("/api/admin/curator/generate-copy", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export function saveDraft(discoveryItemId: number, draft: CuratorDraft, note?: string) {
@@ -222,5 +255,14 @@ export function setEventStatus(eventId: number, status: EventStatus) {
   return request<{ eventId: number; status: EventStatus }>("/api/admin/events/status", {
     method: "POST",
     body: JSON.stringify({ eventId, status }),
+  });
+}
+
+/** Pins/unpins an event above the normal soonest-first order in every feed
+ *  tab and category page (lib/client/sceneEvent.ts's byPromotedThenSoonest). */
+export function setEventPromoted(eventId: number, promoted: boolean) {
+  return request<{ eventId: number; promoted: boolean }>("/api/admin/events/promote", {
+    method: "POST",
+    body: JSON.stringify({ eventId, promoted }),
   });
 }

@@ -97,14 +97,16 @@ export function Field({
   children,
   hint,
   required,
+  className = "",
 }: {
   label: string;
   children: ReactNode;
   hint?: string;
   required?: boolean;
+  className?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
+    <label className={`flex flex-col gap-1.5 ${className}`}>
       <span className="flex items-center gap-1.5">
         <AdminLabel>{label}</AdminLabel>
         {required && (

@@ -8,10 +8,10 @@ import { formatSceneDateLong, formatSceneTime, relativeChecked } from "@/lib/cli
 import {
   audienceTagsFor,
   deriveSceneStatus,
+  eventShortIntro,
   eventSummaryBullets,
+  glanceFactsFor,
   posterFor,
-  toStoryParagraphs,
-  usableEventSummary,
 } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
 import {
@@ -30,7 +30,7 @@ import { EventPageScrollReset } from "@/components/scene/EventPageScrollReset";
 import { EventPageActions } from "@/components/scene/EventPageActions";
 import { SceneFooter } from "@/components/scene/SceneHero";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
-import { Mono, StatusBadge } from "@/components/scene/ui";
+import { StatusBadge } from "@/components/scene/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -94,8 +94,11 @@ export default async function EventPage({ params }: EventPageProps) {
   const poster = posterFor(event);
   const status = deriveSceneStatus(event);
   const audienceTags = audienceTagsFor(event);
-  const storyParagraphs = toStoryParagraphs(usableEventSummary(event));
-  const hasStory = storyParagraphs.length > 0;
+  // Prefer the purpose-written gist. Events predating that field (and
+  // curator-added ones, which skip the editorial pass) fall back to the first
+  // useful sentence of the story so the block is never empty.
+  const glanceGist = event.gist ?? eventShortIntro(event);
+  const facts = glanceFactsFor(event);
   const bullets = eventSummaryBullets(event);
   const heroByline = event.organizerName ?? (event.isOnline ? "Online event" : (event.venueName ?? event.city));
   const jsonLd = [eventBreadcrumbStructuredData(event), eventStructuredData(event)].filter(Boolean);
@@ -185,7 +188,7 @@ export default async function EventPage({ params }: EventPageProps) {
           </div>
         </div>
 
-        <article className="mx-auto grid max-w-5xl gap-8 px-4 py-9 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-6 lg:py-12">
+        <article className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-9 lg:px-6 lg:py-12">
           <div className="min-w-0">
             {status === "cancelled" && (
               <Notice tone="bad" flush>This event has been cancelled by the organizer.</Notice>
@@ -197,90 +200,48 @@ export default async function EventPage({ params }: EventPageProps) {
               <Notice flush>This event has ended. Browse the related field for upcoming events.</Notice>
             )}
 
-            {(hasStory || bullets.length > 0 || event.registrationNote) && (
-              <section className={status === "confirmed" ? "" : "mt-7"} aria-label="Event guide">
-                {hasStory && (
-                  <div>
-                    <Mono className="text-[10px] text-primary-ink">About this event</Mono>
-                    <h2 className="sr-only">About {event.title}</h2>
-                    <div className="mt-2 max-w-2xl space-y-3 text-base leading-relaxed text-foreground/75">
-                      {storyParagraphs.map((paragraph, paragraphIndex) => (
-                        <p key={paragraphIndex}>
-                          {paragraph.map((segment, segmentIndex) => (
-                            segment.bold
-                              ? <strong key={segmentIndex} className="font-semibold text-foreground">{segment.text}</strong>
-                              : <span key={segmentIndex}>{segment.text}</span>
-                          ))}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            <EventGlance
+              gist={glanceGist}
+              facts={facts}
+              bullets={bullets}
+              className={status === "confirmed" ? "" : "mt-7"}
+            />
 
-                <EventGlance bullets={bullets} className={hasStory ? "mt-8" : ""} />
-
-                {event.registrationNote && (
-                  <p className={`${hasStory || bullets.length > 0 ? "mt-6" : ""} border-l-4 border-warn-ink bg-secondary px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn-ink`}>
-                    Registration: {event.registrationNote}
-                  </p>
-                )}
-              </section>
+            {event.registrationNote && (
+              <p className="mt-6 border-l-4 border-warn-ink bg-secondary px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-warn-ink">
+                Registration: {event.registrationNote}
+              </p>
             )}
           </div>
 
-          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-            <div className="border-2 border-foreground bg-card shadow-[5px_5px_0_0_var(--color-foreground)]">
-              <div className="border-b-2 border-foreground bg-secondary px-4 py-3">
-                <Mono className="text-[10px]">Event details</Mono>
-              </div>
-              <dl className="px-4">
-                <Detail label="Date & time">
-                  {event.startAt ? (
-                    <time dateTime={new Date(event.startAt).toISOString()}>
-                      {formatSceneDateLong(event.startAt)} · {formatSceneTime(event.startAt)} IST
-                      {event.endAt ? ` – ${formatSceneTime(event.endAt)}` : ""}
-                    </time>
-                  ) : "Not announced"}
-                </Detail>
-                <Detail label={event.isOnline ? "Format" : "Venue"}>
-                  {event.isOnline ? "Online event" : (
-                    <>
-                      {event.venueName ?? "Venue not announced"}
-                      {event.venueAddress && <span className="mt-1 block text-muted-foreground">{event.venueAddress}</span>}
-                      <span className="mt-1 block text-muted-foreground">{event.city}</span>
-                    </>
-                  )}
-                </Detail>
-                <Detail label="Organizer">{event.organizerName ?? "Not available"}</Detail>
-                <Detail label="Price">
-                  {event.priceType === "free"
-                    ? "Free to attend"
-                    : event.priceType === "paid"
-                      ? (event.priceNote ?? "Paid — amount not published")
-                      : "Not stated by the source"}
-                </Detail>
-                <Detail label="Source">
-                  {event.primarySourceDomain}
-                  {event.otherSourceDomains.length > 0 && (
-                    <span className="mt-1 block text-muted-foreground">Also seen on {event.otherSourceDomains.join(", ")}</span>
-                  )}
-                </Detail>
-                <Detail label="Last checked">
-                  {event.lastVerifiedAt ? `${relativeChecked(event.lastVerifiedAt)} by SCENE/044` : "Not re-checked since discovery"}
-                </Detail>
-              </dl>
-              <div className="border-t-2 border-foreground bg-secondary p-4">
-                <EventPageActions id={event.id} title={event.title} startAt={event.startAt} />
-              </div>
+          <div className="min-w-0">
+            <div className="scene-rise-tight border-2 border-foreground bg-secondary p-4 shadow-[5px_5px_0_0_var(--color-foreground)]">
+              <EventPageActions id={event.id} title={event.title} startAt={event.startAt} />
             </div>
+
+            {/*
+              Provenance and freshness, kept after the actions rather than
+              dropped with the old details card. Everything else that card held
+              is now either in the hero or the glance, but these two are not
+              repeated anywhere — and "original source always shown" plus a
+              visible last-checked date is the promise the whole feed rests on.
+            */}
+            <p className="mt-3 font-mono text-[10px] uppercase leading-relaxed tracking-[0.1em] text-muted-foreground">
+              Source: {event.primarySourceDomain}
+              {event.otherSourceDomains.length > 0 && ` · also on ${event.otherSourceDomains.join(", ")}`}
+              <span aria-hidden> · </span>
+              {event.lastVerifiedAt
+                ? `Checked ${relativeChecked(event.lastVerifiedAt)} by SCENE/044`
+                : "Not re-checked since discovery"}
+            </p>
 
             <Link
               href={fieldHref}
-              className="mt-6 flex items-center justify-between border-2 border-foreground bg-card px-4 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-foreground hover:text-background"
+              className="mt-6 flex items-center justify-between border-2 border-foreground bg-card px-4 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-foreground hover:text-background active:translate-y-0.5"
             >
               More {fieldName} <span aria-hidden>→</span>
             </Link>
-          </aside>
+          </div>
         </article>
 
         <div className="mx-auto max-w-5xl px-4 pb-12 lg:px-6">
@@ -289,15 +250,6 @@ export default async function EventPage({ params }: EventPageProps) {
       </main>
 
       <SceneFooter />
-    </div>
-  );
-}
-
-function Detail({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="border-b-2 border-dashed border-foreground/20 py-3 last:border-b-0">
-      <dt><Mono className="text-[9px] text-muted-foreground">{label}</Mono></dt>
-      <dd className="mt-1 text-sm leading-relaxed">{children}</dd>
     </div>
   );
 }

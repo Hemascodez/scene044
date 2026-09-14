@@ -53,6 +53,9 @@ export interface PublicEvent {
   status: PublicEventPageStatus;
   discoveredAt: string;
   lastVerifiedAt: string | null;
+  /** A curator's editorial pin — sorts ahead of the normal soonest-first order
+   *  in every feed tab and category page. Off by default. */
+  promoted: boolean;
 }
 
 /** Fields only the server-rendered event page needs. They stay out of the
@@ -62,6 +65,9 @@ export interface PublicEventDetail extends PublicEvent {
   venueAddress: string | null;
   primarySourceUrl: string;
   updatedAt: string;
+  /** One scannable sentence opening the "At a glance" block. Null on older
+   * events and on curator-added ones, which never ran the editorial pass. */
+  gist: string | null;
 }
 
 export interface PublicEventSitemapEntry {
@@ -112,9 +118,10 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
     status: PublicEventStatus;
     discoveredAt: string;
     lastVerifiedAt: string | null;
+    promoted: boolean;
   }>(
     `SELECT
-       e.id, e.title, e.summary, e.highlights, e.category, e.status,
+       e.id, e.title, e.summary, e.highlights, e.category, e.status, e.promoted,
        e.registration_note AS "registrationNote",
        e.start_at          AS "startAt",
        e.end_at            AS "endAt",
@@ -193,9 +200,11 @@ export async function getPublicEventById(id: number): Promise<PublicEventDetail 
     discoveredAt: string;
     lastVerifiedAt: string | null;
     updatedAt: string;
+    gist: string | null;
+    promoted: boolean;
   }>(
     `SELECT
-       e.id, e.title, e.summary, e.highlights, e.category, e.status,
+       e.id, e.title, e.summary, e.highlights, e.category, e.status, e.gist, e.promoted,
        e.registration_note AS "registrationNote",
        e.start_at          AS "startAt",
        e.end_at            AS "endAt",

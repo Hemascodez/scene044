@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import type { PublicEvent } from "@/lib/events";
-import { bySoonest, isHiddenFromFeed } from "@/lib/client/sceneEvent";
+import { byPromotedThenSoonest, isHiddenFromFeed } from "@/lib/client/sceneEvent";
 import { useEventInteractions } from "@/lib/client/useEventInteractions";
 import { EventCard } from "@/components/scene/EventCard";
 import { ReturnPrompt } from "@/components/scene/ReturnPrompt";
@@ -19,7 +19,10 @@ export function CategoryFeed({
   /** FIELD_CARDS label, used to preselect the matching alert interest. */
   fieldLabel?: string | null;
 }) {
-  const upcoming = useMemo(() => events.filter((e) => !isHiddenFromFeed(e)).sort(bySoonest), [events]);
+  const upcoming = useMemo(
+    () => events.filter((e) => !isHiddenFromFeed(e)).sort(byPromotedThenSoonest),
+    [events],
+  );
   const interactions = useEventInteractions(upcoming);
 
   return (
