@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createVenueBooking } from "@/lib/client/venueBookingStore";
+import { useScrollLock } from "@/lib/client/useScrollLock";
 import { TIME_CAFE, VENUE_EVENT_TYPES, formatRupees, rateForSpace, type VenueEventType, type VenueSpace } from "@/lib/venues";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
 
@@ -63,10 +64,10 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
   const hourlyRate = rateForSpace(space, form.eventType);
   const total = hourlyRate === null ? null : hourlyRate * form.duration;
 
+  useScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const first = panelRef.current?.querySelector<HTMLElement>("button, input, select, textarea, a[href]");
     window.setTimeout(() => first?.focus(), 30);
     function onKeyDown(event: globalThis.KeyboardEvent) {
@@ -81,7 +82,6 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
     }
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open, onClose]);
@@ -146,8 +146,8 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-[70] flex items-end justify-center bg-foreground/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-          <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="booking-title" className="max-h-[94dvh] w-full overflow-y-auto rounded-t-[26px] bg-[#f7f5ee] shadow-2xl sm:max-w-2xl sm:rounded-[26px]" initial={reduceMotion ? false : { opacity: 0, y: 36, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.99 }} transition={{ type: "spring", stiffness: 360, damping: 34 }}>
+        <motion.div className="fixed inset-0 z-[70] flex items-end justify-center overscroll-contain bg-foreground/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+          <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="booking-title" className="max-h-[94dvh] w-full touch-pan-y overflow-y-auto overscroll-contain rounded-t-[26px] bg-[#f7f5ee] shadow-2xl sm:max-w-2xl sm:rounded-[26px]" initial={reduceMotion ? false : { opacity: 0, y: 36, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.99 }} transition={{ type: "spring", stiffness: 360, damping: 34 }}>
             <div className="sticky top-0 z-10 flex items-start justify-between border-b border-foreground/12 bg-[#f7f5ee]/95 px-5 py-4 backdrop-blur sm:px-7">
               <div><VenueKicker>Check availability</VenueKicker><h2 id="booking-title" className="mt-1 font-display text-2xl font-black tracking-[-0.04em]">{requestId ? "Request sent" : `Request ${space.name}`}</h2></div>
               <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full border border-foreground/15 bg-card hover:border-foreground" aria-label="Close booking form"><VenueIcon name="close" /></button>
@@ -155,11 +155,62 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
 
             {requestId ? (
               <div className="px-5 py-10 text-center sm:px-10 sm:py-14">
-                <div className="mx-auto grid size-16 place-items-center rounded-full bg-signal-ink text-white"><VenueIcon name="check" className="size-8" /></div>
-                <h3 className="mt-5 font-display text-3xl font-black tracking-[-0.05em]">Time Cafe has your request.</h3>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">You&apos;ll hear back within 48 hours. If the venue accepts, you&apos;ll have 24 hours to pay and lock in the booking.</p>
-                <div className="mt-6 rounded-2xl border border-foreground/12 bg-card p-4 text-left text-sm"><div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Request reference</span><strong className="font-mono text-xs">{requestId.slice(0, 8).toUpperCase()}</strong></div></div>
-                <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/bookings" className={venueButton.primary}>Track my request <VenueIcon name="arrow" className="size-4" /></Link><button type="button" onClick={onClose} className={venueButton.outline}>Back to venue</button></div>
+                <div className="relative mx-auto grid size-16 place-items-center">
+                  {!reduceMotion && (
+                    <motion.span
+                      className="absolute inset-0 rounded-full bg-signal-ink/40"
+                      initial={{ scale: 0.6, opacity: 0.6 }}
+                      animate={{ scale: 1.8, opacity: 0 }}
+                      transition={{ duration: 0.9, ease: "easeOut", delay: 0.1 }}
+                    />
+                  )}
+                  <motion.div
+                    className="relative grid size-16 place-items-center rounded-full bg-signal-ink text-white"
+                    initial={reduceMotion ? false : { scale: 0.3, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 18 }}
+                  >
+                    <motion.span
+                      initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: reduceMotion ? 0 : 0.15, type: "spring", stiffness: 380, damping: 16 }}
+                    >
+                      <VenueIcon name="check" className="size-8" />
+                    </motion.span>
+                  </motion.div>
+                </div>
+                <motion.h3
+                  className="mt-5 font-display text-3xl font-black tracking-[-0.05em]"
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.2, duration: 0.4 }}
+                >
+                  Time Cafe has your request.
+                </motion.h3>
+                <motion.p
+                  className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground"
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.28, duration: 0.4 }}
+                >
+                  You&apos;ll hear back within 48 hours. If the venue accepts, you&apos;ll have 24 hours to pay and lock in the booking.
+                </motion.p>
+                <motion.div
+                  className="mt-6 rounded-2xl border border-foreground/12 bg-card p-4 text-left text-sm"
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.36, duration: 0.4 }}
+                >
+                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Request reference</span><strong className="font-mono text-xs">{requestId.slice(0, 8).toUpperCase()}</strong></div>
+                </motion.div>
+                <motion.div
+                  className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.44, duration: 0.4 }}
+                >
+                  <Link href="/bookings" className={venueButton.primary}>Track my request <VenueIcon name="arrow" className="size-4" /></Link><button type="button" onClick={onClose} className={venueButton.outline}>Back to venue</button>
+                </motion.div>
               </div>
             ) : (
               <form onSubmit={submit}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Mono } from "@/components/scene/ui";
+import { useScrollLock } from "@/lib/client/useScrollLock";
 import {
   getAlertsDone,
   getServerAlertsDone,
@@ -183,6 +184,8 @@ function AlertsSheet({
   const panelRef = useRef<HTMLDivElement>(null);
   const groupRef = useRef<HTMLDivElement>(null);
 
+  useScrollLock(true);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -206,11 +209,9 @@ function AlertsSheet({
       }
     };
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
     panelRef.current?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
     };
   }, [onClose]);
 
@@ -256,7 +257,7 @@ function AlertsSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/60 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center overscroll-contain bg-foreground/60 backdrop-blur-sm sm:items-center"
       onClick={onClose}
     >
       <div
@@ -266,7 +267,7 @@ function AlertsSheet({
         aria-labelledby="alerts-heading"
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="scene-rise relative max-h-[88vh] w-full max-w-lg overflow-y-auto border-2 border-foreground bg-background text-foreground shadow-[8px_8px_0_0] shadow-foreground focus:outline-none"
+        className="scene-rise relative max-h-[88dvh] w-full max-w-lg touch-pan-y overflow-y-auto overscroll-contain border-2 border-foreground bg-background text-foreground shadow-[8px_8px_0_0] shadow-foreground focus:outline-none"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b-2 border-foreground bg-foreground px-4 py-3 text-background">
           <div className="flex items-baseline gap-1.5">
