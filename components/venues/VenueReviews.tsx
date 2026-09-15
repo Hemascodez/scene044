@@ -69,9 +69,9 @@ export function VenueReviews({
 
   if (summary.count === 0) {
     return (
-      <div className="mt-6 rounded-[22px] border border-dashed border-venue-line bg-secondary/40 p-6 sm:p-8">
+      <div className="mt-6 rounded-[22px] border border-dashed border-foreground/20 bg-card p-6 sm:p-8">
         <div className="flex items-start gap-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-card text-primary-ink">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-primary-ink">
             <VenueIcon name="star" className="size-5" />
           </span>
           <div>
