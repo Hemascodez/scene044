@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { readVenueBookings, updateVenueBooking, venueBookingChangeEvent, type VenueBookingRequest } from "@/lib/client/venueBookingStore";
+import { openRazorpayCheckout } from "@/lib/client/razorpay";
 import { formatRupees } from "@/lib/venues";
 import { VenueIcon, VenueKicker, VenueStatus, venueButton } from "@/components/venues/VenueUi";
 import { LottiePlayer } from "@/components/ui/LottiePlayer";
@@ -18,6 +19,8 @@ export function BookingsClient() {
   const [bookings, setBookings] = useState<VenueBookingRequest[]>([]);
   const [ready, setReady] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const refresh = useCallback(() => { setBookings(readVenueBookings()); setReady(true); }, []);
 
   useEffect(() => {
@@ -27,10 +30,59 @@ export function BookingsClient() {
     return () => { window.clearTimeout(timer); window.removeEventListener(venueBookingChangeEvent(), refresh); window.removeEventListener("storage", refresh); };
   }, [refresh]);
 
-  function confirmPayment(id: string) {
-    updateVenueBooking(id, "confirmed");
-    setPayingId(null);
-    refresh();
+  async function confirmPayment(booking: VenueBookingRequest) {
+    setPayError(null);
+    setPaying(true);
+    try {
+      const orderResponse = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          venueSlug: booking.venueSlug,
+          spaceId: booking.spaceId,
+          eventType: booking.eventType,
+          duration: booking.duration,
+          receipt: booking.id,
+        }),
+      });
+      const order = await orderResponse.json();
+      if (!orderResponse.ok || !order.ok) throw new Error(order.error ?? "Could not start payment.");
+
+      await openRazorpayCheckout({
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        name: booking.venueName,
+        description: `${booking.spaceName} · ${booking.duration}h`,
+        prefill: { name: booking.name, email: booking.email, contact: booking.phone },
+        onSuccess: async (response) => {
+          try {
+            const verifyResponse = await fetch("/api/razorpay/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(response),
+            });
+            const verified = await verifyResponse.json();
+            if (!verifyResponse.ok || !verified.ok) throw new Error("Payment could not be verified.");
+            updateVenueBooking(booking.id, "confirmed");
+            setPayingId(null);
+            refresh();
+          } catch (err) {
+            setPayError(err instanceof Error ? err.message : "Payment could not be verified.");
+          } finally {
+            setPaying(false);
+          }
+        },
+        onDismiss: () => setPaying(false),
+        onFailed: (message) => {
+          setPayError(message);
+          setPaying(false);
+        },
+      });
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Could not start payment.");
+      setPaying(false);
+    }
   }
 
   if (!ready) return (
@@ -61,7 +113,7 @@ export function BookingsClient() {
         {booking.status === "declined" && <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"><p className="text-sm leading-6 text-muted-foreground">{booking.venueName} could not host this slot. You have not been charged.</p><Link href="/venues/search" className={venueButton.outline}>Change date</Link></div>}
       </div>
 
-      <AnimatePresence>{payingId === booking.id && <motion.div className="border-t border-foreground/12 bg-foreground p-5 text-background sm:p-6" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}><div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center"><div><VenueKicker className="text-primary">Confirm your booking</VenueKicker><p className="mt-1 font-display text-2xl font-black">{booking.total === null ? "Await final host quote" : formatRupees(booking.total)}</p><p className="mt-1 text-xs text-background/55">Card and UPI payment goes live before the pilot&apos;s first paid event. Confirming now holds the slot with the host.</p></div><div className="flex gap-2"><button type="button" onClick={()=>setPayingId(null)} className="min-h-11 rounded-full border border-background/25 px-4 text-sm font-bold">Cancel</button><button type="button" disabled={booking.total === null} onClick={()=>confirmPayment(booking.id)} className="min-h-11 rounded-full bg-primary px-5 text-sm font-bold text-white disabled:opacity-45">Confirm booking</button></div></div></motion.div>}</AnimatePresence>
+      <AnimatePresence>{payingId === booking.id && <motion.div className="border-t border-foreground/12 bg-foreground p-5 text-background sm:p-6" initial={reduceMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}><div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center"><div><VenueKicker className="text-primary">Confirm your booking</VenueKicker><p className="mt-1 font-display text-2xl font-black">{booking.total === null ? "Await final host quote" : formatRupees(booking.total)}</p><p className="mt-1 text-xs text-background/55">Pay securely with Razorpay — card, UPI, or netbanking. Your slot confirms the moment payment is verified.</p>{payError && <p className="mt-2 text-xs font-semibold text-primary">{payError}</p>}</div><div className="flex gap-2"><button type="button" onClick={()=>{setPayingId(null); setPayError(null);}} disabled={paying} className="min-h-11 rounded-full border border-background/25 px-4 text-sm font-bold disabled:opacity-45">Cancel</button><button type="button" disabled={booking.total === null || paying} onClick={()=>confirmPayment(booking)} className="min-h-11 rounded-full bg-primary px-5 text-sm font-bold text-white disabled:opacity-45">{paying ? "Opening payment…" : "Pay now"}</button></div></div></motion.div>}</AnimatePresence>
     </motion.article>
   ))}</div>;
 }
