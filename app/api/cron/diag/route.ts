@@ -68,6 +68,25 @@ export async function GET(request: Request) {
       CURATOR_PASSWORD: Boolean(process.env.CURATOR_PASSWORD),
       CRON_SECRET: Boolean(process.env.CRON_SECRET),
     },
+    /*
+     * WHATSAPP_ACCESS_TOKEN and WHATSAPP_APP_SECRET are report-as-set-only —
+     * never echoed. The template name/language/version fields aren't secrets,
+     * and a typo in any one of them (a template name that doesn't exactly
+     * match what's approved in WhatsApp Manager, a language code like "en"
+     * vs "en_US" that doesn't match the template's actual language) is the
+     * single most common reason a send fails, so those are worth seeing
+     * verbatim rather than just as a boolean.
+     */
+    whatsapp: {
+      accessTokenSet: Boolean(process.env.WHATSAPP_ACCESS_TOKEN),
+      appSecretSet: Boolean(process.env.WHATSAPP_APP_SECRET),
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? null,
+      graphApiVersion: process.env.WHATSAPP_GRAPH_API_VERSION ?? null,
+      otpTemplateName: process.env.WHATSAPP_OTP_TEMPLATE_NAME ?? null,
+      otpTemplateLanguage: process.env.WHATSAPP_OTP_TEMPLATE_LANGUAGE ?? null,
+      overrunTemplateName: process.env.WHATSAPP_OVERRUN_TEMPLATE_NAME ?? null,
+      overrunTemplateLanguage: process.env.WHATSAPP_OVERRUN_TEMPLATE_LANGUAGE ?? null,
+    },
     railway: {
       service: process.env.RAILWAY_SERVICE_NAME ?? null,
       environment: process.env.RAILWAY_ENVIRONMENT_NAME ?? null,
