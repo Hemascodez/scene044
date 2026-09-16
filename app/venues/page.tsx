@@ -1,10 +1,24 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { VenueCard } from "@/components/venues/VenueCard";
 import { VenueIcon, VenueKicker, VenueSectionHeading, venueButton } from "@/components/venues/VenueUi";
 import { VenueReveal } from "@/components/venues/VenueReveal";
 import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
-import { liveVenues, upcomingVenueCount, upcomingVenues } from "@/lib/venues";
+import { VENUES_IN_ONBOARDING } from "@/lib/venues";
+import { listPublicVenues, toVenueListing } from "@/lib/venueCatalog";
+
+const TITLE = "Book Event Venues in Chennai — SCENE/044";
+const DESCRIPTION =
+  "Browse verified Chennai venues for meetups, workshops, podcasts and shoots. Real capacity and rates, request-based booking, pay only after the host approves.";
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "/venues" },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: "/venues", type: "website" },
+  twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
+};
 
 const STEPS = [
   ["01", "Search", "Tell us where, when, and how many people."],
@@ -29,10 +43,11 @@ const ORGANIZER_VALUE = [
   ["clock", "A reply in 48 hours", "One request with your plan attached — no chasing for a quote."],
 ] as const;
 
-export default function VenuesLandingPage() {
-  const live = liveVenues();
-  const upcoming = upcomingVenues();
-  const comingCount = upcomingVenueCount();
+export default async function VenuesLandingPage() {
+  const venues = await listPublicVenues();
+  const live = venues.filter((venue) => venue.status === "live").map(toVenueListing);
+  const upcoming = venues.filter((venue) => venue.status === "coming-soon").map(toVenueListing);
+  const comingCount = upcoming.length + VENUES_IN_ONBOARDING;
 
   return (
     <>

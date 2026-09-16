@@ -156,62 +156,23 @@ export interface VenueListing {
 }
 
 /**
- * The venue registry — the single source of truth for what exists.
+ * Cafes signed up and being onboarded but not yet in the catalog as a
+ * `coming-soon` row.
  *
- * Adding a cafe is a data change, not a code change: append one entry with
- * `status: "coming-soon"` while it is being onboarded (it renders as a
- * non-bookable "Launching soon" card), then flip it to `"live"` with its spaces
- * and photos once the listing is verified.
- */
-export const VENUES: readonly VenueListing[] = [
-  {
-    slug: TIME_CAFE.slug,
-    name: TIME_CAFE.name,
-    area: TIME_CAFE.area,
-    city: TIME_CAFE.city,
-    status: "live",
-    summary: TIME_CAFE.summary,
-    coverImage: TIME_CAFE.photos[0],
-    spaces: TIME_CAFE.spaces,
-    amenities: TIME_CAFE.amenities,
-    rating: TIME_CAFE.caféRating,
-  },
-];
-
-/**
- * Cafes signed up and being onboarded but not yet listed.
- *
- * A plain count rather than placeholder entries on purpose: naming a cafe before
- * its listing is verified would be inventing inventory, which is the exact
- * problem this redesign removes. The "coming-soon" rendering path is real and
- * tested — it activates the moment a genuine entry is appended to VENUES.
+ * A plain count rather than placeholder entries on purpose: naming a cafe
+ * before its listing is verified would be inventing inventory. The venue
+ * catalog (`lib/venueCatalog.ts`, database-backed) is the actual registry —
+ * this only covers cafes still being onboarded off-catalog, added to whatever
+ * count `listPublicVenues()` returns.
  */
 export const VENUES_IN_ONBOARDING = 3;
-
-export function getVenue(slug: string): VenueListing | undefined {
-  return VENUES.find((venue) => venue.slug === slug);
-}
-
-export function liveVenues(): VenueListing[] {
-  return VENUES.filter((venue) => venue.status === "live");
-}
-
-export function upcomingVenues(): VenueListing[] {
-  return VENUES.filter((venue) => venue.status === "coming-soon");
-}
-
-/** Total cafes on the way: listed-but-unlaunched entries plus those still being
- *  onboarded off-registry. Drives the honest "N launching soon" copy. */
-export function upcomingVenueCount(): number {
-  return upcomingVenues().length + VENUES_IN_ONBOARDING;
-}
 
 /*
  * The pricing/capacity rules below take only the rooms, not a whole listing.
  *
- * They have to serve two shapes: the registry entries here and the richer rows
- * the curator edits in the database (lib/venueCatalog.ts). Both have `spaces`,
- * and that is all these rules ever needed.
+ * They have to serve two shapes: the `VenueListing` card view above and the
+ * richer catalog rows the curator edits in the database (lib/venueCatalog.ts).
+ * Both have `spaces`, and that is all these rules ever needed.
  */
 interface HasSpaces {
   spaces: readonly VenueSpace[];

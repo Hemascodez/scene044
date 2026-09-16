@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
 import { gaInlineScript, gaMeasurementId } from "@/lib/client/analytics";
+import { SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 /* Self-hosted via next/font rather than the design's Google Fonts @import —
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
   // Required for per-event OpenGraph images (app/page.tsx's generateMetadata)
   // to resolve to absolute URLs — WhatsApp/Twitter/LinkedIn crawlers fetch
   // og:image directly and can't resolve a relative path.
-  metadataBase: new URL("https://scene044.in"),
+  metadataBase: new URL(SITE_URL),
   title: "Tech Events in Chennai | Meetups, Conferences & Workshops — SCENE/044",
   description:
     "Discover upcoming tech events in Chennai, including AI meetups, startup networking, developer conferences, workshops and hackathons. Updated by SCENE/044.",

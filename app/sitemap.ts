@@ -1,10 +1,9 @@
 import type { MetadataRoute } from "next";
 import { FIELD_CARDS } from "@/lib/fieldCards";
 import { getPublicEventSitemapEntries } from "@/lib/events";
-import { absoluteUrl, eventPath } from "@/lib/seo";
+import { absoluteUrl, eventPath, venuePath, SITE_URL as BASE_URL } from "@/lib/seo";
 import { stockPosterFor } from "@/lib/stockPosters";
-
-const BASE_URL = "https://scene044.in";
+import { listPublicVenues } from "@/lib/venueCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +20,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Keep the sitemap reachable during a transient database outage. Static
     // discovery pages remain useful and event URLs return on the next request.
     console.error("sitemap: failed to load event URLs", err);
+  }
+
+  let venues: Awaited<ReturnType<typeof listPublicVenues>> = [];
+  try {
+    venues = await listPublicVenues();
+  } catch (err) {
+    console.error("sitemap: failed to load venue URLs", err);
   }
 
   const latestSiteUpdate = events
@@ -40,12 +46,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
-    {
-      url: `${BASE_URL}/venues/time-cafe`,
-      changeFrequency: "weekly",
-      priority: 0.8,
-      images: [`${BASE_URL}/venues/time-cafe/interior-wide-2.jpeg`],
-    },
+    ...venues
+      .filter((venue) => venue.status === "live")
+      .map((venue) => ({
+        url: absoluteUrl(venuePath(venue)),
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+        ...(venue.photos.length ? { images: venue.photos.map((photo) => absoluteUrl(photo)) } : {}),
+      })),
     ...FIELD_CARDS.map((card) => {
       const lastModified = events
         .filter((event) => card.categories.includes(event.category))

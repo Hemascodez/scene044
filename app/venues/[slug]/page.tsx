@@ -4,6 +4,13 @@ import { notFound } from "next/navigation";
 import { VenueDetail } from "@/components/venues/VenueDetail";
 import { getCatalogVenue } from "@/lib/venueCatalog";
 import { aspectScores, listVenueReviews, summariseReviews } from "@/lib/venueBookings";
+import {
+  absoluteUrl,
+  serializeJsonLd,
+  venueBreadcrumbStructuredData,
+  venuePath,
+  venueStructuredData,
+} from "@/lib/seo";
 
 interface VenuePageProps {
   params: Promise<{ slug: string }>;
@@ -17,10 +24,32 @@ function first(value: string | string[] | undefined) {
 export async function generateMetadata({ params }: VenuePageProps): Promise<Metadata> {
   const { slug } = await params;
   const venue = await getCatalogVenue(slug);
-  if (!venue || venue.status === "hidden") return { title: "Venue — SCENE/044" };
+  if (!venue || venue.status === "hidden") {
+    return { title: "Venue — SCENE/044", robots: { index: false, follow: false } };
+  }
+
+  const title = `${venue.name}, ${venue.area} — SCENE/044`;
+  const description = venue.summary || `Book ${venue.name} in ${venue.area}, Chennai for your next event.`;
+  const path = venuePath(venue);
+  const image = venue.photos[0];
+
   return {
-    title: `${venue.name}, ${venue.area} — SCENE/044`,
-    description: venue.summary || `Book ${venue.name} in ${venue.area}, Chennai for your next event.`,
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      title,
+      description,
+      url: path,
+      type: "website",
+      ...(image ? { images: [{ url: absoluteUrl(image) }] } : {}),
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(image ? { images: [absoluteUrl(image)] } : {}),
+    },
   };
 }
 
@@ -45,19 +74,29 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
   }
 
   const reviews = await listVenueReviews(venue.slug);
+  const jsonLd = [venueBreadcrumbStructuredData(venue), venueStructuredData(venue)];
 
   return (
-    <VenueDetail
-      venue={venue}
-      reviews={reviews}
-      reviewSummary={summariseReviews(reviews)}
-      aspects={aspectScores(reviews)}
-      initial={{
-        date: first(query.date) ?? "",
-        time: first(query.time) ?? "18:00",
-        people: Math.max(1, Number(first(query.people) ?? 25) || 25),
-        eventType: first(query.eventType) ?? "Tech meetup",
-      }}
-    />
+    <>
+      {jsonLd.map((data, index) => (
+        <script
+          key={index}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
+        />
+      ))}
+      <VenueDetail
+        venue={venue}
+        reviews={reviews}
+        reviewSummary={summariseReviews(reviews)}
+        aspects={aspectScores(reviews)}
+        initial={{
+          date: first(query.date) ?? "",
+          time: first(query.time) ?? "18:00",
+          people: Math.max(1, Number(first(query.people) ?? 25) || 25),
+          eventType: first(query.eventType) ?? "Tech meetup",
+        }}
+      />
+    </>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * The venue registry.
+ * The venue pricing/capacity rules.
  *
  * Two things matter here. First, the derived "from" price: a hardcoded ₹300 on
  * the listing card advertised a rate that existed nowhere in the data, so the
@@ -7,16 +7,15 @@
  * rates are null (quote-only) must report no price rather than ₹0. Second, the
  * live/coming-soon split, which is how a cafe being onboarded reaches the site:
  * that path is exercised here with fixtures so it is proven before a real cafe
- * is appended (naming an unverified venue in shipped data would be inventing
+ * goes live (naming an unverified venue in shipped data would be inventing
  * inventory, which is the thing this redesign removed).
+ *
+ * The venue registry itself now lives in the database (lib/venueCatalog.ts),
+ * not here, so these checks exercise the pure rules against TIME_CAFE (still a
+ * real fixture) and hand-built listings rather than a static registry.
  */
 import {
   TIME_CAFE,
-  VENUES,
-  getVenue,
-  liveVenues,
-  upcomingVenueCount,
-  upcomingVenues,
   venueFitsGroup,
   venueFromRate,
   venueMaxGuests,
@@ -64,16 +63,13 @@ function listing(over: Partial<VenueListing> = {}): VenueListing {
   };
 }
 
-console.log("--- the real registry ---");
-check("Time Cafe is registered and live", getVenue("time-cafe")?.status, "live");
-check("an unknown slug resolves to undefined", getVenue("not-a-venue"), undefined);
-check("every registry entry has a unique slug", new Set(VENUES.map((v) => v.slug)).size, VENUES.length);
+console.log("--- Time Cafe fixture ---");
 check(
   "Time Cafe's cheapest published rate is the small table's ₹400",
-  venueFromRate(getVenue("time-cafe")!),
+  venueFromRate(TIME_CAFE),
   400,
 );
-check("Time Cafe's largest space seats 30", venueMaxGuests(getVenue("time-cafe")!), 30);
+check("Time Cafe's largest space seats 30", venueMaxGuests(TIME_CAFE), 30);
 check(
   "the quote-only terrace is excluded rather than counted as ₹0",
   TIME_CAFE.spaces.find((s) => s.id === "terrace")?.communityRate,
@@ -109,14 +105,6 @@ const mixed: VenueListing[] = [
 ];
 check("live filter keeps only live", mixed.filter((v) => v.status === "live").map((v) => v.slug), ["a", "c"]);
 check("upcoming filter keeps only upcoming", mixed.filter((v) => v.status === "coming-soon").map((v) => v.slug), ["b"]);
-check("today every registered venue is live", upcomingVenues().length, 0);
-check("liveVenues covers the whole registry today", liveVenues().length, VENUES.length);
-check(
-  "the launching-soon count includes cafes still off-registry",
-  upcomingVenueCount() >= upcomingVenues().length,
-  true,
-);
-check("the count is a positive number, so the copy renders", upcomingVenueCount() > 0, true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

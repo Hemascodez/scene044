@@ -1,5 +1,5 @@
 import { query } from "@/lib/db";
-import type { VenueSpace, VenueStatus } from "@/lib/venues";
+import type { VenueListing, VenueSpace, VenueStatus } from "@/lib/venues";
 
 /**
  * The venue catalog, read from and written to the database.
@@ -133,6 +133,28 @@ export async function listPublicVenues(): Promise<CatalogVenue[]> {
       ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END, name`,
   );
   return attachSpaces(rows);
+}
+
+/**
+ * Card-level view of a catalog row, for the landing and search surfaces that
+ * used to read from the static `lib/venues.ts` registry.
+ *
+ * Only called on rows already filtered to `live`/`coming-soon` (as
+ * `listPublicVenues` returns), so a `hidden` row is never coerced here.
+ */
+export function toVenueListing(venue: CatalogVenue): VenueListing {
+  return {
+    slug: venue.slug,
+    name: venue.name,
+    area: venue.area,
+    city: venue.city,
+    status: venue.status === "coming-soon" ? "coming-soon" : "live",
+    summary: venue.summary,
+    coverImage: venue.photos[0] ?? null,
+    spaces: venue.spaces,
+    amenities: venue.amenities,
+    rating: venue.rating,
+  };
 }
 
 export async function getCatalogVenue(slug: string): Promise<CatalogVenue | null> {

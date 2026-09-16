@@ -1,18 +1,24 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { VenueCard } from "@/components/venues/VenueCard";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
 import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
-import {
-  liveVenues,
-  upcomingVenueCount,
-  upcomingVenues,
-  venueFitsGroup,
-  venueMaxGuests,
-} from "@/lib/venues";
+import { VENUES_IN_ONBOARDING, venueFitsGroup, venueMaxGuests } from "@/lib/venues";
+import { listPublicVenues, toVenueListing } from "@/lib/venueCatalog";
 
 interface SearchPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
+
+// Every filter combination renders the same catalog with a client-side-style
+// (but server-rendered) narrowing, so all of them canonicalize to the bare
+// path rather than letting each ?location=&date=&people= combination compete
+// as separate indexable pages.
+export const metadata: Metadata = {
+  title: "Search Chennai Event Venues — SCENE/044",
+  description: "Filter Chennai event venues by location, date, and group size to find a space that fits.",
+  alternates: { canonical: "/venues/search" },
+};
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -38,12 +44,14 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
    */
   const requestedPeople = Number(query.people);
   const groupSize = Number.isFinite(requestedPeople) && requestedPeople > 0 ? requestedPeople : null;
-  const live = liveVenues();
-  const matches = groupSize === null ? live : live.filter((venue) => venueFitsGroup(venue, groupSize));
+  const venues = await listPublicVenues();
+  const live = venues.filter((venue) => venue.status === "live");
+  const matched = groupSize === null ? live : live.filter((venue) => venueFitsGroup(venue, groupSize));
+  const matches = matched.map(toVenueListing);
   const tooSmall = groupSize !== null && matches.length === 0 && live.length > 0;
   const largestCapacity = Math.max(0, ...live.map((venue) => venueMaxGuests(venue) ?? 0));
-  const upcoming = upcomingVenues();
-  const comingCount = upcomingVenueCount();
+  const upcoming = venues.filter((venue) => venue.status === "coming-soon").map(toVenueListing);
+  const comingCount = upcoming.length + VENUES_IN_ONBOARDING;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">

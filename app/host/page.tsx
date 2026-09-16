@@ -5,7 +5,10 @@ import { VenueIcon, VenueKicker } from "@/components/venues/VenueUi";
 import { getISTParts } from "@/lib/client/istTime";
 import { TIME_CAFE } from "@/lib/venues";
 
-export const metadata: Metadata = { title: "Time Cafe host view — SCENE/044" };
+export const metadata: Metadata = {
+  title: "Time Cafe host view — SCENE/044",
+  robots: { index: false, follow: false },
+};
 
 /* Rendered per request so the greeting reflects the actual time. Statically
    rendered, it would freeze whatever hour the build ran at — which is how this

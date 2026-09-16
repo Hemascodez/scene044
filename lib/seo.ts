@@ -2,6 +2,7 @@ import type { PublicEvent, PublicEventDetail } from "@/lib/events";
 import { formatSceneDate, formatSceneTime } from "@/lib/client/istTime";
 import { posterFor, usableEventSummary } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
+import type { CatalogVenue } from "@/lib/venueCatalog";
 
 export const SITE_NAME = "SCENE/044";
 export const SITE_URL = "https://scene044.in";
@@ -23,6 +24,10 @@ export function eventSlug(event: Pick<PublicEvent, "id" | "title">): string {
 
 export function eventPath(event: Pick<PublicEvent, "id" | "title">): string {
   return `/events/${eventSlug(event)}`;
+}
+
+export function venuePath(venue: Pick<CatalogVenue, "slug">): string {
+  return `/venues/${venue.slug}`;
 }
 
 export function eventIdFromSlug(slug: string): number | null {
@@ -178,6 +183,51 @@ export function categoryStructuredData(card: FieldCard, events: PublicEvent[]): 
         url: absoluteUrl(eventPath(event)),
       })),
     },
+  };
+}
+
+/** LocalBusiness for a bookable venue. Fields the curator hasn't filled in yet
+ *  (rating, phone, address) are simply omitted rather than sent as nulls. */
+export function venueStructuredData(venue: CatalogVenue): Record<string, unknown> {
+  const url = absoluteUrl(venuePath(venue));
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `${url}#business`,
+    url,
+    name: venue.name,
+    description: truncateSeoText(venue.summary || `${venue.name} in ${venue.area}, ${venue.city}.`),
+    image: venue.photos.map((photo) => absoluteUrl(photo)),
+    address: {
+      "@type": "PostalAddress",
+      ...(venue.address ? { streetAddress: venue.address } : {}),
+      addressLocality: venue.area,
+      addressRegion: "Tamil Nadu",
+      addressCountry: "IN",
+    },
+    ...(venue.phone ? { telephone: venue.phone } : {}),
+    ...(venue.mapUrl ? { hasMap: venue.mapUrl } : {}),
+    ...(venue.rating
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: venue.rating,
+            ...(venue.ratingCount ? { reviewCount: venue.ratingCount } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
+export function venueBreadcrumbStructuredData(venue: CatalogVenue): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Venues", item: absoluteUrl("/venues") },
+      { "@type": "ListItem", position: 3, name: venue.name, item: absoluteUrl(venuePath(venue)) },
+    ],
   };
 }
 
