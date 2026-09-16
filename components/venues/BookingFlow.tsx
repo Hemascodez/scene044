@@ -34,6 +34,11 @@ interface FormState {
 }
 
 const inputClass = "mt-2 min-h-12 w-full rounded-xl border border-foreground/20 bg-[#fffef9] px-3.5 text-base outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 sm:text-sm";
+/* iOS Safari centers the value inside <input type="date"|"time"> by default
+   (::-webkit-date-and-time-value), which reads as the value floating oddly
+   inside an overly wide pill rather than sitting where a normal text input's
+   value would. Forcing it left-aligned is the standard fix. */
+const dateTimeInputClass = `${inputClass} [&::-webkit-date-and-time-value]:text-left`;
 
 function fieldLabel(label: string, required = true) {
   return <span className="text-sm font-bold">{label}{required && <span className="text-primary" aria-hidden> *</span>}</span>;
@@ -92,6 +97,26 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open, onClose]);
+
+  /* Mobile Safari's own "scroll the focused input into view" heuristic is
+     unreliable inside a `position: fixed` sheet with its own scroll container
+     (this modal) — it frequently leaves a focused field hidden behind the
+     keyboard, with nothing on screen hinting there's more form below. Scroll
+     it in ourselves, once the keyboard's viewport resize has settled. */
+  useEffect(() => {
+    if (!open || !panelRef.current) return;
+    const panel = panelRef.current;
+    function onFocusIn(event: FocusEvent) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!/^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
+      window.setTimeout(() => {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 300);
+    }
+    panel.addEventListener("focusin", onFocusIn);
+    return () => panel.removeEventListener("focusin", onFocusIn);
+  }, [open]);
 
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -165,6 +190,14 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
     if (message) { setError(message); return; }
     setStep((current) => Math.min(3, current + 1));
   }
+
+  // Advancing a step used to leave the scroll position wherever it was on the
+  // previous step — often mid-scroll or at the bottom, from the "Continue"
+  // button itself — so the next step could open already scrolled past its
+  // own top, looking cut off or half-focused on nothing in particular.
+  useEffect(() => {
+    panelRef.current?.scrollTo({ top: 0 });
+  }, [step]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -286,7 +319,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                 <div className="px-5 py-7 sm:px-7">
                   <AnimatePresence mode="wait" initial={false}>
                     {step === 1 && <motion.div key="event" initial={reduceMotion ? false : { opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-5">
-                      <div className="grid gap-4 sm:grid-cols-2"><label>{fieldLabel("Date")}<input type="date" value={form.date} onChange={(event) => update("date", event.target.value)} className={inputClass} /></label><label>{fieldLabel("Start time")}<input type="time" value={form.time} onChange={(event) => update("time", event.target.value)} className={inputClass} /></label></div>
+                      <div className="grid gap-4 sm:grid-cols-2"><label>{fieldLabel("Date")}<input type="date" value={form.date} onChange={(event) => update("date", event.target.value)} className={dateTimeInputClass} /></label><label>{fieldLabel("Start time")}<input type="time" value={form.time} onChange={(event) => update("time", event.target.value)} className={dateTimeInputClass} /></label></div>
                       <div className="grid gap-4 sm:grid-cols-2"><label>{fieldLabel("Duration")}<select value={form.duration} onChange={(event) => update("duration", Number(event.target.value))} className={inputClass}>{[1,2,3,4,5,6].map((hours) => <option key={hours} value={hours}>{hours} {hours === 1 ? "hour" : "hours"}</option>)}</select></label><label>{fieldLabel("Expected people")}<input type="number" min="1" max={space.maxGuests} value={form.people} onKeyDown={preventWheelChange} onChange={(event) => update("people", Number(event.target.value))} className={inputClass} /><span className="mt-1.5 block text-xs text-muted-foreground">Maximum {space.maxGuests}. Please count guests, speakers, and crew.</span></label></div>
                       <label className="block">{fieldLabel("What are you hosting?")}<select value={form.eventType} onChange={(event) => update("eventType", event.target.value as VenueEventType)} className={inputClass}>{VENUE_EVENT_TYPES.map((item) => <option key={item}>{item}</option>)}</select></label>
                       <label className="block">{fieldLabel("Describe your event")}<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={4} placeholder="Who is it for, what will happen, and what setup will you need?" className={`${inputClass} py-3`} /><span className="mt-1.5 block text-xs text-muted-foreground">{TIME_CAFE.name} reads this before accepting your request.</span></label>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { VenueCard } from "@/components/venues/VenueCard";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
 import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
+import { ScrollToResultsOnSearch } from "@/components/venues/ScrollToResultsOnSearch";
 import { VENUES_IN_ONBOARDING, venueFitsGroup, venueMaxGuests } from "@/lib/venues";
 import { listPublicVenues, toVenueListing } from "@/lib/venueCatalog";
 
@@ -90,7 +91,8 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
         </div>
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <ScrollToResultsOnSearch trigger={JSON.stringify(query)} targetId="venue-results" />
+      <div id="venue-results" className="mt-8 grid gap-8 scroll-mt-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           {tooSmall ? (
             <div className="rounded-[22px] border border-dashed border-warn-ink/40 bg-warn/5 p-6">
