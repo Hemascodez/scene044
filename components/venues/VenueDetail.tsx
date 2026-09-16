@@ -277,7 +277,7 @@ export function VenueDetail({ venue, reviews, reviewSummary, aspects, initial }:
               {space.minimumFoodSpend && <p className="mt-3 text-xs leading-5 text-muted-foreground">You can also ask about a {formatRupees(space.minimumFoodSpend)} minimum food order instead of hourly rent.</p>}
             </div>
             <button type="button" onClick={() => setBookingOpen(true)} className={`${venueButton.primary} mt-5 w-full`}>Check availability <VenueIcon name="arrow" className="size-4" /></button>
-            <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">No charge today. Time Cafe replies within 48 hours.</p>
+            <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">No charge today. {venue.name} replies within 48 hours.</p>
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-secondary p-4 text-xs leading-5">
               <VenueIcon name="shield" className="mt-0.5 size-4 shrink-0" />
               <span>If accepted, this time is held for 24 hours while you pay and confirm.</span>

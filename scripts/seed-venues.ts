@@ -2,7 +2,7 @@
  * Seeds the venue catalog from the constant that used to be the only source of
  * truth (TIME_CAFE in lib/venues.ts).
  *
- * Idempotent: re-running updates the row rather than creating a second Time
+ * Idempotent: re-running updates the row rather than creating a second Times
  * Cafe, so it is safe on every deploy. After this, the curator owns the data —
  * so by default the seed will NOT overwrite fields a curator has since edited.
  * Pass --force to push the constant's values over the top anyway.
@@ -43,7 +43,7 @@ async function main() {
     city: TIME_CAFE.city,
     address: TIME_CAFE.address,
     summary: TIME_CAFE.summary,
-    // Time Cafe is the one venue actually bookable today.
+    // Times Cafe is the one venue actually bookable today.
     status: "live",
     rating: TIME_CAFE.caféRating,
     ratingCount: TIME_CAFE.caféRatingCount,

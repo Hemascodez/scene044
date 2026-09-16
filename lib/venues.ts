@@ -29,7 +29,7 @@ export interface VenueSpace {
 
 export const TIME_CAFE = {
   slug: "time-cafe",
-  name: "Time Cafe",
+  name: "Times Cafe",
   area: "Nungambakkam",
   city: "Chennai",
   address: "1, Krishna Street, Valluvar Kottam High Road, Nungambakkam, Chennai 600034",
@@ -180,7 +180,7 @@ interface HasSpaces {
 
 /**
  * Lowest published community rate across a venue's spaces, or null when none of
- * them has a rate yet (Time Cafe's terrace is quote-only, so a venue can have
+ * them has a rate yet (Times Cafe's terrace is quote-only, so a venue can have
  * spaces and still have no cheapest rate).
  */
 export function venueFromRate(venue: HasSpaces): number | null {

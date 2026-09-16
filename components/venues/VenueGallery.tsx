@@ -8,19 +8,19 @@ import { VenueIcon, VenueKicker } from "@/components/venues/VenueUi";
 const SLIDES = [
   {
     src: "/venues/time-cafe/zomato-interior-overview.jpeg",
-    alt: "Wide view of Time Cafe's warm indoor seating",
+    alt: "Wide view of Times Cafe's warm indoor seating",
     title: "A calm, considered room",
-    note: "Indoor seating at Time Cafe",
+    note: "Indoor seating at Times Cafe",
   },
   {
     src: "/venues/time-cafe/zomato-indoor-seating.jpeg",
-    alt: "Flexible seating on the Time Cafe floor",
+    alt: "Flexible seating on the Times Cafe floor",
     title: "Space to gather",
     note: "Comfortable seating for conversations and teams",
   },
   {
     src: "/venues/time-cafe/zomato-cafe-floor.jpeg",
-    alt: "Open cafe floor at Time Cafe",
+    alt: "Open cafe floor at Times Cafe",
     title: "Cafe floor, made flexible",
     note: "A welcoming setting for your next gathering",
   },
@@ -56,7 +56,7 @@ export function VenueGallery() {
     <section
       className="mt-4 overflow-hidden rounded-[26px] border border-foreground/15 bg-foreground text-background shadow-[0_24px_70px_rgba(20,19,13,0.12)]"
       aria-roledescription="carousel"
-      aria-label="Time Cafe photos"
+      aria-label="Times Cafe photos"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -85,7 +85,7 @@ export function VenueGallery() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-foreground/90 via-foreground/35 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-4 sm:p-6">
           <div className="min-w-0">
-            <VenueKicker className="text-background/65">Inside Time Cafe</VenueKicker>
+            <VenueKicker className="text-background/65">Inside Times Cafe</VenueKicker>
             <h2 className="mt-1 truncate font-display text-2xl font-black tracking-[-0.04em] sm:text-3xl">{slide.title}</h2>
             <p className="mt-1 text-xs text-background/70 sm:text-sm">{slide.note}</p>
           </div>

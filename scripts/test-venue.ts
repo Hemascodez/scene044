@@ -63,13 +63,13 @@ function listing(over: Partial<VenueListing> = {}): VenueListing {
   };
 }
 
-console.log("--- Time Cafe fixture ---");
+console.log("--- Times Cafe fixture ---");
 check(
-  "Time Cafe's cheapest published rate is the small table's ₹400",
+  "Times Cafe's cheapest published rate is the small table's ₹400",
   venueFromRate(TIME_CAFE),
   400,
 );
-check("Time Cafe's largest space seats 30", venueMaxGuests(TIME_CAFE), 30);
+check("Times Cafe's largest space seats 30", venueMaxGuests(TIME_CAFE), 30);
 check(
   "the quote-only terrace is excluded rather than counted as ₹0",
   TIME_CAFE.spaces.find((s) => s.id === "terrace")?.communityRate,

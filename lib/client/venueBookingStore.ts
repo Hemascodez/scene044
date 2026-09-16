@@ -109,7 +109,7 @@ export function createHostPreviewRequest(): VenueBookingRequest {
   return {
     id: "preview-request",
     venueSlug: "time-cafe",
-    venueName: "Time Cafe",
+    venueName: "Times Cafe",
     spaceId: "first-floor",
     spaceName: "First-floor event space",
     date: future.toISOString().slice(0, 10),
