@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AspectScore, ReviewSummary, VenueReview } from "@/lib/venueBookings";
 import { SelfReviewForm } from "@/components/venues/SelfReviewForm";
 import { VenueIcon, venueButton } from "@/components/venues/VenueUi";
+import { LottiePlayer } from "@/components/ui/LottiePlayer";
 
 function AspectBar({ aspect }: { aspect: AspectScore }) {
   return (
@@ -71,8 +72,12 @@ export function VenueReviews({
     return (
       <div className="mt-6 rounded-[22px] border border-dashed border-foreground/20 bg-card p-6 sm:p-8">
         <div className="flex items-start gap-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-primary-ink">
-            <VenueIcon name="star" className="size-5" />
+          <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-primary-ink">
+            <LottiePlayer
+              src="/lottie/empty-reviews.json"
+              className="size-16"
+              fallback={<VenueIcon name="star" className="size-5" />}
+            />
           </span>
           <div>
             <p className="font-display text-xl font-black tracking-[-0.03em]">No reviews yet</p>

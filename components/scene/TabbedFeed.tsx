@@ -6,6 +6,7 @@ import { classifyDateBucket } from "@/lib/client/istTime";
 import { matchesSearch } from "@/lib/client/sceneEvent";
 import { EventCard } from "@/components/scene/EventCard";
 import { Btn, Mono } from "@/components/scene/ui";
+import { LottiePlayer } from "@/components/ui/LottiePlayer";
 
 interface Preset {
   key: string;
@@ -249,9 +250,15 @@ function PanelEmpty({
   const searching = query.trim().length > 0;
   return (
     <div className="flex flex-col items-center justify-center border-2 border-dashed border-foreground bg-card p-12 text-center">
-      <span className="font-display text-6xl font-black tracking-tighter text-muted-foreground/30" aria-hidden>
-        044
-      </span>
+      <LottiePlayer
+        src="/lottie/empty-search.json"
+        className="size-24"
+        fallback={
+          <span className="font-display text-6xl font-black tracking-tighter text-muted-foreground/30" aria-hidden>
+            044
+          </span>
+        }
+      />
       <h3 className="mt-4 font-display text-xl font-bold">
         {searching ? "No events match that search" : `Nothing under ${label} right now`}
       </h3>

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { readVenueBookings, updateVenueBooking, venueBookingChangeEvent, type VenueBookingRequest } from "@/lib/client/venueBookingStore";
 import { formatRupees } from "@/lib/venues";
 import { VenueIcon, VenueKicker, VenueStatus, venueButton } from "@/components/venues/VenueUi";
+import { LottiePlayer } from "@/components/ui/LottiePlayer";
 
 function prettyDate(date: string) {
   if (!date) return "Date not selected";
@@ -32,11 +33,17 @@ export function BookingsClient() {
     refresh();
   }
 
-  if (!ready) return <div className="min-h-60 animate-pulse rounded-[24px] bg-card" />;
+  if (!ready) return (
+    <div className="grid min-h-60 place-items-center rounded-[24px] bg-card">
+      <LottiePlayer src="/lottie/loading.json" className="size-16" fallback={<div className="size-16 animate-pulse rounded-full bg-muted" />} />
+    </div>
+  );
 
   if (!bookings.length) return (
     <div className="rounded-[26px] border border-dashed border-foreground/25 bg-card px-6 py-14 text-center">
-      <div className="mx-auto grid size-14 place-items-center rounded-full bg-secondary"><VenueIcon name="calendar" className="size-6" /></div>
+      <div className="mx-auto grid size-16 place-items-center overflow-hidden rounded-full bg-secondary">
+        <LottiePlayer src="/lottie/empty-bookings.json" className="size-16" fallback={<VenueIcon name="calendar" className="size-6" />} />
+      </div>
       <h2 className="mt-5 font-display text-3xl font-black tracking-[-0.05em]">No venue requests yet</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Find a space, share your plan with the host, and track every approval and payment here.</p>
       <Link href="/venues" className={`${venueButton.primary} mt-6`}>Find a venue <VenueIcon name="arrow" className="size-4" /></Link>

@@ -7,6 +7,7 @@ import { createVenueBooking } from "@/lib/client/venueBookingStore";
 import { useScrollLock } from "@/lib/client/useScrollLock";
 import { TIME_CAFE, VENUE_EVENT_TYPES, formatRupees, rateForSpace, type VenueEventType, type VenueSpace } from "@/lib/venues";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
+import { LottiePlayer } from "@/components/ui/LottiePlayer";
 
 interface BookingFlowProps {
   open: boolean;
@@ -155,29 +156,17 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
 
             {requestId ? (
               <div className="px-5 py-10 text-center sm:px-10 sm:py-14">
-                <div className="relative mx-auto grid size-16 place-items-center">
-                  {!reduceMotion && (
-                    <motion.span
-                      className="absolute inset-0 rounded-full bg-signal-ink/40"
-                      initial={{ scale: 0.6, opacity: 0.6 }}
-                      animate={{ scale: 1.8, opacity: 0 }}
-                      transition={{ duration: 0.9, ease: "easeOut", delay: 0.1 }}
-                    />
-                  )}
-                  <motion.div
-                    className="relative grid size-16 place-items-center rounded-full bg-signal-ink text-white"
-                    initial={reduceMotion ? false : { scale: 0.3, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 18 }}
-                  >
-                    <motion.span
-                      initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: reduceMotion ? 0 : 0.15, type: "spring", stiffness: 380, damping: 16 }}
-                    >
-                      <VenueIcon name="check" className="size-8" />
-                    </motion.span>
-                  </motion.div>
+                <div className="relative mx-auto grid size-24 place-items-center">
+                  <LottiePlayer
+                    src="/lottie/booking-success.json"
+                    loop={false}
+                    className="size-24"
+                    fallback={
+                      <div className="grid size-16 place-items-center rounded-full bg-signal-ink text-white">
+                        <VenueIcon name="check" className="size-8" />
+                      </div>
+                    }
+                  />
                 </div>
                 <motion.h3
                   className="mt-5 font-display text-3xl font-black tracking-[-0.05em]"
