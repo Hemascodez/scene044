@@ -290,15 +290,26 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                   <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Request reference</span><strong className="font-mono text-xs">{booked.code}</strong></div>
                 </motion.div>
                 <motion.div
-                  className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-foreground/12 bg-card p-4"
+                  className="mt-4 rounded-2xl border border-foreground/12 bg-card p-5"
                   initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: reduceMotion ? 0 : 0.4, duration: 0.4 }}
                 >
-                  <div className="size-40" dangerouslySetInnerHTML={{ __html: booked.qrSvg }} />
-                  <p className="text-center text-xs leading-5 text-muted-foreground">
-                    Show this QR code at reception once your booking is confirmed — the host scans it to check you in.
-                  </p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">What happens next</p>
+                  <ol className="space-y-3 text-sm leading-6">
+                    <li className="flex items-start gap-3">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary-ink">1</span>
+                      <span><strong>Venue reviews</strong> — {TIME_CAFE.name} will review your request within 48 hours.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary-ink">2</span>
+                      <span><strong>Pay &amp; confirm</strong> — Once approved, you&apos;ll have 24 hours to pay and lock in the booking.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary-ink">3</span>
+                      <span><strong>Get your QR code</strong> — After payment, your check-in QR code will appear on the booking page.</span>
+                    </li>
+                  </ol>
                 </motion.div>
                 <motion.div
                   className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"
