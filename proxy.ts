@@ -3,12 +3,21 @@ import type { NextRequest } from "next/server";
 import { CURATOR_SESSION_COOKIE, checkCuratorAuth, isCuratorSessionValid } from "@/lib/auth";
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/host/:path*", "/api/host/:path*"],
 };
 
 /** The only routes under the guarded prefixes that must stay reachable while
  *  unauthenticated — otherwise there is no way to log in. */
 const PUBLIC_ADMIN_PATHS = new Set(["/admin/login", "/api/admin/login", "/api/admin/logout"]);
+
+/**
+ * /host shares the curator's login rather than getting its own password: this
+ * pilot has one operator running both, and a second credential would be one
+ * more secret to manage for no real separation of duties yet.
+ */
+function isGuardedAdminOrHostPath(pathname: string): boolean {
+  return pathname.startsWith("/admin/") || pathname.startsWith("/host/") || pathname === "/host";
+}
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -33,9 +42,9 @@ export async function proxy(req: NextRequest) {
   const loginUrl = req.nextUrl.clone();
   loginUrl.pathname = "/admin/login";
   loginUrl.search = "";
-  // Only ever round-trip an internal admin path, so `next` can't be used as an
-  // open redirect to another origin.
-  if (pathname.startsWith("/admin/")) {
+  // Only ever round-trip an internal admin/host path, so `next` can't be used
+  // as an open redirect to another origin.
+  if (isGuardedAdminOrHostPath(pathname)) {
     loginUrl.searchParams.set("next", pathname);
   }
   return NextResponse.redirect(loginUrl);

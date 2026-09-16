@@ -94,6 +94,26 @@ ledger prevents a second invocation in the same IST week from sending to the
 same subscriber again. A request that may have reached Meta but returned no
 definitive response is recorded as `unknown` and is not retried.
 
+## 4a. Venue booking overrun notices
+
+Add a **fifth service from the same repo**:
+
+- **Start command**: `npm run venue-overrun-notify`
+- **Cron schedule**: `*/10 * * * *` — every 10 minutes; Railway's minimum
+  interval is 5 minutes, and a booking's timer needs to be caught reasonably
+  soon after `ends_at` passes, not once a day like the other jobs here
+- **Required variables**: `DATABASE_URL`, `WHATSAPP_ACCESS_TOKEN`,
+  `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_API_VERSION`,
+  `WHATSAPP_OVERRUN_TEMPLATE_NAME`, `WHATSAPP_OVERRUN_TEMPLATE_LANGUAGE`
+
+Each run claims (`overrun_notified_at`) every `checked_in` booking whose
+`ends_at` has passed and that hasn't been notified yet, so overlapping runs
+can never double-send. A booking whose organizer didn't opt into WhatsApp
+updates — or one whose send fails in a way that will never succeed on retry
+(bad template, bad auth) — is still claimed, so misconfiguration doesn't turn
+into an infinite retry loop; a rate-limited or transient Meta failure is left
+unclaimed and picked up again by the next run.
+
 Roll out in this order:
 
 ```bash

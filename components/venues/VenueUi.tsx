@@ -100,12 +100,26 @@ export const venueButton = {
     "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-foreground/25 bg-card px-5 py-2.5 text-sm font-bold text-foreground transition-[transform,border-color,background-color] duration-200 hover:border-foreground hover:bg-secondary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45",
 } as const;
 
-export function VenueStatus({ status }: { status: "pending" | "approved" | "confirmed" | "declined" }) {
+export type VenueBookingStatusLabel =
+  | "requested"
+  | "approved"
+  | "confirmed"
+  | "checked_in"
+  | "completed"
+  | "declined"
+  | "cancelled"
+  | "expired";
+
+export function VenueStatus({ status }: { status: VenueBookingStatusLabel }) {
   const meta = {
-    pending: ["Awaiting host", "bg-warn/10 text-warn-ink"],
+    requested: ["Awaiting host", "bg-warn/10 text-warn-ink"],
     approved: ["Approved · pay to confirm", "bg-signal/10 text-signal-ink"],
     confirmed: ["Booked", "bg-signal-ink text-white"],
+    checked_in: ["Checked in", "bg-primary text-white"],
+    completed: ["Completed", "bg-muted text-muted-foreground"],
     declined: ["Not available", "bg-muted text-muted-foreground"],
+    cancelled: ["Cancelled", "bg-muted text-muted-foreground"],
+    expired: ["Expired", "bg-muted text-muted-foreground"],
   }[status];
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] ${meta[1]}`}>

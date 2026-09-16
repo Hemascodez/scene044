@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { createVenueBooking } from "@/lib/client/venueBookingStore";
+import { rememberBookingToken } from "@/lib/client/venueBookingStore";
 import { useScrollLock } from "@/lib/client/useScrollLock";
 import { TIME_CAFE, VENUE_EVENT_TYPES, formatRupees, rateForSpace, type VenueEventType, type VenueSpace } from "@/lib/venues";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
@@ -44,7 +44,8 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
   const panelRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
-  const [requestId, setRequestId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [booked, setBooked] = useState<{ code: string; qrSvg: string } | null>(null);
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -165,32 +166,42 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
     setStep((current) => Math.min(3, current + 1));
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.agreedToPolicies) { setError("Accept the venue rules before sending the request."); return; }
-    const request = createVenueBooking({
-      venueSlug: "time-cafe",
-      venueName: TIME_CAFE.name,
-      spaceId: space.id,
-      spaceName: space.name,
-      date: form.date,
-      time: form.time,
-      duration: form.duration,
-      people: form.people,
-      eventType: form.eventType,
-      description: form.description.trim(),
-      name: form.name.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      trustType: form.trustType,
-      trustUrl: form.trustUrl.trim(),
-      whatsappOptIn: form.whatsappOptIn,
-      emailOptIn: form.emailOptIn,
-      agreedToPolicies: form.agreedToPolicies,
-      hourlyRate,
-      total,
-    });
-    setRequestId(request.id);
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/venue-bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          venueSlug: "time-cafe",
+          spaceId: space.id,
+          date: form.date,
+          time: form.time,
+          duration: form.duration,
+          people: form.people,
+          eventType: form.eventType,
+          description: form.description.trim(),
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          trustType: form.trustType,
+          trustUrl: form.trustUrl.trim(),
+          whatsappOptIn: form.whatsappOptIn,
+          emailOptIn: form.emailOptIn,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Could not send your request.");
+      rememberBookingToken(data.token, data.qrSvg);
+      setBooked({ code: data.code, qrSvg: data.qrSvg });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send your request.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function preventWheelChange(event: ReactKeyboardEvent<HTMLInputElement>) {
@@ -203,11 +214,11 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
         <motion.div className="fixed inset-0 z-[70] flex items-end justify-center overscroll-contain bg-foreground/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
           <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="booking-title" className="max-h-[94dvh] w-full touch-pan-y overflow-y-auto overscroll-contain rounded-t-[26px] bg-[#f7f5ee] shadow-2xl sm:max-w-2xl sm:rounded-[26px]" initial={reduceMotion ? false : { opacity: 0, y: 36, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.99 }} transition={{ type: "spring", stiffness: 360, damping: 34 }}>
             <div className="sticky top-0 z-10 flex items-start justify-between border-b border-foreground/12 bg-[#f7f5ee]/95 px-5 py-4 backdrop-blur sm:px-7">
-              <div><VenueKicker>Check availability</VenueKicker><h2 id="booking-title" className="mt-1 font-display text-2xl font-black tracking-[-0.04em]">{requestId ? "Request sent" : `Request ${space.name}`}</h2></div>
+              <div><VenueKicker>Check availability</VenueKicker><h2 id="booking-title" className="mt-1 font-display text-2xl font-black tracking-[-0.04em]">{booked ? "Request sent" : `Request ${space.name}`}</h2></div>
               <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full border border-foreground/15 bg-card hover:border-foreground" aria-label="Close booking form"><VenueIcon name="close" /></button>
             </div>
 
-            {requestId ? (
+            {booked ? (
               <div className="px-5 py-10 text-center sm:px-10 sm:py-14">
                 <div className="relative mx-auto grid size-24 place-items-center">
                   <LottiePlayer
@@ -243,7 +254,18 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: reduceMotion ? 0 : 0.36, duration: 0.4 }}
                 >
-                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Request reference</span><strong className="font-mono text-xs">{requestId.slice(0, 8).toUpperCase()}</strong></div>
+                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Request reference</span><strong className="font-mono text-xs">{booked.code}</strong></div>
+                </motion.div>
+                <motion.div
+                  className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-foreground/12 bg-card p-4"
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.4, duration: 0.4 }}
+                >
+                  <div className="size-40" dangerouslySetInnerHTML={{ __html: booked.qrSvg }} />
+                  <p className="text-center text-xs leading-5 text-muted-foreground">
+                    Show this QR code at reception once your booking is confirmed — the host scans it to check you in.
+                  </p>
                 </motion.div>
                 <motion.div
                   className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"
@@ -308,7 +330,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                 </div>
                 <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-foreground/12 bg-[#f7f5ee]/95 px-5 py-4 backdrop-blur sm:px-7">
                   <button type="button" onClick={() => step === 1 ? onClose() : setStep((current) => current - 1)} className={venueButton.outline}>{step === 1 ? "Cancel" : "Back"}</button>
-                  {step < 3 ? <button type="button" onClick={next} className={venueButton.primary}>Continue <VenueIcon name="arrow" className="size-4" /></button> : <button type="submit" className={venueButton.primary}>Request this space <VenueIcon name="arrow" className="size-4" /></button>}
+                  {step < 3 ? <button type="button" onClick={next} className={venueButton.primary}>Continue <VenueIcon name="arrow" className="size-4" /></button> : <button type="submit" disabled={submitting} className={`${venueButton.primary} disabled:opacity-60`}>{submitting ? "Sending…" : "Request this space"} {!submitting && <VenueIcon name="arrow" className="size-4" />}</button>}
                 </div>
               </form>
             )}

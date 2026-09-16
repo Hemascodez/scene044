@@ -46,6 +46,7 @@ export interface VenueBooking {
   organizerPhone: string;
   trustType: string | null;
   trustUrl: string | null;
+  whatsappOptIn: boolean;
   hourlyRate: number | null;
   total: number | null;
   status: VenueBookingStatus;
@@ -113,11 +114,12 @@ const BOOKING_COLUMNS = `
   id, code, checkin_token AS "checkinToken",
   venue_slug AS "venueSlug", venue_name AS "venueName",
   space_id AS "spaceId", space_name AS "spaceName",
-  event_date AS "eventDate", start_time AS "startTime",
+  event_date::text AS "eventDate", start_time AS "startTime",
   duration_hours AS "durationHours", people, event_type AS "eventType", description,
   organizer_name AS "organizerName", organizer_email AS "organizerEmail",
   organizer_phone AS "organizerPhone",
   trust_type AS "trustType", trust_url AS "trustUrl",
+  whatsapp_opt_in AS "whatsappOptIn",
   hourly_rate AS "hourlyRate", total, status,
   checked_in_at AS "checkedInAt", ends_at AS "endsAt", completed_at AS "completedAt",
   created_at AS "createdAt"
