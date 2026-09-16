@@ -45,6 +45,11 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpError, setOtpError] = useState("");
   const [form, setForm] = useState<FormState>({
     date: initial.date,
     time: initial.time || "18:00",
@@ -101,9 +106,57 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
     }
     if (step === 2) {
       if (!form.name.trim() || !form.email.includes("@") || form.phone.trim().length < 8) return "Enter your name, email, and mobile number.";
+      if (!phoneVerified) return "Verify your mobile number first.";
       if (!form.trustUrl.trim()) return "Add one profile or website link.";
     }
     return "";
+  }
+
+  function updatePhone(value: string) {
+    update("phone", value);
+    setPhoneVerified(false);
+    setOtpSent(false);
+    setOtpCode("");
+    setOtpError("");
+  }
+
+  async function sendOtp() {
+    setOtpError("");
+    if (form.phone.trim().length < 8) { setOtpError("Enter a valid mobile number first."); return; }
+    setOtpBusy(true);
+    try {
+      const response = await fetch("/api/whatsapp/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: form.phone }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Could not send a code.");
+      setOtpSent(true);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Could not send a code.");
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  async function verifyOtp() {
+    setOtpError("");
+    setOtpBusy(true);
+    try {
+      const response = await fetch("/api/whatsapp/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: form.phone, code: otpCode }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Incorrect code.");
+      setPhoneVerified(true);
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Incorrect code.");
+    } finally {
+      setOtpBusy(false);
+    }
   }
 
   function next() {
@@ -220,7 +273,25 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
 
                     {step === 2 && <motion.div key="profile" initial={reduceMotion ? false : { opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-5">
                       <div className="grid gap-4 sm:grid-cols-2"><label>{fieldLabel("Full name")}<input value={form.name} onChange={(event) => update("name", event.target.value)} autoComplete="name" className={inputClass} /></label><label>{fieldLabel("Email")}<input type="email" value={form.email} onChange={(event) => update("email", event.target.value)} autoComplete="email" className={inputClass} /></label></div>
-                      <label className="block">{fieldLabel("Mobile number")}<input type="tel" value={form.phone} onChange={(event) => update("phone", event.target.value)} autoComplete="tel" className={inputClass} /><span className="mt-2 block text-xs text-muted-foreground">The host contacts you on this number about your request.</span></label>
+                      <div className="block">
+                        {fieldLabel("Mobile number")}
+                        <div className="mt-2 flex gap-2">
+                          <input type="tel" value={form.phone} onChange={(event) => updatePhone(event.target.value)} autoComplete="tel" disabled={phoneVerified} className={`${inputClass} mt-0 flex-1 disabled:opacity-60`} />
+                          {!phoneVerified && <button type="button" onClick={sendOtp} disabled={otpBusy || form.phone.trim().length < 8} className={`${venueButton.outline} shrink-0 px-4 disabled:opacity-45`}>{otpSent ? "Resend" : "Send code"}</button>}
+                        </div>
+                        {phoneVerified ? (
+                          <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-signal-ink"><VenueIcon name="check" className="size-3.5" /> Number verified over WhatsApp</p>
+                        ) : (
+                          <span className="mt-2 block text-xs text-muted-foreground">We&apos;ll text a code to this number on WhatsApp to confirm it&apos;s reachable.</span>
+                        )}
+                        {otpSent && !phoneVerified && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <input type="text" inputMode="numeric" maxLength={6} value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6-digit code" className={`${inputClass} mt-0 w-36`} />
+                            <button type="button" onClick={verifyOtp} disabled={otpBusy || otpCode.length !== 6} className={`${venueButton.primary} shrink-0 px-4 disabled:opacity-45`}>Verify</button>
+                          </div>
+                        )}
+                        {otpError && <p className="mt-2 text-xs font-semibold text-primary">{otpError}</p>}
+                      </div>
                       <div className="grid gap-3 sm:grid-cols-[.75fr_1.25fr]"><label>{fieldLabel("Profile type")}<select value={form.trustType} onChange={(event) => update("trustType", event.target.value as FormState["trustType"])} className={inputClass}><option>LinkedIn</option><option>Instagram</option><option>Website</option></select></label><label>{fieldLabel(`${form.trustType} link`)}<input type="url" value={form.trustUrl} onChange={(event) => update("trustUrl", event.target.value)} placeholder="https://" className={inputClass} /></label></div>
                       <p className="-mt-3 text-xs text-muted-foreground">A profile helps the venue know who&apos;s organising.</p>
                       <fieldset className="space-y-3 rounded-2xl border border-foreground/12 bg-card p-4"><legend className="px-1 text-sm font-bold">Send me updates</legend><label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={form.whatsappOptIn} onChange={(event) => update("whatsappOptIn", event.target.checked)} className="mt-0.5 size-4 accent-[var(--color-primary)]" /><span>WhatsApp</span></label><label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={form.emailOptIn} onChange={(event) => update("emailOptIn", event.target.checked)} className="mt-0.5 size-4 accent-[var(--color-primary)]" /><span>Email</span></label></fieldset>

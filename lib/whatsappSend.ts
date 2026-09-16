@@ -57,7 +57,7 @@ function graphConfig(): { token: string; phoneNumberId: string; version: string 
   return { token, phoneNumberId, version };
 }
 
-function recipientDigits(to: string): string {
+export function recipientDigits(to: string): string {
   return to.replace(/\D/g, "");
 }
 

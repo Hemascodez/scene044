@@ -632,3 +632,24 @@ ALTER TABLE venue_reviews ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 
 
 CREATE INDEX IF NOT EXISTS idx_venue_reviews_pending
   ON venue_reviews (status, created_at DESC) WHERE status = 'pending';
+
+-- ------------------------------------------------------- Phone OTP verification
+--
+-- One-time codes sent over WhatsApp to prove a booking form's phone number is
+-- reachable. `code_hash` is a SHA-256 digest, never the plaintext code — a
+-- database read (backup, replica, leak) should not hand out live codes.
+-- Short-lived and narrow on purpose: this proves reachability at the moment of
+-- booking, not identity, so there is no user table to attach it to.
+CREATE TABLE IF NOT EXISTS phone_otp_verifications (
+  id SERIAL PRIMARY KEY,
+  phone TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ NOT NULL,
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- The verify step's lookup: newest unverified code for a phone.
+CREATE INDEX IF NOT EXISTS idx_phone_otp_lookup
+  ON phone_otp_verifications (phone, created_at DESC);
