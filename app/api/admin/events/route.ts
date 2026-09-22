@@ -8,9 +8,8 @@ import { checkCuratorAccess } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/** Everything already published, for the curator's "Published" queue. Unlike
- *  the public /api/events this includes pending_review and expired, because a
- *  curator needs to see and fix exactly the rows the public feed hides. */
+/** Active published events for the curator's "Published" queue. Expired rows
+ * stay in the database for history, but leave this list after verification. */
 export async function GET(request: NextRequest) {
   if (!(await checkCuratorAccess(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -33,7 +32,8 @@ export async function GET(request: NextRequest) {
               (SELECT count(*)::int FROM event_sources es WHERE es.event_id = e.id) AS "sourceCount",
               (SELECT count(*)::int FROM event_reports r WHERE r.event_id = e.id AND r.resolved_at IS NULL) AS "openReports"
        FROM events e
-       WHERE ($1 = '' OR e.title ILIKE '%' || $1 || '%' OR COALESCE(e.organizer_name,'') ILIKE '%' || $1 || '%')
+       WHERE e.status <> 'expired'
+         AND ($1 = '' OR e.title ILIKE '%' || $1 || '%' OR COALESCE(e.organizer_name,'') ILIKE '%' || $1 || '%')
        ORDER BY e.is_promoted DESC, e.start_at ASC NULLS LAST, e.id DESC
        LIMIT 300`,
       [search],

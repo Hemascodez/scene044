@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     );
 
     const { rows: publishedRows } = await query<{ n: string }>(
-      "SELECT count(*)::text AS n FROM events WHERE status <> 'pending_review'",
+      "SELECT count(*)::text AS n FROM events WHERE status NOT IN ('pending_review', 'expired')",
     );
     counts.published = Number(publishedRows[0]?.n ?? 0);
 
