@@ -74,6 +74,18 @@ export function PosterCropper({
     );
   }
 
+  function moveHorizontal(next: number) {
+    // At 1×, a 16:9 (or narrower) source has no spare pixels to pan across.
+    // Automatically create a little horizontal room so the control does what
+    // its label promises instead of appearing unresponsive.
+    const image = imageRef.current;
+    const targetRatio = OUTPUT_WIDTH / OUTPUT_HEIGHT;
+    if (image && zoom === 1 && image.naturalWidth <= image.naturalHeight * targetRatio) {
+      setZoom(1.15);
+    }
+    setX(next);
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-label="Adjust and crop event poster" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
       <div className="w-full max-w-3xl border border-[#39ff9b] bg-[#0a130f] p-4 shadow-[8px_8px_0_0_#04160d] sm:p-6">
@@ -89,9 +101,9 @@ export function PosterCropper({
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          <label className="flex flex-col gap-2"><AdminLabel>Zoom · {zoom.toFixed(1)}×</AdminLabel><input type="range" min="1" max="3" step="0.05" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} className="accent-[#39ff9b]" /></label>
-          <label className="flex flex-col gap-2"><AdminLabel>Horizontal · {x}%</AdminLabel><input type="range" min="0" max="100" value={x} onChange={(event) => setX(Number(event.target.value))} className="accent-[#39ff9b]" /></label>
-          <label className="flex flex-col gap-2"><AdminLabel>Vertical · {y}%</AdminLabel><input type="range" min="0" max="100" value={y} onChange={(event) => setY(Number(event.target.value))} className="accent-[#39ff9b]" /></label>
+          <label className="flex flex-col gap-2"><AdminLabel>Zoom · {zoom.toFixed(1)}×</AdminLabel><input type="range" min="1" max="3" step="0.05" value={zoom} onInput={(event) => setZoom(Number(event.currentTarget.value))} className="w-full accent-[#39ff9b]" /></label>
+          <label className="flex flex-col gap-2"><AdminLabel>Horizontal · {x}%</AdminLabel><input type="range" min="0" max="100" value={x} onInput={(event) => moveHorizontal(Number(event.currentTarget.value))} className="w-full accent-[#39ff9b]" /></label>
+          <label className="flex flex-col gap-2"><AdminLabel>Vertical · {y}%</AdminLabel><input type="range" min="0" max="100" value={y} onInput={(event) => setY(Number(event.currentTarget.value))} className="w-full accent-[#39ff9b]" /></label>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2 border-t border-[#25382e] pt-4">
