@@ -5,6 +5,11 @@ import { checkCuratorAccess } from "@/lib/auth";
 import type { DiscoveryItemStatus } from "@/lib/types";
 import { SOURCE_TYPES, classifySourceType, isCategory, type SourceType } from "@/lib/sourceTypes";
 
+// Queue counts and items change when the cron finishes; serving a cached
+// response makes the curator page look stale after a successful run.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Queue names the curator UI shows, mapped to the underlying
  * `discovery_items.status` values. Kept as an explicit allowlist so a crafted
@@ -109,14 +114,17 @@ export async function GET(request: NextRequest) {
     );
     counts.published = Number(publishedRows[0]?.n ?? 0);
 
-    return NextResponse.json({
-      ok: true,
-      queue: queueParam,
-      items: filtered,
-      counts,
-      facets: { source: sourceCounts, category: categoryCounts },
-      applied: { source: sourceFilter, category: categoryFilter },
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        queue: queueParam,
+        items: filtered,
+        counts,
+        facets: { source: sourceCounts, category: categoryCounts },
+        applied: { source: sourceFilter, category: categoryFilter },
+      },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err).slice(0, 500) }, { status: 500 });
   }

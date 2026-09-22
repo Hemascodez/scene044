@@ -111,6 +111,8 @@ export class CuratorApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
+    // Admin lists must reflect scraper writes immediately after a cron run.
+    cache: "no-store",
     headers: { ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers },
   });
 

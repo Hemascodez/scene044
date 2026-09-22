@@ -3,6 +3,11 @@ import type { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { checkCuratorAccess } from "@/lib/auth";
 
+// The curator must see events inserted by the latest scraper run immediately.
+// Do not let Next/Railway serve a cached snapshot of this admin read.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /** Everything already published, for the curator's "Published" queue. Unlike
  *  the public /api/events this includes pending_review and expired, because a
  *  curator needs to see and fix exactly the rows the public feed hides. */
@@ -33,7 +38,10 @@ export async function GET(request: NextRequest) {
        LIMIT 300`,
       [search],
     );
-    return NextResponse.json({ ok: true, events: rows });
+    return NextResponse.json(
+      { ok: true, events: rows },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err).slice(0, 500) }, { status: 500 });
   }
