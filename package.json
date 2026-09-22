@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "pipeline": "tsx scripts/run-pipeline.ts",
+    "pipeline": "npm run seed:sources && npm run seed:queries && tsx scripts/run-pipeline.ts",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:event-metadata": "node --import tsx scripts/migrate-event-metadata.ts",
     "whatsapp-digest": "node --import tsx scripts/send-whatsapp-digest.ts",
@@ -19,7 +19,9 @@
     "test:curator": "node --import tsx scripts/test-curator-draft-validation.ts && node --import tsx scripts/test-admin-event-update.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
     "backfill:event-copy": "node --import tsx scripts/backfill-summaries.ts",
-    "seed:venues": "node --import tsx scripts/seed-venues.ts"
+    "seed:venues": "node --import tsx scripts/seed-venues.ts",
+    "seed:sources": "node --import tsx scripts/seed-sources.ts",
+    "seed:queries": "node --import tsx scripts/seed-queries.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4",
