@@ -8,6 +8,8 @@ import { query } from "@/lib/db";
  * items, and a child event must be routed by exactly the same rules as a URL
  * that arrived from search. Two copies of this logic would drift, and the
  * failure mode is silent: a blocked domain quietly becoming auto-fetchable.
+ * New domains are enrolled below so public event platforms do not require a
+ * code deploy before they can be fetched.
  */
 export interface DiscoveryRoute {
   status: string;
@@ -34,6 +36,19 @@ export async function routeDiscoveryItem(sourceDomain: string): Promise<Discover
   if (src && src.trust_tier === "auto_fetch" && src.active) {
     return { status: "auto_processing", rejectionReason: null };
   }
-  // Unknown domains default to human review, never to auto-fetch.
+  if (!src) {
+    // Search results are public URLs, and safeFetchText still enforces HTTPS,
+    // DNS/private-IP, redirect, size and content-type guards. Explicit
+    // curator-only and blocked rows remain authoritative.
+    await query(
+      `INSERT INTO sources (domain, name, trust_tier, rate_limit_per_hour, active)
+       VALUES ($1, $1, 'auto_fetch', 30, true)
+       ON CONFLICT (domain) DO NOTHING`,
+      [sourceDomain],
+    );
+    return { status: "auto_processing", rejectionReason: null };
+  }
+
+  // Existing inactive or curator-only sources remain human-reviewed.
   return { status: "curator_pending", rejectionReason: null };
 }
