@@ -32,3 +32,66 @@ export function getFieldCardByKey(key: string): FieldCard | undefined {
 export function getFieldCardForCategory(category: Category): FieldCard | undefined {
   return FIELD_CARDS.find((c) => c.categories.includes(category));
 }
+
+/**
+ * Resolves a URL segment that may be one key ("ai") or several, comma-joined
+ * ("ai,marketing"), into a single FieldCard-shaped view — a real card for one
+ * key, or a synthetic combined one for several, so every consumer (metadata,
+ * structured data, the events query) can keep working with one FieldCard
+ * shape either way. Returns undefined only when NONE of the keys are real —
+ * a mix of one valid and one bogus key still renders using the valid ones.
+ */
+export function getFieldCardForKeys(rawKey: string): FieldCard | undefined {
+  // Next hands the dynamic segment back exactly as it appeared in the URL,
+  // comma included or percent-encoded as "%2C" depending on how the link was
+  // built — decode defensively rather than assuming either form.
+  let decoded = rawKey;
+  try {
+    decoded = decodeURIComponent(rawKey);
+  } catch {
+    // malformed percent-encoding: fall back to the raw string
+  }
+  const requested = decoded.split(",").map((k) => k.trim()).filter(Boolean);
+  const cards = FIELD_CARDS.filter((card) => requested.includes(card.key));
+  if (cards.length === 0) return undefined;
+  if (cards.length === 1) return cards[0];
+
+  const categories = [...new Set(cards.flatMap((card) => card.categories))];
+  return {
+    key: cards.map((card) => card.key).join(","),
+    label: combinedFieldLabel(cards),
+    description: cards.map((card) => card.description).join(" · "),
+    categories,
+    mark: cards[0].mark,
+  };
+}
+
+/**
+ * The distinct field-card keys covering a set of categories, in FIELD_CARDS
+ * order rather than input order — a subscriber's own category array has no
+ * meaningful order, and this way the same set of interests always produces
+ * the same URL regardless of how they were originally recorded.
+ */
+export function fieldCardKeysForCategories(categories: readonly Category[]): string[] {
+  const keys = new Set<string>();
+  for (const category of categories) {
+    const card = getFieldCardForCategory(category);
+    if (card) keys.add(card.key);
+  }
+  return FIELD_CARDS.filter((card) => keys.has(card.key)).map((card) => card.key);
+}
+
+/** URL for one or several field cards at once — /category/ai for one key,
+ *  /category/ai,marketing for several. Unknown keys are dropped rather than
+ *  producing a 404 for the whole page over one bad key. */
+export function multiCategoryPath(keys: readonly string[]): string {
+  const valid = keys.filter((key) => getFieldCardByKey(key));
+  return `/category/${valid.join(",")}`;
+}
+
+/** "AI & Machine Learning", or "AI & Machine Learning, Marketing & Growth"
+ *  for several — used wherever a single card's `label` doesn't cover a
+ *  combined view (page titles, digest message body). */
+export function combinedFieldLabel(cards: readonly FieldCard[]): string {
+  return cards.map((card) => card.label).join(", ");
+}

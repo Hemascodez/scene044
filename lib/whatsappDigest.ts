@@ -1,5 +1,5 @@
 import { query } from "@/lib/db";
-import { getFieldCardForCategory } from "@/lib/fieldCards";
+import { fieldCardKeysForCategories, getFieldCardForCategory, getFieldCardForKeys } from "@/lib/fieldCards";
 import { normalizePhoneE164 } from "@/lib/subscribers";
 import type { Category } from "@/lib/types";
 import {
@@ -182,13 +182,21 @@ export function digestTemplateInput(opts: {
   subscriberId?: number | null;
 }): WhatsappTemplateInput {
   const name = truncateUnicode(opts.subscriberName?.trim().replace(/\s+/g, " ") || "there", 80);
-  const onlyCategory = opts.subscriberCategories?.length === 1
-    ? opts.subscriberCategories[0]
-    : undefined;
-  const destinationCategory = onlyCategory ?? opts.events[0]?.category ?? "tech";
-  const field = getFieldCardForCategory(destinationCategory);
-  const categorySlug = field?.key ?? destinationCategory;
-  const categoryLabel = field?.label ?? destinationCategory;
+
+  // A subscriber who picked several interests gets one link covering all of
+  // them (/category/ai,marketing,...), not an arbitrary single one — this
+  // used to fall back to whichever category the first candidate event
+  // happened to be in, which had nothing to do with what the subscriber
+  // actually asked for.
+  const subscriberKeys = opts.subscriberCategories?.length
+    ? fieldCardKeysForCategories(opts.subscriberCategories)
+    : [];
+  const fallbackCategory = opts.events[0]?.category ?? "tech";
+  const field = subscriberKeys.length > 0
+    ? getFieldCardForKeys(subscriberKeys.join(","))
+    : getFieldCardForCategory(fallbackCategory);
+  const categorySlug = field?.key ?? fallbackCategory;
+  const categoryLabel = field?.label ?? fallbackCategory;
   const templateName = process.env.WHATSAPP_WEEKLY_TEMPLATE_NAME?.trim() || DEFAULT_TEMPLATE_NAME;
   const language = process.env.WHATSAPP_WEEKLY_TEMPLATE_LANGUAGE?.trim() || DEFAULT_TEMPLATE_LANGUAGE;
   const eventBlock = buildDigestEventBlock(opts.events, name, categoryLabel);

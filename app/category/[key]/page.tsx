@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublicEvents, type PublicEvent } from "@/lib/events";
-import { FIELD_CARDS, getFieldCardByKey } from "@/lib/fieldCards";
+import { FIELD_CARDS, getFieldCardForKeys } from "@/lib/fieldCards";
 import { stockPosterFor } from "@/lib/stockPosters";
 import { categorySeoDescription, categoryStructuredData, serializeJsonLd } from "@/lib/seo";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
@@ -16,7 +16,7 @@ interface CategoryPageProps {
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { key } = await params;
-  const card = getFieldCardByKey(key);
+  const card = getFieldCardForKeys(key);
   if (!card) return { title: "Field not found — SCENE/044" };
   const title = `${card.label} Events in Chennai | SCENE/044`;
   const description = categorySeoDescription(card);
@@ -46,8 +46,9 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { key } = await params;
-  const card = getFieldCardByKey(key);
+  const card = getFieldCardForKeys(key);
   if (!card) notFound();
+  const shownKeys = new Set(card.key.split(","));
 
   let events: PublicEvent[] = [];
   try {
@@ -88,7 +89,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         <nav className="mt-16">
           <SectionHead kicker="Other fields" title="Keep looking" />
           <div className="mt-6 grid grid-cols-2 border-l-2 border-t-2 border-foreground sm:grid-cols-3 lg:grid-cols-4">
-            {FIELD_CARDS.filter((c) => c.key !== card.key).map((other) => (
+            {FIELD_CARDS.filter((c) => !shownKeys.has(c.key)).map((other) => (
               <a
                 key={other.key}
                 href={`/category/${other.key}`}
