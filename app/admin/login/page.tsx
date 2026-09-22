@@ -17,6 +17,6 @@ export default async function CuratorLoginPage({ searchParams }: LoginPageProps)
   // Only ever redirect back into the admin or host area. Accepting an
   // arbitrary `next` would turn this page into an open redirect.
   const destination =
-    typeof next === "string" && /^\/(admin|host)\/[\w/-]*$/.test(next) ? next : "/admin/curator";
+    typeof next === "string" && /^\/(admin|host)(?:\/[\w/-]*)?$/.test(next) ? next : "/admin/curator";
   return <CuratorLogin next={destination} />;
 }
