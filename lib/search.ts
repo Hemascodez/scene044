@@ -122,13 +122,12 @@ const FIRECRAWL_RESULTS_PER_QUERY = 10; // 2 credits per 10 results
 const firecrawlProvider: SearchProvider = {
   name: "firecrawl",
   /*
-   * Free tier is 1,000 credits/month, shared across search and scrape:
-   *   ~700 credits -> 350 searches (2 credits / 10 results)
-   *   ~300 credits -> 300 page scrapes
-   * At 2 runs/day, 6 queries per run is ~360 searches/month — inside budget
-   * with room for the scrape path.
+   * Free tier is 1,000 credits/month. Search costs 2 credits per 10 results;
+   * the production cron runs weekly, so 20 queries per run is only ~160
+   * credits/month and completes the 43-query seed set in about three runs.
+   * Six queries per run left Meetup/Eventbrite categories waiting for weeks.
    */
-  suggestedQueriesPerRun: 6,
+  suggestedQueriesPerRun: 20,
 
   missingConfig() {
     return process.env.FIRECRAWL_API_KEY ? [] : ["FIRECRAWL_API_KEY"];
