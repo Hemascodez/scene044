@@ -70,7 +70,7 @@ async function main() {
       passes++;
       for (const k of Object.keys(totals) as (keyof typeof totals)[]) totals[k] += r[k];
 
-      if (r.processed === 0) {
+      if (r.processed === 0 && !r.rateLimited) {
         console.log(`extraction: queue empty after ${passes} pass(es)`);
         break;
       }

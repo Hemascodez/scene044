@@ -97,6 +97,8 @@ export interface ExtractionResult {
   pastEvents: number;
   /** No readable date anywhere, including from the model — a human decides. */
   needsDateReview: number;
+  /** Items remain, but every eligible domain is inside its politeness window. */
+  rateLimited: boolean;
 }
 
 async function markDiscoveryItem(
@@ -321,6 +323,16 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
       LIMIT $1`,
     [batchLimit],
   );
+
+  // Listing pages can enqueue child event URLs on the same domain. Those
+  // children are held until the politeness window reopens, but a scheduled
+  // process must wait for them instead of treating the queue as empty. This
+  // matters especially for a weekly cron: otherwise a calendar expansion
+  // delays every child until the following week.
+  const { rows: pendingRows } = await query<{ pending: boolean }>(
+    "SELECT EXISTS (SELECT 1 FROM discovery_items WHERE status = 'auto_processing') AS pending",
+  );
+  const rateLimited = items.length === 0 && Boolean(pendingRows[0]?.pending);
 
   let processed = 0;
   let extracted = 0;
@@ -558,7 +570,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
 
   return {
     processed, extracted, merged, needsReview, rejected,
-    expandedListings, enqueuedFromLists, pastEvents, needsDateReview,
+    expandedListings, enqueuedFromLists, pastEvents, needsDateReview, rateLimited,
   };
 }
 
