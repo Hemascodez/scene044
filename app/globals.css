@@ -54,9 +54,9 @@
   --color-venue-card: #fffef9;
   --color-venue-line: rgba(20, 19, 13, 0.15);
 
-  --font-display: var(--font-archivo);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-display: "Arial", sans-serif;
+  --font-sans: "Arial", sans-serif;
+  --font-mono: "ui-monospace", "SFMono-Regular", Consolas, monospace;
 
   --radius: 0px;
 }
