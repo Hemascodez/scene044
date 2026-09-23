@@ -92,9 +92,16 @@ export function buildWhatsappTemplatePayload(input: WhatsappTemplateInput): What
 
 function errorDetails(body: unknown): { text: string; code: number | null } {
   if (body && typeof body === "object") {
-    const error = (body as { error?: { message?: unknown; code?: unknown; error_subcode?: unknown } }).error;
+    const error = (body as {
+      error?: {
+        message?: unknown;
+        code?: unknown;
+        error_subcode?: unknown;
+        error_data?: { details?: unknown };
+      };
+    }).error;
     if (error) {
-      const bits = [error.message, error.code, error.error_subcode]
+      const bits = [error.message, error.code, error.error_subcode, error.error_data?.details]
         .filter((value) => value !== undefined && value !== null)
         .map(String);
       if (bits.length > 0) {
