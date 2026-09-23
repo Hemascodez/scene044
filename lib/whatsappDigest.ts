@@ -201,11 +201,15 @@ export function digestTemplateInput(opts: {
   const templateName = process.env.WHATSAPP_WEEKLY_TEMPLATE_NAME?.trim() || DEFAULT_TEMPLATE_NAME;
   const language = process.env.WHATSAPP_WEEKLY_TEMPLATE_LANGUAGE?.trim() || DEFAULT_TEMPLATE_LANGUAGE;
   const eventBlock = buildDigestEventBlock(opts.events, name, categoryLabel);
+  const eventLines = eventBlock.split("\n").filter(Boolean);
+  while (eventLines.length < DIGEST_EVENT_LIMIT) {
+    eventLines.push("No additional matching event this week");
+  }
   return {
     to: opts.to,
     name: templateName,
     language,
-    bodyParameters: [name, eventBlock, categoryLabel],
+    bodyParameters: [name, ...eventLines.slice(0, DIGEST_EVENT_LIMIT), categoryLabel],
     urlButtonSuffix: categorySlug,
     headerImageUrl:
       process.env.WHATSAPP_WEEKLY_HEADER_IMAGE_URL?.trim() || DEFAULT_WEEKLY_HEADER_IMAGE_URL,

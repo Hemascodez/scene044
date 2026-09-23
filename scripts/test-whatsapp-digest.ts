@@ -109,9 +109,10 @@ async function main() {
   check("template defaults to scene044_weekly_digest", payload.template.name, "scene044_weekly_digest");
   check("template defaults to en_US", payload.template.language.code, "en_US");
   check("template has an image header", header?.type, "header");
-  check("template has the three approved body variables", body?.parameters.length, 3);
+  check("template has the seven approved body variables", body?.parameters.length, 7);
   check("template falls back to there", body?.parameters[0]?.text, "there");
-  check("template names the destination category", body?.parameters[2]?.text, "AI & Machine Learning");
+  check("template keeps five event bullet values", body?.parameters.slice(1, 6).every((param) => Boolean(param.text)), true);
+  check("template names the destination category", body?.parameters[6]?.text, "AI & Machine Learning");
   const button = payload.template.components.find((component) => component.type === "button");
   check("template includes a dynamic URL button", button?.type, "button");
   check("URL button targets the AI category suffix", button?.parameters[0]?.text, "ai");
