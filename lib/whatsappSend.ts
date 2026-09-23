@@ -7,10 +7,16 @@ export interface WhatsappTemplateInput {
   bodyParameters: string[];
   /** Dynamic suffix for the template's first URL button. */
   urlButtonSuffix?: string;
+  /** Public image URL required by templates whose approved header format is IMAGE. */
+  headerImageUrl?: string;
   opaqueCallbackData?: string;
 }
 
 type WhatsappTemplateComponent =
+  | {
+      type: "header";
+      parameters: Array<{ type: "image"; image: { link: string } }>;
+    }
   | {
       type: "body";
       parameters: Array<{ type: "text"; text: string }>;
@@ -76,6 +82,12 @@ export function buildWhatsappTemplatePayload(input: WhatsappTemplateInput): What
       name: input.name,
       language: { code: input.language },
       components: [
+        ...(input.headerImageUrl
+          ? [{
+              type: "header" as const,
+              parameters: [{ type: "image" as const, image: { link: input.headerImageUrl } }],
+            }]
+          : []),
         {
           type: "body",
           parameters: input.bodyParameters.map((text) => ({

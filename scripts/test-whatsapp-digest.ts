@@ -104,12 +104,15 @@ async function main() {
     subscriberId: 42,
   });
   const payload = buildWhatsappTemplatePayload(input);
+  const header = payload.template.components.find((component) => component.type === "header");
+  const body = payload.template.components.find((component) => component.type === "body");
   check("template defaults to scene044_weekly_digest", payload.template.name, "scene044_weekly_digest");
   check("template defaults to en_US", payload.template.language.code, "en_US");
-  check("template has the three approved body variables", payload.template.components[0]?.parameters.length, 3);
-  check("template falls back to there", payload.template.components[0]?.parameters[0]?.text, "there");
-  check("template names the destination category", payload.template.components[0]?.parameters[2]?.text, "AI & Machine Learning");
-  const button = payload.template.components[1];
+  check("template has an image header", header?.type, "header");
+  check("template has the three approved body variables", body?.parameters.length, 3);
+  check("template falls back to there", body?.parameters[0]?.text, "there");
+  check("template names the destination category", body?.parameters[2]?.text, "AI & Machine Learning");
+  const button = payload.template.components.find((component) => component.type === "button");
   check("template includes a dynamic URL button", button?.type, "button");
   check("URL button targets the AI category suffix", button?.parameters[0]?.text, "ai");
   check("Cloud API phone is normalized to digits", payload.to, "919876543210");
