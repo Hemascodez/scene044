@@ -15,7 +15,7 @@ export const META_TEMPLATE_BODY_LIMIT = 1024;
 
 const DEFAULT_TEMPLATE_NAME = "scene044_weekly_digest";
 const DEFAULT_TEMPLATE_LANGUAGE = "en_US";
-const DEFAULT_WEEKLY_HEADER_IMAGE_URL = "https://scene044.in/stock/ai-1.jpg";
+const DEFAULT_WEEKLY_HEADER_IMAGE_URL = "https://scene044.in/whatsapp/weekly-digest-header.png";
 const ATTEMPTED_STATUSES = ["sending", "unknown", "accepted", "sent", "delivered", "read"];
 
 export type DigestMode = "dry-run" | "test" | "production";
