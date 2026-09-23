@@ -61,6 +61,11 @@ export function recipientDigits(to: string): string {
   return to.replace(/\D/g, "");
 }
 
+/** Meta rejects template text parameters containing line breaks, tabs, or long space runs. */
+function normalizeTemplateParameter(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 export function buildWhatsappTemplatePayload(input: WhatsappTemplateInput): WhatsappTemplatePayload {
   const payload: WhatsappTemplatePayload = {
     messaging_product: "whatsapp",
@@ -73,7 +78,10 @@ export function buildWhatsappTemplatePayload(input: WhatsappTemplateInput): What
       components: [
         {
           type: "body",
-          parameters: input.bodyParameters.map((text) => ({ type: "text", text })),
+          parameters: input.bodyParameters.map((text) => ({
+            type: "text",
+            text: normalizeTemplateParameter(text),
+          })),
         },
       ],
     },
@@ -83,7 +91,7 @@ export function buildWhatsappTemplatePayload(input: WhatsappTemplateInput): What
       type: "button",
       sub_type: "url",
       index: "0",
-      parameters: [{ type: "text", text: input.urlButtonSuffix }],
+      parameters: [{ type: "text", text: normalizeTemplateParameter(input.urlButtonSuffix) }],
     });
   }
   if (input.opaqueCallbackData) payload.biz_opaque_callback_data = input.opaqueCallbackData;
