@@ -29,7 +29,7 @@ business-initiated sends through Meta's Cloud API.
 
 ---
 
-## 1. `scene044_weekly_digest` — MARKETING
+## 1. `scene044_weekly_digest_v2` — MARKETING
 
 The main one. Weekly roundup of what's on.
 
@@ -38,7 +38,7 @@ events the user has not booked or registered for. Utility is for a specific,
 requested interaction or an active transaction (for example, a registration
 confirmation or a change to an event the user already booked).
 
-**Header** (text): `This week in Chennai tech`
+**Header** (image): `public/whatsapp/weekly-digest-header.png`
 
 **Body**
 
@@ -47,37 +47,41 @@ backticks. For the `{{2}}` sample, enter real line breaks rather than the two
 characters `\\n`.
 
 ```
-Hi {{1}}, here are your Chennai tech picks for this week:
+Hi *{{1}}*, here are your Chennai tech picks for this week:
 
-{{2}}
+• *{{2}}* — {{3}}
+• *{{4}}* — {{5}}
+• *{{6}}* — {{7}}
+• *{{8}}* — {{9}}
+• *{{10}}* — {{11}}
 
-See more {{3}} events using the button below.
-
-You subscribed to SCENE/044 updates. Reply STOP to unsubscribe.
+See more {{12}} events using the button below.
 ```
 
 **Footer**: `SCENE/044 — Chennai tech events`
 
 **Buttons**
-- URL button — `Visit website` → `https://scene044.in/category/{{1}}`
+- URL button — `Explore events` → `https://scene044.in/category/{{1}}`
 
 **Body sample values**
-1. `Hema`
-2. Enter these as three actual lines:
-
-   ```text
-   • Global AI Conference — Sat, 27 Sep, 9:30 AM — Taramani
-   • eChai Demo Day — Fri, 26 Sep, 6:00 PM — Guindy
-   • Dev Days Chennai — Fri, 10 Oct, 10:00 AM — OMR
-   ```
-
-3. `AI & Machine Learning`
+1. `there`
+2. `AI Meetup`
+3. `Sat, 27 Sep, 9:30 AM — Taramani`
+4. `Cloud & Data Conference`
+5. `Fri, 28 Sep, 6:00 PM — Guindy`
+6. `Startup Founders Meetup`
+7. `Sat, 29 Sep, 3:00 PM — Chennai`
+8. `Dev Days Chennai`
+9. `Fri, 3 Oct, 10:00 AM — OMR`
+10. `Tech Networking Night`
+11. `Thu, 9 Oct, 7:00 PM — Chennai`
+12. `AI & Machine Learning`
 
 **URL button sample value**: `ai`
 
 The sender supplies the URL suffix dynamically. A subscriber with one interest
 opens that field page. For multiple interests, the button opens the category of
-the first-ranked event in their digest. Product and Design both map to
+the combined topic page. Product and Design both map to
 `/category/product-design`.
 
 ---
@@ -147,7 +151,7 @@ You'll get {{1}} with what's on. Reply STOP any time to opt out.
 
 ## Approval and rollout checklist
 
-1. Submit `scene044_weekly_digest` as **Marketing**, language **English (US)**,
+1. Submit `scene044_weekly_digest_v2` as **Marketing**, language **English (US)**,
    with the exact header, body, footer, and buttons above.
 2. Configure the permanent token, Phone Number ID, and a currently supported
    `WHATSAPP_GRAPH_API_VERSION` on both Railway web and digest services.

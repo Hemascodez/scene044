@@ -87,7 +87,7 @@ Add a **fourth service from the same repo**:
 - **Cron schedule**: `30 12 * * 3` — Wednesday 18:00 IST (Railway cron is UTC)
 - **Required variables**: `DATABASE_URL`, `WHATSAPP_ACCESS_TOKEN`,
   `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_API_VERSION`,
-  `WHATSAPP_WEEKLY_TEMPLATE_NAME=scene044_weekly_digest`, and
+  `WHATSAPP_WEEKLY_TEMPLATE_NAME=scene044_weekly_digest_v2`, and
   `WHATSAPP_WEEKLY_TEMPLATE_LANGUAGE=en_US`
 - **Kill switch**: `WHATSAPP_DIGEST_ENABLED=false` during setup
 

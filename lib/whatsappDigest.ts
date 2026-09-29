@@ -13,7 +13,7 @@ export const DIGEST_TIME_ZONE = "Asia/Kolkata";
 export const DIGEST_EVENT_LIMIT = 5;
 export const META_TEMPLATE_BODY_LIMIT = 1024;
 
-const DEFAULT_TEMPLATE_NAME = "scene044_weekly_digest";
+const DEFAULT_TEMPLATE_NAME = "scene044_weekly_digest_v2";
 const DEFAULT_TEMPLATE_LANGUAGE = "en_US";
 const DEFAULT_WEEKLY_HEADER_IMAGE_URL = "https://scene044.in/whatsapp/weekly-digest-header.png";
 const ATTEMPTED_STATUSES = ["sending", "unknown", "accepted", "sent", "delivered", "read"];
@@ -142,7 +142,7 @@ function singleLine(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export function formatDigestEvent(event: DigestEvent): string {
+export function formatDigestEventParts(event: DigestEvent): { title: string; details: string } {
   const when = new Intl.DateTimeFormat("en-IN", {
     timeZone: DIGEST_TIME_ZONE,
     weekday: "short",
@@ -155,7 +155,12 @@ export function formatDigestEvent(event: DigestEvent): string {
   const place = event.isOnline
     ? "Online"
     : singleLine(event.venueName ?? "") || singleLine(event.venueAddress ?? "") || "Chennai";
-  return `• ${singleLine(event.title)} — ${when} — ${place}`;
+  return { title: singleLine(event.title), details: `${when} — ${place}` };
+}
+
+export function formatDigestEvent(event: DigestEvent): string {
+  const { title, details } = formatDigestEventParts(event);
+  return `• ${title} — ${details}`;
 }
 
 function renderedTemplateBody(name: string, eventBlock: string, categoryLabel: string): string {
@@ -200,16 +205,16 @@ export function digestTemplateInput(opts: {
   const categoryLabel = field?.label ?? fallbackCategory;
   const templateName = process.env.WHATSAPP_WEEKLY_TEMPLATE_NAME?.trim() || DEFAULT_TEMPLATE_NAME;
   const language = process.env.WHATSAPP_WEEKLY_TEMPLATE_LANGUAGE?.trim() || DEFAULT_TEMPLATE_LANGUAGE;
-  const eventBlock = buildDigestEventBlock(opts.events, name, categoryLabel);
-  const eventLines = eventBlock.split("\n").filter(Boolean);
-  while (eventLines.length < DIGEST_EVENT_LIMIT) {
-    eventLines.push("No additional matching event this week");
+  const eventParts = opts.events.slice(0, DIGEST_EVENT_LIMIT).map(formatDigestEventParts);
+  while (eventParts.length < DIGEST_EVENT_LIMIT) {
+    eventParts.push({ title: "No additional matching event this week", details: "No additional details" });
   }
+  const eventParameters = eventParts.flatMap(({ title, details }) => [title, details]);
   return {
     to: opts.to,
     name: templateName,
     language,
-    bodyParameters: [name, ...eventLines.slice(0, DIGEST_EVENT_LIMIT), categoryLabel],
+    bodyParameters: [name, ...eventParameters, categoryLabel],
     urlButtonSuffix: categorySlug,
     headerImageUrl:
       process.env.WHATSAPP_WEEKLY_HEADER_IMAGE_URL?.trim() || DEFAULT_WEEKLY_HEADER_IMAGE_URL,

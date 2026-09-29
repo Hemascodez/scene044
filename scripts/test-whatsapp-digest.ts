@@ -106,13 +106,14 @@ async function main() {
   const payload = buildWhatsappTemplatePayload(input);
   const header = payload.template.components.find((component) => component.type === "header");
   const body = payload.template.components.find((component) => component.type === "body");
-  check("template defaults to scene044_weekly_digest", payload.template.name, "scene044_weekly_digest");
+  check("template defaults to scene044_weekly_digest_v2", payload.template.name, "scene044_weekly_digest_v2");
   check("template defaults to en_US", payload.template.language.code, "en_US");
   check("template has an image header", header?.type, "header");
-  check("template has the seven approved body variables", body?.parameters.length, 7);
+  check("template has the twelve approved body variables", body?.parameters.length, 12);
   check("template falls back to there", body?.parameters[0]?.text, "there");
-  check("template keeps five event bullet values", body?.parameters.slice(1, 6).every((param) => Boolean(param.text)), true);
-  check("template names the destination category", body?.parameters[6]?.text, "AI & Machine Learning");
+  check("template keeps five event titles", [1, 3, 5, 7, 9].every((index) => Boolean(body?.parameters[index]?.text)), true);
+  check("template keeps five event detail values", [2, 4, 6, 8, 10].every((index) => Boolean(body?.parameters[index]?.text)), true);
+  check("template names the destination category", body?.parameters[11]?.text, "AI & Machine Learning");
   const button = payload.template.components.find((component) => component.type === "button");
   check("template includes a dynamic URL button", button?.type, "button");
   check("URL button targets the AI category suffix", button?.parameters[0]?.text, "ai");
