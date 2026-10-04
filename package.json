@@ -24,6 +24,9 @@
     "seed:queries": "node --import tsx scripts/seed-queries.ts"
   },
   "dependencies": {
+    "@fontsource-variable/montserrat": "5.3.0",
+    "@fontsource-variable/work-sans": "5.3.0",
+    "@fontsource/space-mono": "5.3.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",

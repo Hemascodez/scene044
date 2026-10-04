@@ -53,11 +53,11 @@ export function SelfReviewForm({ venueSlug, venueName, onDone }: { venueSlug: st
 
   if (submitted) {
     return (
-      <div className="rounded-2xl border border-foreground/15 bg-card p-6 text-center">
-        <span className="grid size-10 place-items-center rounded-full bg-signal/15 text-signal-ink mx-auto">
+      <div className="border-[1.5px] border-foreground bg-venue-card p-6 text-center shadow-hard">
+        <span className="mx-auto grid size-10 place-items-center border-[1.5px] border-foreground bg-signal text-white">
           <VenueIcon name="check" className="size-5" />
         </span>
-        <p className="mt-3 font-display text-lg font-black">Thanks — sent for a quick check.</p>
+        <p className="mt-3 font-display text-lg font-extrabold">Thanks — sent for a quick check.</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Your review will appear on {venueName}&apos;s page once a curator confirms it.
         </p>
@@ -69,8 +69,8 @@ export function SelfReviewForm({ venueSlug, venueName, onDone }: { venueSlug: st
   }
 
   return (
-    <div className="rounded-2xl border border-foreground/15 bg-card p-5 sm:p-6">
-      <p className="font-display text-lg font-black">Already hosted here?</p>
+    <div className="border-[1.5px] border-foreground bg-venue-card p-5 shadow-hard sm:p-6">
+      <p className="font-display text-lg font-extrabold">Already hosted here?</p>
       <p className="mt-1 text-sm text-muted-foreground">
         Share how it went — this goes to a curator for a quick check before it&apos;s shown publicly.
       </p>
@@ -82,7 +82,7 @@ export function SelfReviewForm({ venueSlug, venueName, onDone }: { venueSlug: st
           onChange={(e) => setReviewerName(e.target.value)}
           maxLength={80}
           placeholder="e.g. Priya, Chennai Data Circle"
-          className="mt-1.5 min-h-11 w-full rounded-xl border border-foreground/20 bg-[#fffef9] px-3 text-sm outline-none focus:border-primary"
+          className="mt-1.5 min-h-11 w-full border-[1.5px] border-foreground bg-white px-3 text-sm outline-none transition-shadow focus:shadow-hard-sm focus-visible:ring-2 focus-visible:ring-primary"
         />
       </label>
 
@@ -93,7 +93,7 @@ export function SelfReviewForm({ venueSlug, venueName, onDone }: { venueSlug: st
           onChange={(e) => setEventType(e.target.value)}
           maxLength={80}
           placeholder="e.g. Tech meetup"
-          className="mt-1.5 min-h-11 w-full rounded-xl border border-foreground/20 bg-[#fffef9] px-3 text-sm outline-none focus:border-primary"
+          className="mt-1.5 min-h-11 w-full border-[1.5px] border-foreground bg-white px-3 text-sm outline-none transition-shadow focus:shadow-hard-sm focus-visible:ring-2 focus-visible:ring-primary"
         />
       </label>
 
@@ -106,8 +106,8 @@ export function SelfReviewForm({ venueSlug, venueName, onDone }: { venueSlug: st
               type="button"
               onClick={() => setRating(r.value)}
               aria-pressed={rating === r.value}
-              className={`flex flex-1 flex-col items-center gap-1 rounded-xl border py-3 text-xs font-bold transition-colors ${
-                rating === r.value ? "border-primary bg-primary/10" : "border-foreground/15 hover:border-foreground/35"
+              className={`flex flex-1 flex-col items-center gap-1 border-[1.5px] py-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                rating === r.value ? "border-foreground bg-primary/15 shadow-hard-sm" : "border-foreground/40 hover:border-foreground"
               }`}
             >
               <span className="text-2xl" aria-hidden>
@@ -128,8 +128,8 @@ export function SelfReviewForm({ venueSlug, venueName, onDone }: { venueSlug: st
               type="button"
               onClick={() => toggleTag(tag)}
               aria-pressed={tags.includes(tag)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                tags.includes(tag) ? "border-primary bg-primary/10 text-primary-ink" : "border-foreground/15 text-muted-foreground hover:border-foreground/35"
+              className={`border-[1.5px] px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                tags.includes(tag) ? "border-foreground bg-foreground text-background" : "border-foreground/40 text-muted-foreground hover:border-foreground"
               }`}
             >
               {tag}
@@ -146,11 +146,11 @@ export function SelfReviewForm({ venueSlug, venueName, onDone }: { venueSlug: st
           maxLength={1000}
           rows={3}
           placeholder="A short note for organizers considering this space"
-          className="mt-1.5 w-full rounded-xl border border-foreground/20 bg-[#fffef9] px-3 py-2 text-sm outline-none focus:border-primary"
+          className="mt-1.5 w-full border-[1.5px] border-foreground bg-white px-3 py-2 text-sm outline-none transition-shadow focus:shadow-hard-sm focus-visible:ring-2 focus-visible:ring-primary"
         />
       </label>
 
-      {error && <p className="mt-3 text-sm text-primary-ink">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-sm font-semibold text-primary-ink">{error}</p>}
 
       <button
         type="button"

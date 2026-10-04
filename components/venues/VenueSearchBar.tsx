@@ -1,13 +1,28 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { VENUE_EVENT_TYPES, venueSearchHref } from "@/lib/venues";
-import { VenueIcon } from "@/components/venues/VenueUi";
+import { VenueIcon, type VenueIconName } from "@/components/venues/VenueUi";
 
 interface VenueSearchBarProps {
   defaults?: { location?: string; date?: string; time?: string; people?: string; eventType?: string };
   compact?: boolean;
+}
+
+const CELL = "flex min-w-0 flex-col bg-white px-5 py-4 transition-colors focus-within:bg-venue-paper";
+const CAPTION = "flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground";
+const CONTROL = "mt-1 min-w-0 bg-transparent text-[13px] font-medium leading-5 text-foreground outline-none placeholder:text-muted-foreground/60";
+
+function Field({ icon, label, children }: { icon: VenueIconName; label: string; children: ReactNode }) {
+  return (
+    <label className={CELL}>
+      <span className={CAPTION}>
+        <VenueIcon name={icon} className="size-3.5" /> {label}
+      </span>
+      {children}
+    </label>
+  );
 }
 
 export function VenueSearchBar({ defaults = {}, compact = false }: VenueSearchBarProps) {
@@ -26,40 +41,45 @@ export function VenueSearchBar({ defaults = {}, compact = false }: VenueSearchBa
   return (
     <form
       onSubmit={submit}
+      role="search"
       // Gap-as-border: a 1px gap over a tinted background draws the dividing
-      // lines, so they stay correct at every column count instead of needing
-      // a different border-side utility per breakpoint (the previous version
-      // only ever laid out in a row from `lg:` up, so every tablet width —
-      // portrait or landscape iPad included — got the single stacked-column
-      // mobile layout with no room-appropriate use of the space).
-      className={`venue-search-grid grid w-full grid-cols-1 gap-px overflow-hidden rounded-[22px] border border-foreground/15 bg-foreground/10 shadow-[0_18px_55px_rgba(20,19,13,0.12)] sm:grid-cols-2 ${compact ? "lg:grid-cols-[1.2fr_1fr_.75fr_.8fr_auto]" : "lg:grid-cols-[1.35fr_1fr_.8fr_.8fr_auto]"}`}
+      // lines, so they stay correct at every column count instead of needing a
+      // different border-side utility per breakpoint.
+      className={`venue-search-grid grid w-full grid-cols-1 gap-px border-[1.5px] border-foreground bg-foreground/20 shadow-hard sm:grid-cols-2 ${
+        compact ? "lg:grid-cols-[1.2fr_1fr_1fr_.75fr_.75fr_auto]" : "lg:grid-cols-[1.25fr_1.1fr_1fr_.8fr_.8fr_auto]"
+      }`}
       aria-label="Search venues"
     >
-      <label className="group flex min-w-0 flex-col bg-card px-4 py-3 hover:bg-secondary/50 sm:col-span-2 lg:col-span-1">
-        <span className="flex items-center gap-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground"><VenueIcon name="map" className="size-3.5" /> Where</span>
-        <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Area or city" className="mt-1 min-w-0 bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground/60" />
-      </label>
-      <label className="flex min-w-0 flex-col bg-card px-4 py-3 hover:bg-secondary/50">
-        <span className="flex items-center gap-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground"><VenueIcon name="calendar" className="size-3.5" /> Date</span>
-        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="mt-1 min-w-0 bg-transparent text-sm font-semibold outline-none" aria-label="Event date" />
-      </label>
-      <label className="flex min-w-0 flex-col bg-card px-4 py-3 hover:bg-secondary/50">
-        <span className="flex items-center gap-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground"><VenueIcon name="clock" className="size-3.5" /> Starts</span>
-        <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="mt-1 min-w-0 bg-transparent text-sm font-semibold outline-none" aria-label="Start time" />
-      </label>
-      <label className="flex min-w-0 flex-col bg-card px-4 py-3 hover:bg-secondary/50">
-        <span className="flex items-center gap-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground"><VenueIcon name="people" className="size-3.5" /> People</span>
-        <input type="number" min="1" max="100" value={people} onChange={(event) => setPeople(event.target.value)} className="mt-1 min-w-0 bg-transparent text-sm font-semibold outline-none" aria-label="Number of people" />
-      </label>
-      <label className="sr-only" htmlFor="venue-event-type">Event type</label>
-      <select id="venue-event-type" value={eventType} onChange={(event) => setEventType(event.target.value)} className="min-w-0 max-w-full bg-card px-4 py-3 text-sm font-semibold outline-none sm:col-span-2 lg:col-span-1 lg:hidden">
-        {VENUE_EVENT_TYPES.map((item) => <option key={item}>{item}</option>)}
-      </select>
-      <div className="flex items-center bg-card p-2.5 sm:col-span-2 lg:col-span-1">
-        <button type="submit" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-white transition hover:bg-primary-ink active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:w-auto" aria-label="Show matching venues">
-          <VenueIcon name="search" className="size-5" /> <span className="lg:hidden xl:inline">Show venues</span>
-        </button>
-      </div>
+      <Field icon="map" label="Where">
+        <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Area or city" className={CONTROL} />
+      </Field>
+      <Field icon="spark" label="Format">
+        <span className="relative">
+          <select value={eventType} onChange={(event) => setEventType(event.target.value)} aria-label="Event type" className={`${CONTROL} w-full appearance-none pr-6`}>
+            {VENUE_EVENT_TYPES.map((item) => (
+              <option key={item}>{item}</option>
+            ))}
+          </select>
+          <VenueIcon name="chevron" className="pointer-events-none absolute right-0 top-1/2 size-4 -translate-y-1/2" />
+        </span>
+      </Field>
+      <Field icon="calendar" label="Date">
+        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={CONTROL} aria-label="Event date" />
+      </Field>
+      <Field icon="clock" label="Starts">
+        <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className={CONTROL} aria-label="Start time" />
+      </Field>
+      <Field icon="people" label="People">
+        <input type="number" min="1" max="100" value={people} onChange={(event) => setPeople(event.target.value)} className={CONTROL} aria-label="Number of people" />
+      </Field>
+      <button
+        type="submit"
+        aria-label="Show matching venues"
+        className="flex min-h-14 items-center justify-center gap-2 bg-primary px-6 font-mono text-xs font-bold uppercase tracking-[0.08em] text-white transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground sm:col-span-2 lg:col-span-1 lg:w-[68px] lg:px-0"
+      >
+        <VenueIcon name="search" className="size-5" />
+        <span className="lg:sr-only">Search</span>
+      </button>
     </form>
   );
 }

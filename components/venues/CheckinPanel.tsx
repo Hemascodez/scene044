@@ -24,13 +24,13 @@ export function CheckinPanel({ token, initialStatus }: { token: string; initialS
   }
 
   if (status === "checked_in") {
-    return <p className="rounded-2xl bg-signal/10 p-4 text-sm font-bold text-signal-ink">✓ Checked in — the timer has started.</p>;
+    return <p className="border-[1.5px] border-signal-ink bg-signal/10 p-4 text-sm font-bold text-signal-ink">✓ Checked in — the timer has started.</p>;
   }
   if (status === "completed") {
-    return <p className="rounded-2xl bg-muted p-4 text-sm font-bold text-muted-foreground">This event already finished.</p>;
+    return <p className="border-[1.5px] border-foreground/40 bg-muted p-4 text-sm font-bold text-muted-foreground">This event already finished.</p>;
   }
   if (status !== "confirmed") {
-    return <p className="rounded-2xl bg-warn/10 p-4 text-sm text-warn-ink">This booking isn&apos;t paid and confirmed yet — nothing to check in.</p>;
+    return <p className="border-[1.5px] border-warn-ink/60 bg-warn/10 p-4 text-sm text-warn-ink">This booking isn&apos;t paid and confirmed yet — nothing to check in.</p>;
   }
 
   return (
@@ -38,7 +38,7 @@ export function CheckinPanel({ token, initialStatus }: { token: string; initialS
       <button type="button" onClick={checkIn} disabled={busy} className={`${venueButton.primary} w-full disabled:opacity-60`}>
         {busy ? "Checking in…" : "Check in now"}
       </button>
-      {error && <p className="mt-2 text-sm font-semibold text-primary">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm font-semibold text-primary-ink">{error}</p>}
     </div>
   );
 }

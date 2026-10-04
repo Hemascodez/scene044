@@ -59,6 +59,16 @@
   --font-mono: "ui-monospace", "SFMono-Regular", Consolas, monospace;
 
   --radius: 0px;
+
+  /*
+   * Hard offset shadows for the venue surface. A solid ink block with no blur
+   * is what makes a bordered card read as a physical slip on the page.
+   * Spelled as literals: this is an `inline` theme, and the value must be
+   * identical in every utility that uses it.
+   */
+  --shadow-hard-sm: 2px 2px 0 0 #14130d;
+  --shadow-hard: 4px 4px 0 0 #14130d;
+  --shadow-hard-lg: 6px 6px 0 0 #14130d;
 }
 
 html {
@@ -84,16 +94,81 @@ body {
   --venue-paper: var(--color-venue-paper);
   --venue-card: var(--color-venue-card);
   --venue-line: var(--color-venue-line);
-  background:
-    radial-gradient(circle at 85% 8%, rgba(255, 45, 22, 0.045), transparent 28rem),
-    var(--venue-paper);
+  background: var(--venue-paper);
+
+  /*
+   * Venue typography: Montserrat / Space Mono / Work Sans, self-hosted via
+   * @fontsource and imported only by VenueShell, so the events pages never
+   * download them. NOT next/font/google — that broke the Turbopack build
+   * (see f9d82cc), and fontsource has no build-time network dependency.
+   */
+  --venue-font-display: "Montserrat Variable", "Montserrat", Arial, sans-serif;
+  --venue-font-mono: "Space Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --venue-font-body: "Work Sans Variable", "Work Sans", Arial, sans-serif;
+  font-family: var(--venue-font-body);
 }
 
+/*
+ * `--font-display` / `--font-mono` live in an `inline` theme, so the utilities
+ * carry literal Arial/ui-monospace and a custom-property override cannot reach
+ * them. Re-pointing the two utility classes inside the venue surface is the one
+ * place that works, and it leaves every existing `font-display` / `font-mono`
+ * class in the venue components untouched.
+ */
+.venue-surface .font-display,
+.venue-surface .font-sans {
+  font-family: var(--venue-font-display);
+}
+.venue-surface .font-mono {
+  font-family: var(--venue-font-mono);
+}
+.venue-surface .font-body {
+  font-family: var(--venue-font-body);
+}
+
+/*
+ * Press feedback for hard-shadow controls. Lifts toward the light on hover and
+ * sinks into the page on press, which is what a drop-shadow-free "button" needs
+ * to feel clickable. `translate` (not `transform`) matches Tailwind v4's
+ * mechanism so it composes with utility classes on the same element.
+ */
+.venue-press {
+  transition:
+    translate 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+.venue-press:hover:not(:disabled):not([aria-disabled="true"]) {
+  translate: -1px -1px;
+  box-shadow: 4px 4px 0 0 #14130d;
+}
+.venue-press:active:not(:disabled):not([aria-disabled="true"]) {
+  translate: 2px 2px;
+  box-shadow: 0 0 0 0 #14130d;
+}
+
+/*
+ * Form controls inherit the surrounding font AND size. Deliberately unlayered,
+ * so it beats utilities such as `text-sm`: iOS Safari zooms the page into any
+ * input under 16px, so letting a stray `text-sm` through would make every field
+ * zoom on focus.
+ */
 .venue-surface input,
 .venue-surface select,
-.venue-surface textarea,
-.venue-surface button {
+.venue-surface textarea {
   font: inherit;
+}
+
+/*
+ * Buttons only need to inherit by default. They live in the base layer so their
+ * own utilities (`text-xs font-bold font-mono`) win; as an unlayered rule this
+ * used to flatten every button back to body type and made the venue buttons
+ * render larger and lighter than designed.
+ */
+@layer base {
+  .venue-surface button {
+    font: inherit;
+  }
 }
 
 .venue-surface input[type="date"],
@@ -309,4 +384,379 @@ body {
   /* Stops a vertical flick at the top or bottom from rubber-banding the whole
      page, which reads as the app "floating" loose from the screen. */
   overscroll-behavior-y: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Venue motion
+ *
+ * Plain CSS rather than `motion` for these three, on purpose: each animates a
+ * property `motion` has no advantage on (stroke-dashoffset, background-position)
+ * or runs forever on a compositor-friendly transform, so there is no JS to pay
+ * for. Everything else in the venue UI uses `motion`, as the rest of the app does.
+ *
+ * Every block has a reduced-motion override. The stroke-draw icons need the
+ * explicit dash reset: disabling only the animation would leave
+ * stroke-dashoffset at its starting value and the icons permanently invisible.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Request in flight (My bookings · the 48-hour wait) ───────────────── */
+@keyframes rf-beacon {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes rf-halo {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 45, 22, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 9px rgba(255, 45, 22, 0);
+  }
+}
+/* The signal crosses the leg the request is currently travelling. */
+@keyframes rf-signal {
+  0% {
+    left: -6px;
+    opacity: 0;
+  }
+  12%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+@keyframes rf-dash {
+  to {
+    background-position: 10px 0;
+  }
+}
+@keyframes rf-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.rf-beacon {
+  animation: rf-beacon 1.6s ease-in-out infinite;
+}
+.rf-halo {
+  animation: rf-halo 2.2s cubic-bezier(0.2, 0.7, 0.2, 1) infinite;
+}
+.rf-signal {
+  animation: rf-signal 2.6s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+}
+.rf-fill {
+  animation: rf-grow 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: left center;
+}
+.rf-dash {
+  background-image: linear-gradient(90deg, var(--color-foreground) 0 4px, transparent 4px 10px);
+  background-size: 10px 100%;
+  opacity: 0.35;
+  animation: rf-dash 1.1s linear infinite;
+}
+
+/* ── How it works — one slip that becomes a pass ──────────────────────── */
+@keyframes hiw-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes hiw-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes hiw-send {
+  0%,
+  70% {
+    transform: none;
+  }
+  85% {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes hiw-plane {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  60% {
+    transform: translate(14px, -14px);
+    opacity: 0;
+  }
+  61% {
+    transform: translate(-10px, 10px);
+    opacity: 0;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes hiw-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+@keyframes hiw-qr {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* Content entering the slip rises in instead of hard-cutting. */
+@keyframes hiw-swap {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Shock ring thrown off when the host's stamp lands. */
+@keyframes hiw-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+/* The slip dips as it is sent, then settles — a sense of departure. */
+@keyframes hiw-depart {
+  0% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-7px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+/* Perforation rips across once the request becomes a pass. */
+@keyframes hiw-tear {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes hiw-stamp {
+  0% {
+    transform: scale(0.4) rotate(-12deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12) rotate(3deg);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+.hiw-progress {
+  animation: hiw-progress linear forwards;
+}
+.hiw-type {
+  animation: hiw-type 0.55s steps(18, end) both;
+  animation-delay: var(--d, 0ms);
+}
+.hiw-send {
+  animation: hiw-send 0.9s ease both;
+  animation-delay: var(--d, 0ms);
+}
+.hiw-plane {
+  animation: hiw-plane 0.7s cubic-bezier(0.5, 0, 0.3, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+.hiw-pulse {
+  animation: hiw-pulse 1s ease-in-out infinite;
+}
+.hiw-qr rect {
+  animation: hiw-qr 0.2s ease-out both;
+  animation-delay: var(--d, 0ms);
+}
+.hiw-swap {
+  animation: hiw-swap 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+.hiw-burst {
+  animation: hiw-burst 0.75s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 700ms);
+}
+.hiw-depart {
+  animation: hiw-depart 0.85s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.hiw-tear {
+  animation: hiw-tear 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: left center;
+}
+.hiw-stamp {
+  animation: hiw-stamp 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+/* ── Trust section — each icon performs its own meaning ───────────────── */
+/* Strokes draw themselves on as the card scrolls in. --len is tuned per path
+   and must match that path's real length: too short and the stroke breaks into
+   repeating dashes, too long and it snaps visible early. */
+@keyframes trust-draw {
+  from {
+    stroke-dashoffset: var(--len);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes trust-star {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-18deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* The clock completes one sweep — status moving forward over time. */
+@keyframes trust-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.trust-icon svg > * {
+  stroke-dasharray: var(--len);
+  stroke-dashoffset: var(--len);
+}
+[data-in="true"] .trust-icon svg > * {
+  animation: trust-draw 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: calc(var(--d, 0ms) + 260ms);
+}
+[data-in="true"] .trust-icon svg > *:nth-child(2) {
+  animation-delay: calc(var(--d, 0ms) + 560ms);
+}
+/* Per-path stroke lengths, in SVG user units. Measured with getTotalLength()
+   against the VenueIcon paths, rounded up: a length even 2 units short leaves
+   the tail of the stroke undrawn. Re-measure if an icon's path ever changes. */
+.t-i-0 svg > *:nth-child(1) {
+  --len: 55; /* shield outline · measured 54.2 */
+}
+.t-i-0 svg > *:nth-child(2) {
+  --len: 10; /* tick inside · measured 9.9 */
+}
+.t-i-1 svg > *:nth-child(1) {
+  --len: 20; /* standalone tick · measured 19.8 */
+}
+.t-i-2 svg > *:nth-child(1) {
+  --len: 57; /* clock face · measured 56.2 */
+}
+.t-i-2 svg > *:nth-child(2) {
+  --len: 9; /* clock hands · measured 8.6 */
+}
+/* Hands sweep once after they finish drawing. */
+[data-in="true"] .t-i-2 svg > *:nth-child(2) {
+  animation:
+    trust-draw 0.75s cubic-bezier(0.4, 0, 0.2, 1) calc(var(--d, 0ms) + 560ms) both,
+    trust-sweep 1.1s cubic-bezier(0.5, 0, 0.2, 1) calc(var(--d, 0ms) + 1360ms) both;
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+}
+/* Stars cascade rather than appearing as a block. */
+.trust-stars svg {
+  opacity: 0;
+}
+[data-in="true"] .trust-stars svg {
+  animation: trust-star 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.05) both;
+}
+[data-in="true"] .trust-stars svg:nth-child(1) { animation-delay: 0.3s; }
+[data-in="true"] .trust-stars svg:nth-child(2) { animation-delay: 0.38s; }
+[data-in="true"] .trust-stars svg:nth-child(3) { animation-delay: 0.46s; }
+[data-in="true"] .trust-stars svg:nth-child(4) { animation-delay: 0.54s; }
+[data-in="true"] .trust-stars svg:nth-child(5) { animation-delay: 0.62s; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the dashed leg legible, just stop it moving. */
+  .rf-beacon,
+  .rf-halo,
+  .rf-dash,
+  .rf-fill,
+  .hiw-progress,
+  .hiw-type,
+  .hiw-send,
+  .hiw-plane,
+  .hiw-pulse,
+  .hiw-qr rect,
+  .hiw-swap,
+  .hiw-depart,
+  .hiw-tear,
+  .hiw-stamp {
+    animation: none !important;
+  }
+  .rf-signal,
+  .hiw-burst {
+    display: none !important;
+  }
+  /* Everything resolves to its finished state, instantly. Without the dash
+     reset these icons would stay invisible, not merely static. */
+  .trust-icon svg > * {
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+  .trust-stars svg {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+}
+
+/* Blinking caret for the landing headline typewriter. */
+@keyframes venue-caret {
+  50% {
+    opacity: 0;
+  }
+}
+.venue-caret {
+  animation: venue-caret 1s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .venue-caret {
+    animation: none;
+  }
 }

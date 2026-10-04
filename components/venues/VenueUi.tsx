@@ -19,7 +19,9 @@ export type VenueIconName =
   | "shield"
   | "spark"
   | "star"
-  | "wallet";
+  | "wallet"
+  | "wifi"
+  | "bolt";
 
 const PATHS: Record<VenueIconName, ReactNode> = {
   arrow: <path d="M5 12h14M14 7l5 5-5 5" />,
@@ -41,6 +43,8 @@ const PATHS: Record<VenueIconName, ReactNode> = {
   spark: <path d="M12 2l1.7 5.3L19 9l-5.3 1.7L12 16l-1.7-5.3L5 9l5.3-1.7zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />,
   star: <path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />,
   wallet: <><path d="M4 6h14a2 2 0 012 2v11H5a2 2 0 01-2-2V6a3 3 0 013-3h11" /><path d="M15 11h6v5h-6a2.5 2.5 0 010-5z" /></>,
+  wifi: <><path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0" /><circle cx="12" cy="19.5" r="1" /></>,
+  bolt: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
 };
 
 export function VenueIcon({ name, className = "size-5" }: { name: VenueIconName; className?: string }) {
@@ -62,7 +66,7 @@ export function VenueIcon({ name, className = "size-5" }: { name: VenueIconName;
 
 export function VenueKicker({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <span className={`font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-ink ${className}`}>
+    <span className={`font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-primary-ink ${className}`}>
       {children}
     </span>
   );
@@ -80,10 +84,10 @@ export function VenueSectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col justify-between gap-4 border-b border-foreground/20 pb-5 sm:flex-row sm:items-end">
+    <div className="flex flex-col justify-between gap-4 border-b-[1.5px] border-foreground pb-5 sm:flex-row sm:items-end">
       <div className="max-w-2xl">
         <VenueKicker>{kicker}</VenueKicker>
-        <h2 className="mt-2 font-display text-3xl font-black tracking-[-0.04em] sm:text-4xl">{title}</h2>
+        <h2 className="mt-2 font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.03em] sm:text-4xl">{title}</h2>
         {description && <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">{description}</p>}
       </div>
       {action}
@@ -91,14 +95,28 @@ export function VenueSectionHeading({
   );
 }
 
+const BUTTON_BASE =
+  "venue-press inline-flex min-h-11 items-center justify-center gap-2 border-[1.5px] border-foreground px-5 py-2.5 font-mono text-xs font-bold uppercase tracking-[0.06em] shadow-hard-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45";
+
 export const venueButton = {
-  primary:
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white transition-[transform,background-color] duration-200 hover:bg-primary-ink active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45",
-  dark:
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-bold text-background transition-[transform,background-color] duration-200 hover:bg-primary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45",
-  outline:
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-foreground/25 bg-card px-5 py-2.5 text-sm font-bold text-foreground transition-[transform,border-color,background-color] duration-200 hover:border-foreground hover:bg-secondary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45",
+  primary: `${BUTTON_BASE} bg-primary text-white`,
+  dark: `${BUTTON_BASE} bg-foreground text-background`,
+  outline: `${BUTTON_BASE} bg-venue-card text-foreground hover:bg-secondary`,
 } as const;
+
+/**
+ * Shared surfaces and form controls, so a screen restyles by editing one
+ * constant here instead of a class string repeated across a dozen components.
+ *
+ *  - `venueCard`   a bordered slip with a hard shadow (cards, panels)
+ *  - `venueInput`  the text/select/textarea control
+ *  - `venueLabel`  the mono uppercase caption that sits above a control
+ */
+export const venueCard = "border-[1.5px] border-foreground bg-venue-card shadow-hard";
+export const venueCardFlat = "border-[1.5px] border-foreground bg-venue-card";
+export const venueInput =
+  "mt-2 min-h-12 w-full border-[1.5px] border-foreground bg-white px-3.5 text-base outline-none transition-shadow placeholder:text-muted-foreground/60 focus:shadow-hard-sm focus-visible:ring-2 focus-visible:ring-primary sm:text-sm";
+export const venueLabel = "font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground";
 
 export type VenueBookingStatusLabel =
   | "requested"
@@ -110,21 +128,32 @@ export type VenueBookingStatusLabel =
   | "cancelled"
   | "expired";
 
+/**
+ * Booking status badge.
+ *
+ * `checked_in` and `expired` exist in the real VenueBookingStatus but had no
+ * counterpart in the design this restyle came from, so both are designed here:
+ *  - checked_in is the only *live* state, so it is the one filled badge and its
+ *    dot pulses (motion is meaningful here: the event is running right now)
+ *  - expired is a terminal state with no outcome, so it reads as quiet and
+ *    hollow, distinct from `declined` (the host said no) and `cancelled`
+ */
 export function VenueStatus({ status }: { status: VenueBookingStatusLabel }) {
-  const meta = {
-    requested: ["Awaiting host", "bg-warn/10 text-warn-ink"],
-    approved: ["Approved · pay to confirm", "bg-signal/10 text-signal-ink"],
-    confirmed: ["Booked", "bg-signal-ink text-white"],
-    checked_in: ["Checked in", "bg-primary text-white"],
-    completed: ["Completed", "bg-muted text-muted-foreground"],
-    declined: ["Not available", "bg-muted text-muted-foreground"],
-    cancelled: ["Cancelled", "bg-muted text-muted-foreground"],
-    expired: ["Expired", "bg-muted text-muted-foreground"],
-  }[status];
+  const meta: Record<VenueBookingStatusLabel, { label: string; text: string; dot: string }> = {
+    requested: { label: "Awaiting host", text: "text-warn-ink", dot: "bg-warn" },
+    approved: { label: "Approved · pay to confirm", text: "text-primary-ink", dot: "bg-primary" },
+    confirmed: { label: "Booked", text: "text-signal-ink", dot: "bg-signal" },
+    checked_in: { label: "Checked in · live", text: "bg-foreground px-2 py-0.5 text-background", dot: "rf-beacon bg-primary" },
+    completed: { label: "Completed", text: "text-foreground", dot: "bg-foreground" },
+    declined: { label: "Not available", text: "text-primary-ink", dot: "bg-primary" },
+    cancelled: { label: "Cancelled", text: "text-muted-foreground", dot: "bg-muted-foreground" },
+    expired: { label: "Expired · no reply", text: "text-muted-foreground", dot: "border border-muted-foreground bg-transparent" },
+  };
+  const m = meta[status];
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] ${meta[1]}`}>
-      <span className="size-1.5 rounded-full bg-current" aria-hidden />
-      {meta[0]}
+    <span className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] ${m.text}`}>
+      <span className={`size-1.5 ${m.dot}`} aria-hidden />
+      {m.label}
     </span>
   );
 }

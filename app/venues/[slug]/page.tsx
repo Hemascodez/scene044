@@ -63,8 +63,8 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
   if (venue.status === "coming-soon") {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
-        <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-primary-ink">Launching soon</p>
-        <h1 className="mt-3 font-display text-4xl font-black tracking-[-0.05em]">{venue.name}</h1>
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary-ink">Launching soon</p>
+        <h1 className="mt-3 font-display text-4xl font-extrabold tracking-[-0.03em]">{venue.name}</h1>
         <p className="mt-3 text-base text-muted-foreground">{venue.area}, {venue.city} — not bookable yet.</p>
         <Link href="/venues/search" className="mt-6 inline-block font-bold underline underline-offset-4">
           See venues you can book today →

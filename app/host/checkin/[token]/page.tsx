@@ -4,6 +4,7 @@ import { getBookingByCheckinToken } from "@/lib/venueBookings";
 import { formatRupees } from "@/lib/venues";
 import { CheckinPanel } from "@/components/venues/CheckinPanel";
 import { VenueKicker } from "@/components/venues/VenueUi";
+import { VenueShell } from "@/components/venues/VenueShell";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +23,15 @@ export default async function HostCheckinPage({ params }: CheckinPageProps) {
   if (!booking) notFound();
 
   return (
+    <VenueShell active="host">
     <div className="mx-auto max-w-xl px-4 py-10 sm:px-6">
       <VenueKicker>Reception check-in</VenueKicker>
-      <h1 className="mt-2 font-display text-4xl font-black tracking-[-0.05em]">{booking.organizerName}</h1>
+      <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.03em]">{booking.organizerName}</h1>
       <p className="mt-2 text-sm text-muted-foreground">code <span className="font-mono">{booking.code}</span></p>
 
-      <div className="mt-6 overflow-hidden rounded-[24px] border border-foreground/15 bg-card">
-        <div className="border-b border-foreground/12 p-5">
-          <p className="font-display text-2xl font-black">{booking.venueName} · {booking.spaceName}</p>
+      <div className="mt-6 overflow-hidden border-[1.5px] border-foreground bg-venue-card shadow-hard">
+        <div className="border-b-[1.5px] border-foreground p-5">
+          <p className="font-display text-2xl font-extrabold">{booking.venueName} · {booking.spaceName}</p>
           <p className="mt-1 text-sm text-muted-foreground">{booking.eventDate} · {booking.startTime} · {booking.durationHours}h · {booking.people} people</p>
         </div>
         <div className="p-5">
@@ -42,5 +44,6 @@ export default async function HostCheckinPage({ params }: CheckinPageProps) {
         <CheckinPanel token={token} initialStatus={booking.status} />
       </div>
     </div>
+    </VenueShell>
   );
 }

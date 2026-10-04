@@ -57,14 +57,14 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
       <VenueKicker>Venue search</VenueKicker>
-      <h1 className="mt-2 font-display text-4xl font-black tracking-[-0.055em] sm:text-5xl">
+      <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">
         Spaces near {query.location || "Chennai"}
       </h1>
       <div className="mt-7">
         <VenueSearchBar defaults={query} compact />
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-venue-line pb-5">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b-[1.5px] border-foreground pb-5">
         {/* Counts come from the registry, so they stay true as cafes launch. */}
         <p className="text-sm text-muted-foreground">
           <strong className="text-foreground">
@@ -83,7 +83,7 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
             .map((item) => (
               <span
                 key={item}
-                className="rounded-full border border-venue-line bg-card px-3 py-1.5 text-xs font-semibold"
+                className="border-[1.5px] border-foreground bg-venue-card px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
               >
                 {item}
               </span>
@@ -95,8 +95,8 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
       <div id="venue-results" className="mt-8 grid gap-8 scroll-mt-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           {tooSmall ? (
-            <div className="rounded-[22px] border border-dashed border-warn-ink/40 bg-warn/5 p-6">
-              <p className="font-display text-xl font-black">
+            <div className="border-[1.5px] border-dashed border-warn-ink bg-warn/5 p-6">
+              <p className="font-display text-xl font-extrabold">
                 Nothing this size yet — our largest space seats {largestCapacity}.
               </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -123,8 +123,8 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
           ))}
 
           {comingCount > upcoming.length && (
-            <div className="rounded-[22px] border border-dashed border-venue-line p-6 text-center">
-              <p className="font-display text-xl font-black">
+            <div className="border-[1.5px] border-dashed border-foreground/50 p-6 text-center">
+              <p className="font-display text-xl font-extrabold">
                 {comingCount - upcoming.length} more Chennai {comingCount - upcoming.length === 1 ? "cafe" : "cafes"} open
                 for requests soon.
               </p>
@@ -136,19 +136,19 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
           )}
         </div>
 
-        <aside className="h-fit overflow-hidden rounded-[24px] border border-venue-line bg-card lg:sticky lg:top-24">
-          <div className="aspect-[4/3] bg-[#deddd2] p-6">
-            <div className="relative h-full overflow-hidden rounded-[18px] border border-foreground/10 bg-[radial-gradient(circle_at_20%_30%,#fff_0_2px,transparent_3px),linear-gradient(135deg,#e8e7dd_25%,#d6ddd1_25%_50%,#e9e4d9_50%_75%,#d7dfd6_75%)] bg-[length:36px_36px,100%_100%]">
-              <div className="absolute left-[48%] top-[44%] grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-white shadow-lg">
+        <aside className="h-fit overflow-hidden border-[1.5px] border-foreground bg-venue-card shadow-hard lg:sticky lg:top-24">
+          <div className="aspect-[4/3] border-b-[1.5px] border-foreground bg-[#deddd2] p-6">
+            <div className="relative h-full overflow-hidden border border-foreground/20 bg-[radial-gradient(circle_at_20%_30%,#fff_0_2px,transparent_3px),linear-gradient(135deg,#e8e7dd_25%,#d6ddd1_25%_50%,#e9e4d9_50%_75%,#d7dfd6_75%)] bg-[length:36px_36px,100%_100%]">
+              <div className="absolute left-[48%] top-[44%] grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center border-[1.5px] border-foreground bg-primary text-white shadow-hard-sm">
                 <VenueIcon name="map" />
               </div>
-              <span className="absolute bottom-3 left-3 rounded-full bg-card px-3 py-1.5 text-xs font-bold">
+              <span className="absolute bottom-3 left-3 bg-venue-card px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
                 {live[0]?.area ?? "Chennai"}
               </span>
             </div>
           </div>
           <div className="p-5">
-            <p className="font-display text-xl font-black">Where you&apos;ll be</p>
+            <p className="font-display text-xl font-extrabold">Where you&apos;ll be</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Every listing shows its exact address and a map link on the venue page — before you send a
               request.

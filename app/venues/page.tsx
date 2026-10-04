@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { VenueCard } from "@/components/venues/VenueCard";
-import { VenueIcon, VenueKicker, VenueSectionHeading, venueButton } from "@/components/venues/VenueUi";
+import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
 import { VenueReveal } from "@/components/venues/VenueReveal";
 import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
-import { VENUES_IN_ONBOARDING } from "@/lib/venues";
+import { HeroCarousel } from "@/components/venues/landing/HeroCarousel";
+import { HowItWorks } from "@/components/venues/landing/HowItWorks";
+import { TrustSection, type TrustQuote } from "@/components/venues/landing/TrustSection";
+import { Typewriter } from "@/components/venues/landing/Typewriter";
+import { VENUES_IN_ONBOARDING, venueMaxGuests } from "@/lib/venues";
 import { listPublicVenues, toVenueListing } from "@/lib/venueCatalog";
+import { listVenueReviews } from "@/lib/venueBookings";
 
 const TITLE = "Book Event Venues in Chennai — SCENE/044";
 const DESCRIPTION =
@@ -20,134 +24,174 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
 };
 
-const STEPS = [
-  ["01", "Search", "Tell us where, when, and how many people."],
-  ["02", "Compare", "Real capacity, real rates, and what's included — before you commit."],
-  ["03", "Request", "Share the event plan directly with the host."],
-  ["04", "Pay", "Pay only after the venue approves your request."],
-  ["05", "Host", "Arrive with a confirmed booking and clear plan."],
-] as const;
+/** Kinds of event to cycle in the headline — all real booking-form options. */
+const HEADLINE_EVENTS = ["Tech meetup", "Podcast recording", "Workshop", "Wellness session", "Photoshoot"] as const;
 
 /**
- * The organizer's reasons to use this instead of DMing a cafe.
- *
- * The partner page has always had a sharp four-point value stack; the organizer
- * side had only the repeated "pay after approval" line, so the demand side read
- * as thinner than the supply side. Every claim here is one the product actually
- * keeps today.
+ * What a venue partner actually gets today. Every figure here is one the
+ * product enforces: the 10% fee and 90% payout are what the host dashboard
+ * computes, 48 hours is the response window, and organizers are never charged
+ * before a host approves. (The design this page was restyled from advertised
+ * earnings and partner counts the product cannot substantiate; none of that is
+ * carried over.)
  */
-const ORGANIZER_VALUE = [
-  ["wallet", "Nothing upfront", "You pay only once the host says yes. Declined means never charged."],
-  ["people", "Real capacity, stated", "Room-by-room guest limits, so you don't arrive over the line."],
-  ["shield", "Visited & verified", "We check photos, rooms, and pricing with the owner before listing."],
-  ["clock", "A reply in 48 hours", "One request with your plan attached — no chasing for a quote."],
+const HOST_FACTS = [
+  ["90%", "Of every booking is yours, after SCENE's 10% fee"],
+  ["48h", "To approve or decline — you stay in control"],
+  ["₹0", "Charged to organizers before you say yes"],
 ] as const;
 
 export default async function VenuesLandingPage() {
   const venues = await listPublicVenues();
-  const live = venues.filter((venue) => venue.status === "live").map(toVenueListing);
+  const liveVenues = venues.filter((venue) => venue.status === "live");
+  const live = liveVenues.map(toVenueListing);
   const upcoming = venues.filter((venue) => venue.status === "coming-soon").map(toVenueListing);
   const comingCount = upcoming.length + VENUES_IN_ONBOARDING;
 
+  const featured = liveVenues[0];
+  const slides = (featured?.photos ?? []).map((src, index) => ({
+    src,
+    alt: `${featured?.name} event space in ${featured?.area}, photo ${index + 1}`,
+  }));
+
+  // A real, published review or nothing — never an invented testimonial.
+  const reviews = featured ? await listVenueReviews(featured.slug, 10).catch(() => []) : [];
+  const best = reviews.find((review) => review.comment && review.rating >= 4);
+  const quote: TrustQuote | null = best?.comment
+    ? { comment: best.comment, author: [best.organizerName ?? "An organizer", best.eventType].filter(Boolean).join(" · "), rating: best.rating }
+    : null;
+
   return (
     <>
-      <section className="relative overflow-hidden border-b border-foreground/15 bg-foreground text-background">
-        <div className="absolute inset-0" aria-hidden>
-          <Image
-            src="/venues/time-cafe/venue-search-hero-v1.png"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="venue-hero-image object-cover object-[68%_center] opacity-75"
-          />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(20,19,13,.98)_0%,rgba(20,19,13,.92)_35%,rgba(20,19,13,.54)_68%,rgba(20,19,13,.32)_100%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_72%_100%,rgba(255,45,22,.16),transparent_42%)]" />
-        </div>
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
-          <VenueReveal className="max-w-3xl">
-            <VenueKicker className="text-primary">Chennai event spaces · verified in person</VenueKicker>
-            <h1 className="mt-5 max-w-3xl font-display text-[clamp(3.15rem,7vw,6.8rem)] font-black leading-[0.86] tracking-[-0.075em]">
-              Book the room.<br /><span className="text-primary">Skip the DMs.</span>
-            </h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-background/72 sm:text-lg">
-              Real capacity, real hourly rates, and what&apos;s actually included — for meetups, workshops,
-              podcasts and shoots. Send one request and pay nothing until the venue says yes.
-            </p>
-          </VenueReveal>
-          <VenueReveal className="relative z-10 mt-10 max-w-6xl text-foreground" delay={0.12}>
-            <VenueSearchBar />
-            <p className="mt-3 flex items-center gap-2 pl-1 text-xs text-background/55"><VenueIcon name="shield" className="size-4" /> You pay only after the host approves your request.</p>
-          </VenueReveal>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <VenueSectionHeading
-          kicker="Now booking"
-          title="A space that fits the room"
-          description={`${live.length} ${live.length === 1 ? "venue" : "venues"} open for requests${
-            comingCount > 0 ? `, ${comingCount} more launching soon` : ""
-          }. Each one visited and verified before it goes up.`}
-          action={
-            <Link href="/venues/search" className={venueButton.outline}>
-              Browse spaces <VenueIcon name="arrow" className="size-4" />
-            </Link>
-          }
-        />
-        <VenueReveal className="mt-8 grid gap-6 lg:grid-cols-[1.25fr_.75fr]" delay={0.05}>
-          <div className="space-y-6">
-            {live.map((venue, index) => (
-              <VenueCard key={venue.slug} venue={venue} priority={index === 0} />
-            ))}
-            {upcoming.map((venue) => (
-              <VenueCard key={venue.slug} venue={venue} />
-            ))}
+      <section className="mx-auto max-w-7xl px-4 pb-16 pt-12 sm:px-6 md:pb-24 md:pt-20 lg:px-8">
+        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,431fr)_minmax(0,527fr)] lg:gap-16">
+          <div className="max-w-[576px]">
+            <VenueReveal>
+              <p className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-foreground bg-venue-card px-3 py-1 font-mono text-xs tracking-[0.02em] text-muted-foreground">
+                <VenueIcon name="shield" className="size-3.5 text-signal-ink" /> Curated event spaces in Chennai
+              </p>
+            </VenueReveal>
+            <VenueReveal delay={0.08}>
+              <h1 className="mt-6 font-display text-[42px] font-extrabold leading-[1.02] tracking-[-0.035em] sm:text-[52px] lg:text-[60px]">
+                Find a space that <em className="italic text-primary">actually fits</em> your event.
+              </h1>
+            </VenueReveal>
+            <VenueReveal delay={0.16}>
+              <p className="mt-6 text-base leading-7 text-muted-foreground md:text-lg md:leading-[29px]">
+                No calls, no endless WhatsApp threads. See capacity, pricing, and what&rsquo;s included up front — then send one clear request and know exactly what happens next.
+              </p>
+            </VenueReveal>
+            <VenueReveal delay={0.24}>
+              <div className="mt-8">
+                <a href="#spaces" className={`${venueButton.primary} !min-h-12 !px-6 !py-3.5 !text-sm !shadow-hard`}>
+                  Explore venues <VenueIcon name="arrow" className="size-5" />
+                </a>
+              </div>
+              <p className="mt-5 text-sm leading-5 text-muted-foreground">You pay only after a host approves your request. No charge to enquire.</p>
+            </VenueReveal>
           </div>
-          <aside className="flex h-fit flex-col gap-8 self-start overflow-hidden rounded-[24px] bg-primary p-6 text-white sm:p-8">
-            <div>
-              <VenueKicker className="text-white/70">Why book here</VenueKicker>
-              <h3 className="mt-3 font-display text-4xl font-black leading-[0.98] tracking-[-0.05em]">
-                No quotes.<br />No guessing.
-              </h3>
-            </div>
-            <div className="space-y-4">
-              {ORGANIZER_VALUE.map(([icon, title, text]) => (
-                <div key={title} className="border-t border-white/25 pt-4">
-                  <div className="flex items-center gap-2 text-sm font-bold">
-                    <VenueIcon name={icon} className="size-4 shrink-0" /> {title}
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-white/80">{text}</p>
-                </div>
-              ))}
-            </div>
-          </aside>
+
+          {featured && slides.length > 0 && (
+            <VenueReveal delay={0.2} className="relative">
+              <HeroCarousel
+                slides={slides}
+                label={`${featured.name} photos`}
+                className="aspect-[4/4.1] w-full border-[1.5px] border-foreground shadow-hard lg:aspect-auto lg:h-[544px]"
+              />
+              <figure className="absolute -bottom-8 left-3 w-[220px] border-[1.5px] border-foreground bg-venue-card p-4 shadow-hard sm:w-[240px] lg:-left-6 lg:bottom-auto lg:top-[444px]">
+                <figcaption className="flex items-center gap-1.5 text-xs font-medium leading-4 text-signal-ink">
+                  <VenueIcon name="shield" className="size-[15px] shrink-0" /> Visited &amp; verified by SCENE/044
+                </figcaption>
+                <p className="mt-2 font-display text-lg font-bold leading-[22px]">{featured.name}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-sm leading-5 text-muted-foreground">
+                  <VenueIcon name="map" className="size-3.5" /> {featured.area}
+                </p>
+              </figure>
+            </VenueReveal>
+          )}
+        </div>
+
+        <VenueReveal className="relative z-10 mt-20 lg:mt-16" delay={0.3}>
+          <VenueSearchBar />
         </VenueReveal>
       </section>
 
-      <section className="border-y border-foreground/15 bg-card">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <VenueSectionHeading kicker="How it works" title="From search to showtime" description="A request-first flow protects the organizer and gives the venue time to check the fit." />
-          <div className="mt-10 grid gap-px overflow-hidden rounded-[24px] border border-foreground/15 bg-foreground/15 sm:grid-cols-2 lg:grid-cols-5">
-            {STEPS.map(([number, title, text]) => (
-              <div key={number} className="min-h-52 bg-[#f7f5ee] p-5 sm:p-6">
-                <span className="font-mono text-xs font-bold text-primary-ink">{number}</span>
-                <h3 className="mt-12 font-display text-2xl font-black tracking-[-0.04em]">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
-              </div>
-            ))}
-          </div>
+      <section id="how" className="scroll-mt-20 border-y-[1.5px] border-foreground bg-secondary/50">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
+          <VenueKicker>How booking works</VenueKicker>
+          <h2 className="mt-3 max-w-[640px] font-display text-3xl font-extrabold leading-tight tracking-[-0.03em] md:text-[40px]">
+            You host <Typewriter phrases={HEADLINE_EVENTS} />
+            <span className="mt-1 block">we&rsquo;ll find the perfect venue.</span>
+          </h2>
+          <p className="mt-4 max-w-[560px] text-base leading-7 text-muted-foreground">
+            Send a request first. The host confirms what&rsquo;s possible, and only then do you pay and lock it in.
+          </p>
+          <HowItWorks venueName={featured?.name ?? "Your venue"} maxGuests={featured ? venueMaxGuests(featured) : null} />
+          <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2"><VenueIcon name="clock" className="size-4 text-foreground" /> Hosts respond within 48 hours</li>
+            <li className="flex items-center gap-2"><VenueIcon name="map" className="size-4 text-foreground" /> Every venue visited in person</li>
+          </ul>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <div className="relative overflow-hidden rounded-[28px] border border-foreground bg-foreground p-7 sm:p-10 lg:p-14">
-          <div className="absolute -right-10 -top-12 size-52 rounded-full border-[38px] border-primary" aria-hidden />
-          <div className="relative max-w-2xl">
-            <VenueKicker className="text-primary">For cafes, studios &amp; gathering spaces</VenueKicker>
-            <h2 className="mt-3 font-display text-4xl font-black leading-[0.95] tracking-[-0.05em] text-primary sm:text-5xl">Have a venue Chennai should know?</h2>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-primary/80 sm:text-base">We&apos;re onboarding the first partners personally so listings, capacity, pricing, and availability start clean. Leave your details—we&apos;ll do the setup with you.</p>
-            <Link href="/venues/partner" className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-foreground transition-[transform,background-color] duration-200 hover:bg-background active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-foreground">Register your venue <VenueIcon name="arrow" className="size-4" /></Link>
+      <section id="spaces" className="mx-auto max-w-7xl scroll-mt-20 px-4 py-16 sm:px-6 md:py-24 lg:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b-[1.5px] border-foreground pb-5">
+          <div>
+            <VenueKicker>Now booking</VenueKicker>
+            <h2 className="mt-3 font-display text-3xl font-extrabold leading-tight tracking-[-0.03em] md:text-[40px]">Available for reservation</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
+              {live.length} {live.length === 1 ? "venue" : "venues"} open for requests
+              {comingCount > 0 ? `, ${comingCount} more launching soon` : ""}. Each one visited and verified before it goes up.
+            </p>
+          </div>
+          <Link href="/venues/search" className={venueButton.outline}>
+            Browse spaces <VenueIcon name="arrow" className="size-4" />
+          </Link>
+        </div>
+        <div className="mt-10 space-y-8">
+          {live.map((venue, index) => (
+            <VenueReveal key={venue.slug} delay={0.04 * index}>
+              <VenueCard venue={venue} priority={index === 0} />
+            </VenueReveal>
+          ))}
+          {upcoming.map((venue) => (
+            <VenueCard key={venue.slug} venue={venue} />
+          ))}
+        </div>
+        {comingCount > 0 && <p className="mt-6 text-center text-sm text-muted-foreground">More independently owned Chennai venues are joining soon.</p>}
+      </section>
+
+      <TrustSection quote={quote} />
+
+      <section id="hosts" className="scroll-mt-20 px-4 py-16 sm:px-6 md:py-24 lg:px-8">
+        <div className="relative mx-auto max-w-[1216px] overflow-hidden border-[1.5px] border-foreground bg-foreground p-8 text-background shadow-hard-lg md:p-12">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:56px_56px]"
+          />
+          <div className="relative grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-end">
+            <div>
+              <VenueKicker className="text-primary">For cafes, studios &amp; gathering spaces</VenueKicker>
+              <h2 className="mt-3 max-w-[560px] font-display text-3xl font-extrabold leading-tight tracking-[-0.03em] md:text-[40px]">
+                Have a venue Chennai should know?
+              </h2>
+              <p className="mt-4 max-w-[520px] text-background/70">
+                We&rsquo;re onboarding the first partners personally so listings, capacity, pricing, and availability start clean. Leave your details — we&rsquo;ll do the setup with you.
+              </p>
+              <dl className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+                {HOST_FACTS.map(([figure, label]) => (
+                  <div key={figure} className="border-l-2 border-primary pl-3">
+                    <dt className="font-display text-xl font-bold">{figure}</dt>
+                    <dd className="mt-1 text-xs leading-5 text-background/60">{label}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            <div className="flex flex-col gap-3 lg:items-end">
+              <Link href="/venues/partner" className="venue-press inline-flex min-h-12 items-center justify-center gap-2 border-[1.5px] border-background bg-primary px-6 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.06em] text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-background focus-visible:ring-offset-2 focus-visible:ring-offset-foreground">
+                Register your venue <VenueIcon name="arrow" className="size-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
