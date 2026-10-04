@@ -3,6 +3,19 @@
 Read this before changing anything. It is the canonical guide for this
 branch; `CLAUDE.md` points here.
 
+## 🎯 Current task: port this into the Next.js app
+
+The goal for this branch is to port its visual design and motion into the
+real product on `main`. **Read [docs/NEXTJS-PORT.md](./docs/NEXTJS-PORT.md)
+before starting** — it has the screen mapping, the design-token mapping,
+the booking-status mapping (including two states the prototype is missing),
+and what explicitly must not be ported.
+
+The short version: `main` already has the complete venue product (DB-backed
+bookings, Razorpay, WhatsApp OTP, QR check-in). This is a **re-skin and
+motion port onto screens that already exist** — not a rebuild, and not a
+merge. The prototype's data layer, router and auth are throwaway scaffolding.
+
 ## What this branch is
 
 This is the **`venue-redesign`** branch of `Hemascodez/scene044`.
@@ -13,7 +26,7 @@ This is the **`venue-redesign`** branch of `Hemascodez/scene044`.
 > history and no stack** with it. Do not try to reconcile, rebase onto, or
 > merge `main` into this branch, and do not push to `main`. If a task
 > sounds like "integrate this into the real app", that is a **port** to
-> Next.js, not a merge — ask before starting it.
+> Next.js, not a merge — follow [docs/NEXTJS-PORT.md](./docs/NEXTJS-PORT.md).
 
 Two apps live here, sharing one `node_modules` and one React install:
 
