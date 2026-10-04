@@ -10,7 +10,7 @@ This repo holds two things:
 | `src/` | The venue booking web app | Vite 8 + React 19 + Tailwind CSS v4 |
 | `remotion/` | Motion graphics workspace for video assets | Remotion 4.0.532 |
 
-See [CLAUDE.md](./CLAUDE.md) for the full architecture guide (screens, design
+See [AGENTS.md](./AGENTS.md) for the full architecture guide (screens, design
 tokens, animation helpers, dependency constraints).
 
 ## Quickstart
