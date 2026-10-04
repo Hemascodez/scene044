@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "Find thoughtful Chennai venues for tech meetups, workshops, wellness sessions, podcasts, and shoots.",
 };
 
+/* Bare: the designed venue pages render their own header and footer. Pages
+   without a design of their own (search, coming-soon) add <VenueChrome>. */
 export default function VenuesLayout({ children }: { children: ReactNode }) {
-  return <VenueShell>{children}</VenueShell>;
+  return <VenueShell bare>{children}</VenueShell>;
 }

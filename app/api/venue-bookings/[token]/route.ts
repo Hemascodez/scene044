@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBookingByCheckinToken } from "@/lib/venueBookings";
+import { getBookingByCheckinToken, withdrawRequestedBooking } from "@/lib/venueBookings";
 
 /**
  * The organizer's own "what's the live status of my booking" read.
@@ -14,4 +14,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
   return NextResponse.json({ ok: true, booking });
+}
+
+/**
+ * The organizer withdraws a request the host has not answered yet.
+ *
+ * Same bearer-token gate as GET. Only a `requested` booking can be withdrawn;
+ * anything the host has already acted on returns 409 and is left untouched.
+ */
+export async function DELETE(_request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const booking = await getBookingByCheckinToken(token);
+  if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+
+  const withdrawn = await withdrawRequestedBooking(booking.id);
+  if (!withdrawn) {
+    return NextResponse.json(
+      { error: "The host has already responded to this request, so it can't be withdrawn here." },
+      { status: 409 },
+    );
+  }
+  return NextResponse.json({ ok: true, booking: withdrawn });
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createRazorpayOrder } from "@/lib/razorpay";
 import { getBookingByCheckinToken } from "@/lib/venueBookings";
 import { getCatalogVenue } from "@/lib/venueCatalog";
-import { rateForSpace } from "@/lib/venues";
+import { amountDue, rateForSpace } from "@/lib/venues";
 
 /**
  * Creates a Razorpay order for a venue booking's "Pay & confirm" step.
@@ -53,7 +53,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const amountPaise = Math.round(rate * booking.durationHours * 100);
+  // Space cost plus SCENE's 10% organizer service fee. The host's payout is
+  // computed from the space cost alone (booking.total), so it is unaffected.
+  const amountPaise = Math.round(amountDue(rate * booking.durationHours) * 100);
   if (amountPaise < 100) {
     return NextResponse.json({ error: "Amount must be at least ₹1" }, { status: 400 });
   }

@@ -7,11 +7,14 @@ export const VENUE_EVENT_TYPES = [
   "Photoshoot",
   "Videography / ad shoot",
   "Other professional event",
+  // From the approved venue design's booking form.
+  "Networking event",
+  "Product launch",
 ] as const;
 
 export type VenueEventType = (typeof VENUE_EVENT_TYPES)[number];
 
-export type VenueSpaceId = "first-floor" | "terrace" | "standard-table" | "small-table";
+export type VenueSpaceId = "first-floor" | "terrace" | "standard-table" | "small-table" | "korean-table";
 
 export interface VenueSpace {
   id: VenueSpaceId;
@@ -29,7 +32,7 @@ export interface VenueSpace {
 
 export const TIME_CAFE = {
   slug: "time-cafe",
-  name: "Times Cafe",
+  name: "Time Cafe",
   area: "Nungambakkam",
   city: "Chennai",
   address: "1, Krishna Street, Valluvar Kottam High Road, Nungambakkam, Chennai 600034",
@@ -64,69 +67,71 @@ export const TIME_CAFE = {
     "Power access",
     "Reception support",
   ],
+  /*
+   * Spaces, rates and house rules as set out in the approved venue design
+   * (Figma Make). One rate per space: the design prices each space flat, so
+   * community and production rates are equal.
+   */
   spaces: [
     {
       id: "first-floor",
       name: "First-floor event space",
       eyebrow: "Best for meetups",
-      description: "A flexible indoor floor for talks, workshops, recordings, and professional gatherings.",
+      description: "A flexible indoor floor for talks, workshops, recordings, and professional gatherings with full seating and projector setup.",
       capacity: "25–30 people",
       maxGuests: 30,
-      image: "/venues/time-cafe/first-floor-wide.jpeg",
+      image: "/venues/figma/spaces-f33c5.jpg",
       amenities: ["Projector", "Strong wifi", "Flexible tables", "Indoor", "Power access"],
       communityRate: 2000,
-      productionRate: 1000,
-      minimumFoodSpend: 10000,
+      productionRate: 2000,
+      minimumFoodSpend: null,
     },
     {
-      id: "terrace",
-      name: "Open-air terrace",
+      id: "korean-table",
+      name: "Korean table",
       eyebrow: "Best for evenings",
-      description: "A relaxed open terrace for circles, community conversations, and small social formats.",
-      capacity: "25–30 people",
-      maxGuests: 30,
-      image: "/venues/time-cafe/terrace.jpeg",
-      amenities: ["Open air", "Moveable tables", "Ambient lighting"],
-      communityRate: null,
-      productionRate: null,
+      description: "A relaxed spot for focused work and quick team catch-ups with traditional low seating and warm wood craft.",
+      capacity: "Up to 8 people",
+      maxGuests: 8,
+      image: "/venues/figma/spaces-86081.jpg",
+      amenities: ["8 seats", "Low seating", "Cafe service"],
+      communityRate: 1000,
+      productionRate: 1000,
       minimumFoodSpend: null,
     },
     {
       id: "standard-table",
       name: "Conversation table",
       eyebrow: "For a small circle",
-      description: "A dedicated table for mentoring, interviews, and focused small-group conversations.",
+      description: "A dedicated table for mentoring, interviews, and focused small-group conversations with library bookshelf backdrop.",
       capacity: "Up to 4 people",
       maxGuests: 4,
-      image: "/venues/time-cafe/small-table.jpeg",
+      image: "/venues/figma/spaces-d5006.jpg",
       amenities: ["4 seats", "Cafe service", "Power nearby"],
-      communityRate: 500,
-      productionRate: 300,
-      minimumFoodSpend: 3500,
+      communityRate: 400,
+      productionRate: 400,
+      minimumFoodSpend: null,
     },
     {
-      id: "small-table",
-      name: "Small talk table",
-      eyebrow: "For interviews",
-      description: "A compact three-person setup for short talks, podcast pre-production, or 1:1 meetings.",
-      capacity: "Up to 3 people",
-      maxGuests: 3,
-      image: "/venues/time-cafe/small-table.jpeg",
-      amenities: ["3 seats", "Cafe service", "Quiet corner"],
-      communityRate: 400,
-      productionRate: 200,
-      minimumFoodSpend: 3000,
+      id: "terrace",
+      name: "Open terrace · BBQ table",
+      eyebrow: "Social gatherings",
+      description: "A rooftop terrace with a built-in BBQ grill, string lights, and Chennai skyline views — best for sundowners and casual evening cookouts.",
+      capacity: "Up to 16 people",
+      maxGuests: 16,
+      image: "/venues/figma/spaces-terrace_1.jpg",
+      amenities: ["Open air", "BBQ grill", "String lights"],
+      communityRate: 1500,
+      productionRate: 1500,
+      minimumFoodSpend: null,
     },
   ] satisfies VenueSpace[],
   policies: [
-    "Full venue payment is due only after the host approves your request.",
-    "Confirmed booking payments are non-refundable.",
-    "Rescheduling can be requested up to 14 days before the event and depends on availability.",
-    "The organizer is responsible for damage caused during the event.",
-    "For crowded events, food is ordered and collected from reception; table service may not be available.",
-    "Valet service is not available during crowded events.",
-    "Outside food needs prior permission. Pets are not allowed.",
-    "The first floor is used for events while the ground floor continues to operate as a cafe.",
+    "3-hour minimum booking.",
+    "No open flame or fog machines indoors.",
+    "Amplified music until 9:30 PM.",
+    "Outside catering welcome (kitchen not included).",
+    "Free cancellation up to 7 days before your event. Cancel within 7 days and the deposit is held as credit toward a future booking. No charge is taken until the host confirms.",
   ],
 } as const;
 
@@ -208,6 +213,22 @@ export function isProductionEvent(eventType: string) {
 
 export function rateForSpace(space: VenueSpace, eventType: string): number | null {
   return isProductionEvent(eventType) ? space.productionRate : space.communityRate;
+}
+
+/**
+ * SCENE's service fee, charged to the organizer on top of the space cost when
+ * they pay. The host's payout is unaffected: it stays 90% of the space cost
+ * (the host-side 10% SCENE fee), so this fee is SCENE's alone.
+ */
+export const ORGANIZER_SERVICE_FEE_RATE = 0.1;
+
+export function serviceFee(spaceCost: number): number {
+  return Math.round(spaceCost * ORGANIZER_SERVICE_FEE_RATE);
+}
+
+/** What the organizer actually pays: space cost plus the service fee. */
+export function amountDue(spaceCost: number): number {
+  return spaceCost + serviceFee(spaceCost);
 }
 
 export function formatRupees(value: number) {

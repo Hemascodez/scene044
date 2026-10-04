@@ -66,9 +66,28 @@
    * Spelled as literals: this is an `inline` theme, and the value must be
    * identical in every utility that uses it.
    */
-  --shadow-hard-sm: 2px 2px 0 0 #14130d;
-  --shadow-hard: 4px 4px 0 0 #14130d;
-  --shadow-hard-lg: 6px 6px 0 0 #14130d;
+  --shadow-hard-sm: 2px 2px 0 0 #111;
+  --shadow-hard-md: 3px 3px 0 0 #111;
+  --shadow-hard: 4px 4px 0 0 #111;
+  --shadow-hard-lg: 6px 6px 0 0 #111;
+
+  /*
+   * Venue palette, verbatim from the approved Figma Make prototype. Names match
+   * the prototype's so its components port unchanged — except its `muted`
+   * (#66625d text), which collides with this app's `muted` surface colour and is
+   * named `stone` here.
+   */
+  --color-paper: #fcf9f2;
+  --color-paper-2: #fbf8f2;
+  --color-sand: #f4f1ea;
+  --color-line: #e6e0d2;
+  --color-ink: #1c1c18;
+  --color-stone: #66625d;
+  --color-flame: #ff432a;
+  --color-moss: #137e55;
+  /* Error states: deeper than flame so small text passes AA (5.6:1 on white). */
+  --color-danger: #c4210b;
+  --color-danger-tint: #fdeeea;
 }
 
 html {
@@ -94,7 +113,8 @@ body {
   --venue-paper: var(--color-venue-paper);
   --venue-card: var(--color-venue-card);
   --venue-line: var(--color-venue-line);
-  background: var(--venue-paper);
+  background: var(--color-paper);
+  color: var(--color-ink);
 
   /*
    * Venue typography: Montserrat / Space Mono / Work Sans, self-hosted via
@@ -148,26 +168,30 @@ body {
 }
 
 /*
- * Form controls inherit the surrounding font AND size. Deliberately unlayered,
- * so it beats utilities such as `text-sm`: iOS Safari zooms the page into any
- * input under 16px, so letting a stray `text-sm` through would make every field
- * zoom on focus.
+ * Form controls inherit the surrounding font by default, in the base layer so
+ * each control's own utilities (the design's text-[13px], text-sm, …) win.
  */
-.venue-surface input,
-.venue-surface select,
-.venue-surface textarea {
-  font: inherit;
+@layer base {
+  .venue-surface input,
+  .venue-surface select,
+  .venue-surface textarea,
+  .venue-surface button {
+    font: inherit;
+  }
 }
 
 /*
- * Buttons only need to inherit by default. They live in the base layer so their
- * own utilities (`text-xs font-bold font-mono`) win; as an unlayered rule this
- * used to flatten every button back to body type and made the venue buttons
- * render larger and lighter than designed.
+ * iOS Safari zooms the page into any focused field under 16px. The design uses
+ * 13–14px fields, so the 16px floor applies only on iOS touch devices at phone
+ * width — everywhere else the fields render at exactly the designed size.
  */
-@layer base {
-  .venue-surface button {
-    font: inherit;
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 767px) {
+    .venue-surface input,
+    .venue-surface select,
+    .venue-surface textarea {
+      font-size: 16px !important;
+    }
   }
 }
 
@@ -626,91 +650,6 @@ body {
   animation: hiw-stamp 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
 }
 
-/* ── Trust section — each icon performs its own meaning ───────────────── */
-/* Strokes draw themselves on as the card scrolls in. --len is tuned per path
-   and must match that path's real length: too short and the stroke breaks into
-   repeating dashes, too long and it snaps visible early. */
-@keyframes trust-draw {
-  from {
-    stroke-dashoffset: var(--len);
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-@keyframes trust-star {
-  0% {
-    opacity: 0;
-    transform: scale(0.4) rotate(-18deg);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-/* The clock completes one sweep — status moving forward over time. */
-@keyframes trust-sweep {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-.trust-icon svg > * {
-  stroke-dasharray: var(--len);
-  stroke-dashoffset: var(--len);
-}
-[data-in="true"] .trust-icon svg > * {
-  animation: trust-draw 0.75s cubic-bezier(0.4, 0, 0.2, 1) both;
-  animation-delay: calc(var(--d, 0ms) + 260ms);
-}
-[data-in="true"] .trust-icon svg > *:nth-child(2) {
-  animation-delay: calc(var(--d, 0ms) + 560ms);
-}
-/* Per-path stroke lengths, in SVG user units. Measured with getTotalLength()
-   against the VenueIcon paths, rounded up: a length even 2 units short leaves
-   the tail of the stroke undrawn. Re-measure if an icon's path ever changes. */
-.t-i-0 svg > *:nth-child(1) {
-  --len: 55; /* shield outline · measured 54.2 */
-}
-.t-i-0 svg > *:nth-child(2) {
-  --len: 10; /* tick inside · measured 9.9 */
-}
-.t-i-1 svg > *:nth-child(1) {
-  --len: 20; /* standalone tick · measured 19.8 */
-}
-.t-i-2 svg > *:nth-child(1) {
-  --len: 57; /* clock face · measured 56.2 */
-}
-.t-i-2 svg > *:nth-child(2) {
-  --len: 9; /* clock hands · measured 8.6 */
-}
-/* Hands sweep once after they finish drawing. */
-[data-in="true"] .t-i-2 svg > *:nth-child(2) {
-  animation:
-    trust-draw 0.75s cubic-bezier(0.4, 0, 0.2, 1) calc(var(--d, 0ms) + 560ms) both,
-    trust-sweep 1.1s cubic-bezier(0.5, 0, 0.2, 1) calc(var(--d, 0ms) + 1360ms) both;
-  transform-box: view-box;
-  transform-origin: 12px 12px;
-}
-/* Stars cascade rather than appearing as a block. */
-.trust-stars svg {
-  opacity: 0;
-}
-[data-in="true"] .trust-stars svg {
-  animation: trust-star 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.05) both;
-}
-[data-in="true"] .trust-stars svg:nth-child(1) { animation-delay: 0.3s; }
-[data-in="true"] .trust-stars svg:nth-child(2) { animation-delay: 0.38s; }
-[data-in="true"] .trust-stars svg:nth-child(3) { animation-delay: 0.46s; }
-[data-in="true"] .trust-stars svg:nth-child(4) { animation-delay: 0.54s; }
-[data-in="true"] .trust-stars svg:nth-child(5) { animation-delay: 0.62s; }
-
 @media (prefers-reduced-motion: reduce) {
   /* Keep the dashed leg legible, just stop it moving. */
   .rf-beacon,
@@ -733,17 +672,6 @@ body {
   .hiw-burst {
     display: none !important;
   }
-  /* Everything resolves to its finished state, instantly. Without the dash
-     reset these icons would stay invisible, not merely static. */
-  .trust-icon svg > * {
-    stroke-dasharray: none !important;
-    stroke-dashoffset: 0 !important;
-    animation: none !important;
-  }
-  .trust-stars svg {
-    opacity: 1 !important;
-    animation: none !important;
-  }
 }
 
 /* Blinking caret for the landing headline typewriter. */
@@ -759,4 +687,141 @@ body {
   .venue-caret {
     animation: none;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Figma Make prototype — type scale and motion, ported verbatim.
+ *
+ * The prototype loaded one font file per weight under names like
+ * "Montserrat:Bold", so its `font-head` etc. carried their weight implicitly.
+ * Here the fonts are variable (@fontsource, see VenueShell), so each utility
+ * sets family AND weight to reproduce the same result.
+ *
+ * `font-display` / `font-mono` are already taken by the events theme; the
+ * prototype's are `font-p-display` / `font-p-display-i`, and `font-mono` is
+ * re-pointed to Space Mono inside `.venue-surface` (see above).
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@utility font-p-display {
+  font-family: "Montserrat Variable", "Montserrat", sans-serif;
+  font-weight: 800;
+}
+@utility font-p-display-i {
+  font-family: "Montserrat Variable", "Montserrat", sans-serif;
+  font-weight: 800;
+  font-style: italic;
+}
+@utility font-head {
+  font-family: "Montserrat Variable", "Montserrat", sans-serif;
+  font-weight: 700;
+}
+@utility font-semi {
+  font-family: "Montserrat Variable", "Montserrat", sans-serif;
+  font-weight: 600;
+}
+@utility font-serifish {
+  font-family: "Montserrat Variable", "Montserrat", sans-serif;
+  font-weight: 400;
+}
+@utility font-mono-b {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+}
+@utility font-body {
+  font-family: "Work Sans Variable", "Work Sans", sans-serif;
+  font-weight: 400;
+}
+@utility font-body-m {
+  font-family: "Work Sans Variable", "Work Sans", sans-serif;
+  font-weight: 500;
+}
+@utility font-body-sb {
+  font-family: "Work Sans Variable", "Work Sans", sans-serif;
+  font-weight: 600;
+}
+@utility font-body-b {
+  font-family: "Work Sans Variable", "Work Sans", sans-serif;
+  font-weight: 700;
+}
+
+.venue-surface :focus-visible {
+  outline: 2px solid var(--color-flame);
+  outline-offset: 3px;
+}
+
+@keyframes pv-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes pv-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pv-pop { 0% { opacity: 0; transform: translate(-4px, 14px) scale(.97); } 100% { opacity: 1; transform: none; } }
+@keyframes pv-shake { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@keyframes pv-stamp { 0% { transform: scale(.4) rotate(-12deg); opacity: 0; } 60% { transform: scale(1.12) rotate(3deg); opacity: 1; } 100% { transform: none; } }
+@keyframes pv-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes pv-caret { 50% { opacity: 0; } }
+@keyframes pv-page-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes pv-flash { 0% { box-shadow: 0 0 0 0 rgba(255, 67, 42, .55); } 100% { box-shadow: 0 0 0 14px rgba(255, 67, 42, 0); } }
+@keyframes pv-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes t-draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes t-star { 0% { opacity: 0; transform: scale(.4) rotate(-18deg); } 60% { opacity: 1; transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
+@keyframes t-sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+@layer components {
+  .venue-surface .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform .7s cubic-bezier(.2, .7, .2, 1); transition-delay: var(--d, 0ms); }
+  .venue-surface .reveal.is-in { opacity: 1; transform: none; }
+  .venue-surface .rise { animation: pv-rise .7s cubic-bezier(.2, .7, .2, 1) both; animation-delay: var(--d, 0ms); }
+  .venue-surface .anim-fade { animation: pv-fade .25s ease-out both; }
+  .venue-surface .anim-pop { animation: pv-pop .38s cubic-bezier(.2, .9, .25, 1.05) both; }
+  .venue-surface .anim-shake { animation: pv-shake .4s ease-in-out; }
+  .venue-surface .anim-stamp { animation: pv-stamp .55s cubic-bezier(.2, .9, .3, 1.2) both; }
+  .venue-surface .press { transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+  .venue-surface .press:hover:not(:disabled) { transform: translate(-1px, -1px); filter: drop-shadow(1px 1px 0 #111); }
+  .venue-surface .press:active:not(:disabled) { transform: translate(2px, 2px); filter: none; }
+}
+.venue-surface .caret { animation: pv-caret 1s steps(1) infinite; }
+.venue-surface .page-in { animation: pv-page-in .5s cubic-bezier(.2, .7, .2, 1) both; }
+.venue-surface .booking.flash > * { animation: pv-flash .7s ease-out; }
+.venue-surface .gauge-ring { transition: stroke-dashoffset 1.1s cubic-bezier(.2, .7, .2, 1); }
+.venue-surface .bar-fill { transform: scaleX(0); transform-origin: left center; }
+.venue-surface .bar-fill.run { animation: pv-bar-grow 1.4s cubic-bezier(.2, .7, .2, 1) .15s both; }
+
+/* Trust section — strokes draw themselves on as each card scrolls in. --len
+   must match the path's real length (measured; see docs/venue-design-system.md). */
+.venue-surface .trust-icon svg > * { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); }
+.venue-surface .trust-card.is-in .trust-icon svg > * { animation: t-draw .75s cubic-bezier(.4, 0, .2, 1) both; animation-delay: calc(var(--d, 0ms) + 260ms); }
+.venue-surface .trust-card.is-in .trust-icon svg > *:nth-child(2) { animation-delay: calc(var(--d, 0ms) + 560ms); }
+.venue-surface .t-i-0 svg > *:nth-child(1) { --len: 52; }
+.venue-surface .t-i-0 svg > *:nth-child(2) { --len: 10; }
+.venue-surface .t-i-1 svg > *:nth-child(1) { --len: 21; }
+.venue-surface .t-i-2 svg > *:nth-child(1) { --len: 58; }
+.venue-surface .t-i-2 svg > *:nth-child(2) { --len: 10; }
+.venue-surface .trust-card.is-in .t-i-2 svg > *:nth-child(2) {
+  animation:
+    t-draw .75s cubic-bezier(.4, 0, .2, 1) calc(var(--d, 0ms) + 560ms) both,
+    t-sweep 1.1s cubic-bezier(.5, 0, .2, 1) calc(var(--d, 0ms) + 1360ms) both;
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+}
+.venue-surface .trust-stars svg { opacity: 0; }
+.venue-surface .trust-quote.is-in .trust-stars svg { animation: t-star .42s cubic-bezier(.2, .9, .25, 1.05) both; }
+.venue-surface .trust-quote.is-in .trust-stars svg:nth-child(1) { animation-delay: .30s; }
+.venue-surface .trust-quote.is-in .trust-stars svg:nth-child(2) { animation-delay: .38s; }
+.venue-surface .trust-quote.is-in .trust-stars svg:nth-child(3) { animation-delay: .46s; }
+.venue-surface .trust-quote.is-in .trust-stars svg:nth-child(4) { animation-delay: .54s; }
+.venue-surface .trust-quote.is-in .trust-stars svg:nth-child(5) { animation-delay: .62s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .venue-surface .reveal,
+  .venue-surface .rise,
+  .venue-surface .anim-fade,
+  .venue-surface .anim-pop,
+  .venue-surface .anim-shake,
+  .venue-surface .anim-stamp { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
+  .venue-surface .caret { animation: none; }
+  .venue-surface .page-in,
+  .venue-surface .booking.flash > * { animation: none !important; }
+  .venue-surface .gauge-ring { transition: none !important; }
+  .venue-surface .bar-fill.run { animation-duration: .5s; animation-delay: 0s; }
+  /* Stroke-draw icons resolve to their finished state; without the dash reset
+     they would stay invisible rather than merely static. */
+  .venue-surface .trust-icon svg > * { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
+  .venue-surface .trust-card.is-in .trust-icon svg > *,
+  .venue-surface .trust-quote.is-in .trust-stars svg { animation: none !important; }
+  .venue-surface .trust-stars svg { opacity: 1 !important; }
 }

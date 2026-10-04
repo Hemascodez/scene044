@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { VenueDetail } from "@/components/venues/VenueDetail";
+import FigmaVenueDetail from "@/components/venues/figma/VenueDetail";
+import { VenueChrome } from "@/components/venues/figma/VenueChrome";
 import { getCatalogVenue } from "@/lib/venueCatalog";
 import { aspectScores, listVenueReviews, summariseReviews } from "@/lib/venueBookings";
 import {
@@ -62,6 +64,7 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
 
   if (venue.status === "coming-soon") {
     return (
+      <VenueChrome>
       <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
         <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-primary-ink">Launching soon</p>
         <h1 className="mt-3 font-display text-4xl font-extrabold tracking-[-0.03em]">{venue.name}</h1>
@@ -70,6 +73,21 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
           See venues you can book today →
         </Link>
       </div>
+      </VenueChrome>
+    );
+  }
+
+  const jsonLdTimeCafe = [venueBreadcrumbStructuredData(venue), venueStructuredData(venue)];
+  if (venue.slug === "time-cafe") {
+    // The approved Figma Make design is specific to Time Cafe's photos, spaces
+    // and content; other venues fall through to the generic venue page below.
+    return (
+      <>
+        {jsonLdTimeCafe.map((data, index) => (
+          <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }} />
+        ))}
+        <FigmaVenueDetail />
+      </>
     );
   }
 
@@ -85,6 +103,7 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
         />
       ))}
+      <VenueChrome>
       <VenueDetail
         venue={venue}
         reviews={reviews}
@@ -97,6 +116,7 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
           eventType: first(query.eventType) ?? "Tech meetup",
         }}
       />
+      </VenueChrome>
     </>
   );
 }

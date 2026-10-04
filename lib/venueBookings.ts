@@ -266,6 +266,27 @@ export async function setBookingStatus(
 }
 
 /**
+ * The organizer withdrawing their own request.
+ *
+ * Only ever from `requested`: once a host has approved (or the organizer has
+ * paid), cancelling is a different conversation with money involved, so this
+ * deliberately cannot reach those states — unlike setBookingStatus, whose
+ * `cancelled` transition also accepts `approved` and `confirmed`. The status
+ * check lives in the UPDATE itself, so a host approving at the same moment
+ * cannot be overwritten.
+ */
+export async function withdrawRequestedBooking(id: number): Promise<VenueBooking | null> {
+  const { rows } = await query<VenueBooking>(
+    `UPDATE venue_bookings
+        SET status = 'cancelled', updated_at = now()
+      WHERE id = $1 AND status = 'requested'
+      RETURNING ${BOOKING_COLUMNS}`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+/**
  * Starts the event clock.
  *
  * `ends_at` is derived here, in SQL, from the moment of the scan — not from the

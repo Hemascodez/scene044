@@ -4,6 +4,7 @@ import { VenueCard } from "@/components/venues/VenueCard";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
 import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
 import { ScrollToResultsOnSearch } from "@/components/venues/ScrollToResultsOnSearch";
+import { VenueChrome } from "@/components/venues/figma/VenueChrome";
 import { VENUES_IN_ONBOARDING, venueFitsGroup, venueMaxGuests } from "@/lib/venues";
 import { listPublicVenues, toVenueListing } from "@/lib/venueCatalog";
 
@@ -55,6 +56,7 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
   const comingCount = upcoming.length + VENUES_IN_ONBOARDING;
 
   return (
+    <VenueChrome>
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
       <VenueKicker>Venue search</VenueKicker>
       <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">
@@ -157,5 +159,6 @@ export default async function VenueSearchPage({ searchParams }: SearchPageProps)
         </aside>
       </div>
     </div>
+    </VenueChrome>
   );
 }
