@@ -393,7 +393,7 @@ export default function HostWorkspace({
           {/* Navigation - Host workspace sections */}
           <nav
             aria-label="Host workspace sections"
-            className="flex gap-2 overflow-x-auto border-t border-line py-1 scrollbar-none"
+            className="relative flex gap-2 overflow-x-auto border-t border-line py-1 scrollbar-none"
           >
             <button
               type="button"
