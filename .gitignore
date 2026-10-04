@@ -1,0 +1,7 @@
+node_modules
+dist
+out
+.remotion
+*.log
+.DS_Store
+.vite

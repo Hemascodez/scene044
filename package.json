@@ -1,0 +1,42 @@
+{
+  "name": "scene044",
+  "version": "1.0.0",
+  "description": "Scene044 — venue booking platform (Vite + React + Tailwind) with a Remotion motion-graphics workspace",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "repository": {},
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "video:studio": "remotion studio remotion/index.ts",
+    "video:render": "remotion render remotion/index.ts SampleVideo out/SampleVideo.mp4",
+    "video:still": "remotion still remotion/index.ts",
+    "video:bundle": "remotion bundle remotion/index.ts",
+    "video:typecheck": "tsc -p remotion/tsconfig.json --noEmit",
+    "video:upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "@remotion/transitions": "4.0.532",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.532",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.7",
+    "@types/web": "0.0.166",
+    "@vitejs/plugin-react-swc": "^4.3.3",
+    "eslint": "9.39.5",
+    "prettier": "3.8.1",
+    "tailwindcss": "^4.0.0",
+    "typescript": "5.9.3",
+    "vite": "^8.0.5"
+  }
+}

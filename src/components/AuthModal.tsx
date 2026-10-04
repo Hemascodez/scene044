@@ -1,0 +1,385 @@
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import FieldError from './FieldError'
+import { ArrowRight, Check, Close, Phone, Search } from './icons'
+
+export type Profile = { name: string; phone: string; role: 'Organiser' | 'Host'; venue?: string }
+
+const VENUES = ['Time Cafe', 'Backyard Cafe', 'The Grand Ballroom', 'Studio 04', 'Rooftop Terrace']
+const DEMO_CODE = '123456'
+const RESEND_SECS = 30
+
+type Step = 'details' | 'otp' | 'verified'
+
+const label = 'font-mono-b text-[10px] leading-[15px] tracking-[0.8px] uppercase text-muted'
+const field =
+  'w-full bg-transparent font-body-m text-sm text-ink placeholder:text-muted/50 focus:outline-none'
+
+export default function AuthModal({
+  open,
+  saved,
+  onClose,
+  onVerified,
+  submitting = false,
+}: {
+  open: boolean
+  saved: Profile | null
+  onClose: () => void
+  onVerified: (p: Profile) => void
+  /** True when auth was triggered mid-booking, so a request is sent after verifying. */
+  submitting?: boolean
+}) {
+  const [step, setStep] = useState<Step>('details')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [role, setRole] = useState<Profile['role']>('Organiser')
+  const [venue, setVenue] = useState<string | undefined>()
+  const [query, setQuery] = useState('')
+  const [digits, setDigits] = useState<string[]>(Array(6).fill(''))
+  const [error, setError] = useState('')
+  const [shakeKey, setShakeKey] = useState(0)
+  const [secs, setSecs] = useState(RESEND_SECS)
+
+  const panel = useRef<HTMLDivElement>(null)
+  const venueBox = useRef<HTMLFieldSetElement>(null)
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  const lastFocus = useRef<HTMLElement | null>(null)
+  const titleId = useId()
+  const descId = useId()
+
+  // Reset + auto-fill returning users each time the dialog opens
+  useEffect(() => {
+    if (!open) return
+    lastFocus.current = document.activeElement as HTMLElement
+    setStep('details')
+    setName(saved?.name ?? '')
+    setPhone(saved?.phone ?? '')
+    setRole(saved?.role ?? 'Organiser')
+    setVenue(saved?.venue)
+    setQuery('')
+    setDigits(Array(6).fill(''))
+    setError('')
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+      lastFocus.current?.focus()
+    }
+  }, [open, saved])
+
+  // Move focus into the dialog on each step
+  useEffect(() => {
+    if (!open) return
+    const t = setTimeout(() => {
+      if (step === 'otp') otpRefs.current[0]?.focus()
+      else if (step === 'details') {
+        const target = panel.current?.querySelector<HTMLElement>(saved ? '[data-autofocus-returning]' : 'input')
+        target?.focus()
+      } else panel.current?.querySelector<HTMLElement>('[data-close]')?.focus()
+    }, 60)
+    return () => clearTimeout(t)
+  }, [open, step, saved])
+
+  // Resend countdown
+  useEffect(() => {
+    if (step !== 'otp' || secs <= 0) return
+    const t = setTimeout(() => setSecs((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [step, secs])
+
+  const phoneDigits = phone.replace(/\D/g, '')
+  const valid = name.trim().length >= 2 && phoneDigits.length === 10 && (role === 'Organiser' || !!venue)
+  const code = digits.join('')
+  const firstName = name.trim().split(/\s+/)[0]
+  const venues = useMemo(() => VENUES.filter((v) => v.toLowerCase().includes(query.toLowerCase())), [query])
+
+  if (!open) return null
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') onClose()
+    if (e.key !== 'Tab' || !panel.current) return
+    const els = panel.current.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    )
+    const first = els[0]
+    const last = els[els.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
+  const sendOtp = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!valid) return
+    setDigits(Array(6).fill(''))
+    setError('')
+    setSecs(RESEND_SECS)
+    setStep('otp')
+  }
+
+  const verify = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (code.length < 6) return
+    if (code !== DEMO_CODE) {
+      setError(`Incorrect code. Try ${DEMO_CODE} for this demo.`)
+      setShakeKey((k) => k + 1)
+      return
+    }
+    setStep('verified')
+    const profile: Profile = { name: name.trim(), phone: phoneDigits, role, venue: role === 'Host' ? venue : undefined }
+    setTimeout(() => onVerified(profile), 2000)
+  }
+
+  const eyebrow = step === 'otp' ? 'Verify number' : step === 'verified' ? 'Verified' : saved ? 'Welcome back' : 'Create account'
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6"
+      onKeyDown={onKeyDown}
+    >
+      <div className="anim-fade absolute inset-0 bg-black/60 backdrop-blur-[8px]" onClick={onClose} aria-hidden="true" />
+
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        key={step}
+        className="anim-pop relative max-h-[92dvh] w-full overflow-y-auto border-[1.5px] border-ink bg-paper shadow-hard-lg sm:max-w-[384px]"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-paper px-5 py-4">
+          <p className="font-mono-b text-[11px] leading-[16.5px] tracking-[1.32px] uppercase text-flame">{eyebrow}</p>
+          <button
+            type="button"
+            data-close
+            onClick={onClose}
+            aria-label="Close sign-up"
+            className="grid size-8 place-items-center text-ink transition-transform hover:rotate-90"
+          >
+            <Close className="size-[18px]" />
+          </button>
+        </div>
+
+        {step === 'details' && (
+          <form onSubmit={sendOtp} noValidate className="px-5 pt-6">
+            <h2 id={titleId} className="font-head text-2xl leading-[30px]">
+              {saved ? `Good to see you, ${saved.name.split(' ')[0]}` : 'Join to request a booking'}
+            </h2>
+            <p id={descId} className="mt-2 text-sm leading-[22.75px] text-muted">
+              {saved
+                ? "We've filled in your details from last time. Confirm and we'll send a fresh code to your WhatsApp."
+                : "We'll send a one-time code to your WhatsApp to verify your number."}
+            </p>
+
+            <div className="mt-6 border-[1.5px] border-ink shadow-hard-sm">
+              <label className="flex flex-col gap-1 border-b border-ink p-3 transition-colors focus-within:bg-paper-2">
+                <span className={label}>Your name</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Aravind Kumar"
+                  autoComplete="name"
+                  required
+                  className={`${field} ${saved && name === saved.name ? 'bg-[#e8f0fe]' : ''} h-5 px-0`}
+                />
+              </label>
+              <label className="flex flex-col gap-1 border-b border-ink p-3 transition-colors focus-within:bg-paper-2">
+                <span className={label}>Mobile number</span>
+                <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-body-m text-sm text-muted">
+                    <Phone className="size-3.5" />
+                    +91
+                  </span>
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 11))}
+                    placeholder="98765 43210"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    required
+                    aria-describedby="phone-hint"
+                    className={`${field} ${saved && phoneDigits === saved.phone ? 'bg-[#e8f0fe]' : ''} h-5`}
+                  />
+                </span>
+              </label>
+
+              <fieldset className={`p-3 ${role === 'Host' ? 'border-b border-ink' : ''}`}>
+                <legend className={`${label} float-left mb-2 w-full`}>Select category</legend>
+                <div className="clear-left flex gap-4" role="radiogroup" aria-label="Select category">
+                  {(['Organiser', 'Host'] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      role="radio"
+                      aria-checked={role === r}
+                      data-autofocus-returning={role === r ? '' : undefined}
+                      onClick={() => {
+                        setRole(r)
+                        if (r === 'Host') setTimeout(() => venueBox.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80)
+                      }}
+                      className={`rounded-[4px] border border-[#111] px-3.5 py-2 font-semi text-[11px] transition-colors duration-200 ${
+                        role === r ? 'bg-flame text-white' : 'bg-white text-ink hover:bg-paper-2'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              {role === 'Host' && (
+                <fieldset ref={venueBox} className="rise scroll-mb-28 p-3">
+                  <legend className={`${label} float-left mb-2 w-full`}>Chose your venue</legend>
+                  <label className="clear-left flex items-center gap-3 border-[1.5px] border-ink p-3 shadow-hard-sm focus-within:bg-paper-2">
+                    <Search className="size-4 text-muted" />
+                    <span className="sr-only">Search for venues</span>
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search for venues…"
+                      className={field}
+                    />
+                  </label>
+                  <div className="space-y-2 pt-4" role="radiogroup" aria-label="Venues">
+                    {venues.length === 0 && <p className="text-sm text-muted">No venues match “{query}”.</p>}
+                    {venues.map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-2.5 font-body-m text-sm text-muted">
+                        <input
+                          type="radio"
+                          name="venue"
+                          checked={venue === v}
+                          onChange={() => {
+                            setVenue(v)
+                            setTimeout(() => panel.current?.scrollTo({ top: panel.current.scrollHeight, behavior: 'smooth' }), 120)
+                          }}
+                          className="peer sr-only"
+                        />
+                        <span
+                          aria-hidden="true"
+                          className="grid size-4 place-items-center border-[1.5px] border-ink bg-white shadow-[1px_1px_0_#111] peer-checked:[&>span]:scale-100 peer-focus-visible:outline-2 peer-focus-visible:outline-flame"
+                        >
+                          <span className="size-2 scale-0 bg-flame transition-transform duration-200" />
+                        </span>
+                        <span className="peer-checked:text-ink">{v}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 -mx-5 mt-4 border-t border-line bg-paper px-5 pb-5 pt-3">
+              <p id="phone-hint" className="text-xs leading-[19.5px] text-muted">
+                You'll receive a 6-digit code on <span className="text-ink">WhatsApp</span>. Standard data rates may apply.
+              </p>
+              <button
+                type="submit"
+                disabled={!valid}
+                className="press mt-3 flex w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-flame px-4 py-3.5 font-mono-b text-xs leading-4 tracking-[0.72px] uppercase text-white shadow-hard-md transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Send OTP on WhatsApp <ArrowRight />
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === 'otp' && (
+          <form onSubmit={verify} noValidate className="px-5 py-6">
+            <h2 id={titleId} className="font-head text-2xl leading-[30px]">
+              Enter the code
+            </h2>
+            <p id={descId} className="mt-2 text-sm leading-[22.75px] text-muted">
+              We sent a 6-digit code to your WhatsApp at <span className="text-ink">+91 {phoneDigits}</span>.
+            </p>
+            <fieldset className="mt-6">
+              <legend className="sr-only">6-digit verification code</legend>
+              <div key={shakeKey} className={error ? 'anim-shake' : ''}>
+                <input
+                  ref={(el) => {
+                    otpRefs.current[0] = el
+                  }}
+                  value={code}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, '').slice(0, 6).split('')
+                    setDigits([...clean, ...Array(6 - clean.length).fill('')])
+                    setError('')
+                  }}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="······"
+                  aria-label="6-digit verification code"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'otp-error' : undefined}
+                  className={`h-14 w-full border-[1.5px] bg-paper text-center font-head text-2xl tracking-[0.5em] transition-colors duration-150 placeholder:text-muted/40 focus:outline-none ${
+                    error ? 'anim-shake border-danger bg-danger-tint text-danger' : 'border-ink focus:bg-paper-2'
+                  }`}
+                />
+              </div>
+            </fieldset>
+            <div aria-live="assertive" className="min-h-[26px] pt-2">
+              <FieldError id="otp-error" live={false}>
+                {error}
+              </FieldError>
+            </div>
+            <button
+              type="submit"
+              disabled={code.length < 6}
+              className="press mt-3 flex w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-flame px-4 py-3.5 font-mono-b text-xs leading-4 tracking-[0.72px] uppercase text-white shadow-hard-md transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Verify &amp; continue <ArrowRight />
+            </button>
+            <div className="flex items-center justify-between pt-4">
+              <button
+                type="button"
+                onClick={() => setStep('details')}
+                className="font-mono-b text-[10px] leading-[15px] tracking-[0.6px] uppercase text-muted underline hover:text-ink"
+              >
+                Change number
+              </button>
+              {secs > 0 ? (
+                <p className="font-mono text-[10px] leading-[15px] tracking-[0.4px] uppercase text-muted" aria-live="polite">
+                  Resend in {secs}s
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSecs(RESEND_SECS)
+                    setDigits(Array(6).fill(''))
+                    setError('')
+                    otpRefs.current[0]?.focus()
+                  }}
+                  className="font-mono-b text-[10px] leading-[15px] tracking-[0.6px] uppercase text-flame underline"
+                >
+                  Resend code
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+
+        {step === 'verified' && (
+          <div className="flex min-h-[248px] flex-col items-center justify-center px-5 py-10 text-center" role="status">
+            <span className="anim-stamp grid size-14 place-items-center border-[1.5px] border-ink bg-flame text-white shadow-hard-md">
+              <Check className="size-7" strokeWidth={2.5} />
+            </span>
+            <h2 id={titleId} className="rise mt-6 font-head text-xl" style={{ '--d': '200ms' } as React.CSSProperties}>
+              You're verified, {firstName}!
+            </h2>
+            <p id={descId} className="rise mt-2 text-sm text-muted" style={{ '--d': '300ms' } as React.CSSProperties}>
+              {submitting ? 'Submitting your request now…' : 'Getting your profile ready…'}
+            </p>
+            <div className="mt-6 h-1 w-32 overflow-hidden bg-line" aria-hidden="true">
+              <div className="h-full origin-left animate-[grow_2s_linear_forwards] bg-ink" />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
