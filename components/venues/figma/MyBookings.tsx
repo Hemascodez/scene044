@@ -26,7 +26,7 @@ const quoteIcon = '/venues/figma/profile-971d5.svg'
 type Tab = 'upcoming' | 'past' | 'declined' | 'for-you' | 'yours'
 type Toast = { id: number; msg: string; tone: 'ok' | 'error' }
 
-const PHOTO_KEY = 'scene044.photo'
+const PHOTO_KEY_PREFIX = 'scene044.photo.v2:'
 const QR = ['11110111', '11101000', '11100111', '10010010', '01001001', '10100100', '10110010', '10101001']
 const mono = 'font-mono-b text-[10px] leading-[15px] tracking-[0.6px] uppercase'
 const card = 'border-[1.5px] border-ink bg-white shadow-hard'
@@ -42,8 +42,9 @@ const statusMeta: Record<Booking['status'], { label: string; color: string }> = 
   withdrawn: { label: 'Withdrawn', color: 'text-stone bg-stone' },
 }
 
-const loadPhoto = () => {
-  const v = localStorage.getItem(PHOTO_KEY)
+const loadPhoto = (phone: string | undefined) => {
+  if (!phone) return avatarDefault
+  const v = localStorage.getItem(`${PHOTO_KEY_PREFIX}${phone}`)
   return v === null ? avatarDefault : v === '' ? null : v
 }
 
@@ -430,7 +431,7 @@ export default function MyBookings({
   setBookings: (fn: (b: Booking[]) => Booking[]) => void
   reviews: Review[]
   setReviews: (fn: (r: Review[]) => Review[]) => void
-  onSaveProfile: (p: Profile) => void
+  onSaveProfile: (p: Profile) => Promise<void>
   onAuth: () => void
   onExplore: () => void
   onHome: () => void
@@ -450,8 +451,8 @@ export default function MyBookings({
   const [photo, setPhoto] = useState<string | null>(avatarDefault)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reads localStorage after mount
-    setPhoto(loadPhoto())
-  }, [])
+    setPhoto(loadPhoto(profile?.phone))
+  }, [profile?.phone])
   const [toasts, setToasts] = useState<Toast[]>([])
   const [paying, setPaying] = useState<Booking | null>(null)
   const [payBusy, setPayBusy] = useState(false)
@@ -474,7 +475,7 @@ export default function MyBookings({
   const savePhoto = (src: string | null) => {
     setPhoto(src)
     try {
-      localStorage.setItem(PHOTO_KEY, src ?? '')
+      if (profile?.phone) localStorage.setItem(`${PHOTO_KEY_PREFIX}${profile.phone}`, src ?? '')
     } catch {
       /* storage full — keep in memory only */
     }

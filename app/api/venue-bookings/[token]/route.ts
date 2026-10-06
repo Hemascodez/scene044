@@ -1,31 +1,35 @@
 import { NextResponse } from "next/server";
 import { getBookingByCheckinToken, withdrawRequestedBooking } from "@/lib/venueBookings";
+import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 
 /**
  * The organizer's own "what's the live status of my booking" read.
  *
- * Gated by possession of the checkin token rather than a login — the token is
- * 48 hex characters from `crypto.randomBytes`, effectively unguessable, unlike
- * the human-readable `code` (meant to be read aloud, never a secret).
+ * A verified account must own the booking. The check-in token is used to
+ * locate it, but possession of that token alone is not organizer access.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const user = await getVenueUserFromRequest(request);
+  if (!user) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   const { token } = await params;
   const booking = await getBookingByCheckinToken(token);
-  if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (!booking || booking.organizerUserId !== user.id) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-  return NextResponse.json({ ok: true, booking });
+  return NextResponse.json({ ok: true, booking }, { headers: { "Cache-Control": "no-store" } });
 }
 
 /**
  * The organizer withdraws a request the host has not answered yet.
  *
- * Same bearer-token gate as GET. Only a `requested` booking can be withdrawn;
+ * Same ownership gate as GET. Only a `requested` booking can be withdrawn;
  * anything the host has already acted on returns 409 and is left untouched.
  */
-export async function DELETE(_request: Request, { params }: { params: Promise<{ token: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const user = await getVenueUserFromRequest(request);
+  if (!user) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   const { token } = await params;
   const booking = await getBookingByCheckinToken(token);
-  if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (!booking || booking.organizerUserId !== user.id) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
   const withdrawn = await withdrawRequestedBooking(booking.id);
   if (!withdrawn) {

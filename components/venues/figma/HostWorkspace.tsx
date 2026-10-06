@@ -220,7 +220,7 @@ export default function HostWorkspace({
 }: {
   hostName?: string
   profile?: Profile | null
-  onSaveProfile?: (p: Profile) => void
+  onSaveProfile?: (p: Profile) => Promise<void>
   onAuth?: () => void
   onExit: () => void
   onLogout?: () => void

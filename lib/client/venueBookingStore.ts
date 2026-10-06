@@ -4,10 +4,8 @@
  * Bookings themselves live in Postgres now (lib/venueBookings.ts, via
  * /api/venue-bookings), not in localStorage — the booking record the host
  * approves, gets paid against, and checks in against has to be the same row
- * everywhere. What still lives here is much smaller: which checkin tokens
- * belong to this browser, so "My bookings" knows which server records to ask
- * for without a login system. The token itself (48 hex chars) is the bearer
- * credential for reading — and, once scanned, checking in — that booking.
+ * everywhere. The account session now identifies which bookings belong to the
+ * organizer, including when they sign in on another device.
  */
 
 export type VenueBookingStatus =
@@ -22,6 +20,7 @@ export type VenueBookingStatus =
 
 export interface VenueBooking {
   id: number;
+  organizerUserId: number | null;
   code: string;
   checkinToken: string;
   venueSlug: string;
@@ -58,14 +57,6 @@ export interface ManualVenueBlock {
   note: string;
 }
 
-interface StoredBookingRef {
-  token: string;
-  /** Cached from creation time — the QR never changes for a booking's
-   *  lifetime, so there's no need to regenerate it on every visit. */
-  qrSvg: string;
-}
-
-const TOKENS_KEY = "scene044.venueBookingTokens.v1";
 const BLOCK_KEY = "scene044.venueBlocks.v1";
 const CHANGE_EVENT = "scene044:venue-bookings-changed";
 
@@ -86,38 +77,17 @@ export function venueBookingChangeEvent() {
   return CHANGE_EVENT;
 }
 
-/** The bookings this browser has created, most recent first. */
-function myBookingRefs(): StoredBookingRef[] {
-  if (typeof window === "undefined") return [];
-  return safeParse<StoredBookingRef[]>(window.localStorage.getItem(TOKENS_KEY), []);
-}
-
-export function rememberBookingToken(token: string, qrSvg: string) {
-  const refs = myBookingRefs();
-  if (refs.some((ref) => ref.token === token)) return;
-  window.localStorage.setItem(TOKENS_KEY, JSON.stringify([{ token, qrSvg }, ...refs]));
+export function bookingCreated() {
+  // The server owns the booking; an open list can refresh after creation.
   notify();
 }
 
-/** Fetches the live server record for every remembered token, paired with
- *  its cached QR. A token whose booking has vanished (shouldn't happen, but
- *  a fetch can fail) is skipped rather than shown as an error — the rest of
- *  the list still renders. */
-export async function fetchMyBookings(): Promise<Array<{ booking: VenueBooking; qrSvg: string }>> {
-  const refs = myBookingRefs();
-  const results = await Promise.all(
-    refs.map(async (ref) => {
-      try {
-        const response = await fetch(`/api/venue-bookings/${ref.token}`);
-        if (!response.ok) return null;
-        const data = await response.json();
-        return data.ok ? { booking: data.booking as VenueBooking, qrSvg: ref.qrSvg } : null;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return results.filter((item): item is { booking: VenueBooking; qrSvg: string } => item !== null);
+/** All bookings owned by this verified account, regardless of browser. */
+export async function fetchMyBookings(signal?: AbortSignal): Promise<Array<{ booking: VenueBooking; qrSvg: string }>> {
+  const response = await fetch("/api/venue-bookings", { cache: "no-store", signal });
+  if (!response.ok) throw new Error("Could not load your bookings. Try refreshing.");
+  const data = await response.json();
+  return data.entries as Array<{ booking: VenueBooking; qrSvg: string }>;
 }
 
 export function readManualVenueBlocks(): ManualVenueBlock[] {

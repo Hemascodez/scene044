@@ -12,7 +12,7 @@ import { amountDue, formatRupees } from "@/lib/venues";
 
 /**
  * Feeds the prototype's My Bookings screen with real data: the organiser's
- * bookings from the API (by the tokens this browser holds), real Razorpay
+ * bookings from the account API, real Razorpay
  * payment, real withdraw, and reviews sent to the real curator queue.
  */
 
@@ -23,7 +23,7 @@ const SPACE_PHOTO: Record<string, string> = {
   "standard-table": "/venues/figma/spaces-d5006.jpg",
   terrace: "/venues/figma/spaces-terrace_1.jpg",
 };
-const REVIEWS_KEY = "scene044.myReviews.v1";
+const REVIEWS_KEY_PREFIX = "scene044.myReviews.v2:";
 
 function prettyDate(date: string) {
   const d = new Date(`${date}T12:00:00+05:30`);
@@ -67,9 +67,10 @@ function toDesign(entry: { booking: VenueBooking; qrSvg: string }): Booking {
   };
 }
 
-function loadReviews(): Review[] {
+function loadReviews(phone: string | undefined): Review[] {
+  if (!phone) return [];
   try {
-    return JSON.parse(localStorage.getItem(REVIEWS_KEY) ?? "[]");
+    return JSON.parse(localStorage.getItem(`${REVIEWS_KEY_PREFIX}${phone}`) ?? "[]");
   } catch {
     return [];
   }
@@ -77,31 +78,43 @@ function loadReviews(): Review[] {
 
 export default function MyBookingsPage() {
   const router = useRouter();
-  const { profile, saveProfile, openAuth, logout } = useVenueApp();
+  const { profile, authReady, saveProfile, openAuth, logout, notify } = useVenueApp();
   const [raw, setRaw] = useState<Array<{ booking: VenueBooking; qrSvg: string }>>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [reviews, setReviewsState] = useState<Review[]>([]);
+  const [reviewState, setReviewState] = useState<{ phone: string | null; items: Review[] }>({ phone: null, items: [] });
+  const reviews = reviewState.phone === (profile?.phone ?? null) ? reviewState.items : [];
 
-  const refresh = useCallback(() => {
-    fetchMyBookings().then((entries) => {
+  const refresh = useCallback((signal?: AbortSignal) => {
+    fetchMyBookings(signal).then((entries) => {
+      if (signal?.aborted) return;
       setRaw(entries);
       setBookings(entries.map(toDesign));
+    }).catch((error) => {
+      if (signal?.aborted || error instanceof DOMException && error.name === "AbortError") return;
+      notify(error instanceof Error ? error.message : "Could not load your bookings.");
     });
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reads localStorage after mount; it does not exist during server rendering
-    setReviewsState(loadReviews());
-    refresh();
-    const id = window.setInterval(refresh, 15000);
-    return () => window.clearInterval(id);
-  }, [refresh]);
+    setReviewState({ phone: profile?.phone ?? null, items: loadReviews(profile?.phone) });
+    if (!authReady || !profile) {
+      setRaw([]);
+      setBookings([]);
+      return;
+    }
+    const controller = new AbortController();
+    refresh(controller.signal);
+    const id = window.setInterval(() => refresh(controller.signal), 15000);
+    return () => { controller.abort(); window.clearInterval(id); };
+  }, [refresh, authReady, profile]);
 
   const setReviews = (fn: (r: Review[]) => Review[]) =>
-    setReviewsState((current) => {
-      const next = fn(current);
-      localStorage.setItem(REVIEWS_KEY, JSON.stringify(next));
-      return next;
+    setReviewState((current) => {
+      const phone = profile?.phone ?? null;
+      const next = fn(current.phone === phone ? current.items : []);
+      if (phone) localStorage.setItem(`${REVIEWS_KEY_PREFIX}${phone}`, JSON.stringify(next));
+      return { phone, items: next };
     });
 
   async function pay(b: Booking) {
@@ -155,8 +168,11 @@ export default function MyBookingsPage() {
     });
   }
 
+  if (!authReady) return <div className="min-h-dvh bg-paper px-5 py-20 text-center text-stone" role="status">Loading your account…</div>;
+
   return (
     <MyBookings
+      key={profile?.phone ?? "anonymous"}
       profile={profile}
       bookings={bookings}
       setBookings={(fn) => setBookings(fn)}

@@ -7,7 +7,7 @@ import { ArrowRight, Check, Close, Phone, Search } from './icons'
 export type Profile = { name: string; phone: string; role: 'Organiser' | 'Host'; venue?: string; email?: string }
 
 const VENUES = ['Time Cafe', 'Backyard Cafe', 'The Grand Ballroom', 'Studio 04', 'Rooftop Terrace']
-const RESEND_SECS = 30
+const RESEND_SECS = 60
 
 type Step = 'details' | 'otp' | 'verified'
 
@@ -154,11 +154,12 @@ export default function AuthModal({
     e.preventDefault()
     if (code.length < 6 || busy) return
     setBusy(true)
+    let verifiedProfile: Profile
     try {
       const res = await fetch('/api/whatsapp/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${phoneDigits}`, code }),
+        body: JSON.stringify({ phone: `+91${phoneDigits}`, code, name: name.trim(), email: email.trim(), role, venue }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.ok) {
@@ -166,6 +167,7 @@ export default function AuthModal({
         setShakeKey((k) => k + 1)
         return
       }
+      verifiedProfile = data.profile as Profile
     } catch {
       setError('Could not verify right now. Try again shortly.')
       setShakeKey((k) => k + 1)
@@ -174,14 +176,7 @@ export default function AuthModal({
       setBusy(false)
     }
     setStep('verified')
-    const profile: Profile = {
-      name: name.trim(),
-      phone: phoneDigits,
-      role,
-      venue: role === 'Host' ? venue : undefined,
-      email: role === 'Organiser' ? email.trim() : undefined,
-    }
-    setTimeout(() => onVerified(profile), 2000)
+    setTimeout(() => onVerified(verifiedProfile), 2000)
   }
 
   const eyebrow = step === 'otp' ? 'Verify number' : step === 'verified' ? 'Verified' : saved ? 'Welcome back' : 'Create account'

@@ -2,21 +2,28 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { rememberBookingToken } from "@/lib/client/venueBookingStore";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { bookingCreated } from "@/lib/client/venueBookingStore";
+import { useVenueBookingDraft } from "@/lib/client/useVenueBookingDraft";
 import { useScrollLock } from "@/lib/client/useScrollLock";
-import { TIME_CAFE, VENUE_EVENT_TYPES, formatRupees, rateForSpace, type VenueEventType, type VenueSpace } from "@/lib/venues";
+import { VENUE_EVENT_TYPES, formatRupees, rateForSpace, type VenueEventType, type VenueSpace } from "@/lib/venues";
+import { useVenueApp } from "@/components/venues/figma/VenueApp";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
 import { LottiePlayer } from "@/components/ui/LottiePlayer";
 
 interface BookingFlowProps {
   open: boolean;
   onClose: () => void;
+  venueSlug: string;
+  venueName: string;
+  venueArea: string;
   space: VenueSpace;
   initial: { date: string; time: string; people: number; eventType: string; duration: number };
 }
 
 interface FormState {
+  spaceId: string;
+  step: number;
   date: string;
   time: string;
   duration: number;
@@ -33,6 +40,41 @@ interface FormState {
   agreedToPolicies: boolean;
 }
 
+function parseGenericDraft(data: unknown, spaceId: string): FormState | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const saved = data as Record<string, unknown>;
+  if (saved.kind !== "generic") return null;
+  const string = (key: string) => typeof saved[key] === "string" ? saved[key] as string : "";
+  const eventType = string("eventType");
+  return {
+    spaceId,
+    step: typeof saved.step === "number" && saved.step >= 1 && saved.step <= 3 ? saved.step : 1,
+    date: string("date"), time: string("time") || "18:00",
+    duration: typeof saved.duration === "number" && saved.duration >= 1 && saved.duration <= 6 ? saved.duration : 2,
+    people: typeof saved.people === "number" && saved.people >= 0 ? saved.people : 25,
+    eventType: VENUE_EVENT_TYPES.includes(eventType as VenueEventType) ? eventType as VenueEventType : "Tech meetup",
+    description: string("description"), name: string("name"), email: string("email"), phone: string("phone"),
+    trustType: ["Instagram", "LinkedIn", "Website"].includes(string("trustType")) ? string("trustType") as FormState["trustType"] : "LinkedIn",
+    trustUrl: string("trustUrl"),
+    // Marketing choices and policy acceptance must be made afresh.
+    whatsappOptIn: false, emailOptIn: false,
+    agreedToPolicies: false,
+  };
+}
+
+function serializeGenericDraft(value: FormState): Record<string, unknown> {
+  const {
+    spaceId: _spaceId, agreedToPolicies: _agreement,
+    whatsappOptIn: _whatsappOptIn, emailOptIn: _emailOptIn,
+    ...fields
+  } = value;
+  void _spaceId;
+  void _agreement;
+  void _whatsappOptIn;
+  void _emailOptIn;
+  return { kind: "generic", ...fields };
+}
+
 const inputClass = "mt-2 min-h-12 w-full border-[1.5px] border-foreground bg-white px-3.5 text-base outline-none transition-shadow placeholder:text-muted-foreground/60 focus:shadow-hard-sm focus-visible:ring-2 focus-visible:ring-primary sm:text-sm";
 /* iOS Safari centers the value inside <input type="date"|"time"> by default
    (::-webkit-date-and-time-value), which reads as the value floating oddly
@@ -44,10 +86,12 @@ function fieldLabel(label: string, required = true) {
   return <span className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{label}{required && <span className="text-primary-ink" aria-hidden> *</span>}</span>;
 }
 
-export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps) {
+export function BookingFlow({ open, onClose, venueSlug, venueName, venueArea, space, initial }: BookingFlowProps) {
+  const { profile, authReady } = useVenueApp();
+  const parseDraft = useCallback((data: unknown, draftSpaceId: string) =>
+    draftSpaceId === space.id ? parseGenericDraft(data, draftSpaceId) : null, [space.id]);
   const reduceMotion = useReducedMotion();
   const panelRef = useRef<HTMLDivElement>(null);
-  const [step, setStep] = useState(1);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [booked, setBooked] = useState<{ code: string; qrSvg: string } | null>(null);
@@ -56,7 +100,15 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
   const [otpCode, setOtpCode] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
   const [otpError, setOtpError] = useState("");
-  const [form, setForm] = useState<FormState>({
+  const { value: form, update: updateDraft, saveStatus, clear: clearDraft } = useVenueBookingDraft<FormState>({
+    venueSlug,
+    profilePhone: profile?.phone ?? null,
+    authReady,
+    parse: parseDraft,
+    serialize: serializeGenericDraft,
+    initial: {
+    spaceId: space.id,
+    step: 1,
     date: initial.date,
     time: initial.time || "18:00",
     duration: initial.duration,
@@ -71,7 +123,12 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
     whatsappOptIn: true,
     emailOptIn: true,
     agreedToPolicies: false,
+    },
   });
+  const step = form.step;
+
+  const phoneIsVerified = phoneVerified || Boolean(profile && form.phone &&
+    profile.phone.replace(/\D/g, "").slice(-10) === form.phone.replace(/\D/g, "").slice(-10));
 
   const hourlyRate = rateForSpace(space, form.eventType);
   const total = hourlyRate === null ? null : hourlyRate * form.duration;
@@ -120,7 +177,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
 
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    updateDraft((current) => ({ ...current, [key]: value }));
     setError("");
   }
 
@@ -132,7 +189,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
     }
     if (step === 2) {
       if (!form.name.trim() || !form.email.includes("@") || form.phone.trim().length < 8) return "Enter your name, email, and mobile number.";
-      if (!phoneVerified) return "Verify your mobile number first.";
+      if (!phoneIsVerified) return "Verify your mobile number first.";
       if (!form.trustUrl.trim()) return "Add one profile or website link.";
     }
     return "";
@@ -173,11 +230,12 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
       const response = await fetch("/api/whatsapp/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: form.phone, code: otpCode }),
+        body: JSON.stringify({ phone: form.phone, code: otpCode, name: form.name, email: form.email, role: "Organiser" }),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error ?? "Incorrect code.");
       setPhoneVerified(true);
+      window.dispatchEvent(new Event("scene044:venue-auth-changed"));
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Incorrect code.");
     } finally {
@@ -188,7 +246,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
   function next() {
     const message = validateStep();
     if (message) { setError(message); return; }
-    setStep((current) => Math.min(3, current + 1));
+    updateDraft((current) => ({ ...current, step: Math.min(3, current.step + 1) }));
   }
 
   // Advancing a step used to leave the scroll position wherever it was on the
@@ -209,7 +267,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          venueSlug: "time-cafe",
+          venueSlug,
           spaceId: space.id,
           date: form.date,
           time: form.time,
@@ -228,7 +286,8 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error ?? "Could not send your request.");
-      rememberBookingToken(data.token, data.qrSvg);
+      bookingCreated();
+      await clearDraft().catch(() => undefined);
       setBooked({ code: data.code, qrSvg: data.qrSvg });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send your request.");
@@ -271,7 +330,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: reduceMotion ? 0 : 0.2, duration: 0.4 }}
                 >
-                  {TIME_CAFE.name} has your request.
+                  {venueName} has your request.
                 </motion.h3>
                 <motion.p
                   className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground"
@@ -299,7 +358,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                   <ol className="space-y-3 text-sm leading-6">
                     <li className="flex items-start gap-3">
                       <span className="grid size-6 shrink-0 place-items-center border-[1.5px] border-foreground bg-primary font-mono text-xs font-bold text-white">1</span>
-                      <span><strong>Venue reviews</strong> — {TIME_CAFE.name} will review your request within 48 hours.</span>
+                      <span><strong>Venue reviews</strong> — {venueName} will review your request within 48 hours.</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="grid size-6 shrink-0 place-items-center border-[1.5px] border-foreground bg-primary font-mono text-xs font-bold text-white">2</span>
@@ -333,7 +392,7 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                       <div className="grid gap-4 sm:grid-cols-2"><label>{fieldLabel("Date")}<input type="date" value={form.date} onChange={(event) => update("date", event.target.value)} className={dateTimeInputClass} /></label><label>{fieldLabel("Start time")}<input type="time" value={form.time} onChange={(event) => update("time", event.target.value)} className={dateTimeInputClass} /></label></div>
                       <div className="grid gap-4 sm:grid-cols-2"><label>{fieldLabel("Duration")}<select value={form.duration} onChange={(event) => update("duration", Number(event.target.value))} className={inputClass}>{[1,2,3,4,5,6].map((hours) => <option key={hours} value={hours}>{hours} {hours === 1 ? "hour" : "hours"}</option>)}</select></label><label>{fieldLabel("Expected people")}<input type="number" min="1" max={space.maxGuests} value={form.people} onKeyDown={preventWheelChange} onChange={(event) => update("people", Number(event.target.value))} className={inputClass} /><span className="mt-1.5 block text-xs text-muted-foreground">Maximum {space.maxGuests}. Please count guests, speakers, and crew.</span></label></div>
                       <label className="block">{fieldLabel("What are you hosting?")}<select value={form.eventType} onChange={(event) => update("eventType", event.target.value as VenueEventType)} className={inputClass}>{VENUE_EVENT_TYPES.map((item) => <option key={item}>{item}</option>)}</select></label>
-                      <label className="block">{fieldLabel("Describe your event")}<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={4} placeholder="Who is it for, what will happen, and what setup will you need?" className={`${inputClass} py-3`} /><span className="mt-1.5 block text-xs text-muted-foreground">{TIME_CAFE.name} reads this before accepting your request.</span></label>
+                      <label className="block">{fieldLabel("Describe your event")}<textarea value={form.description} onChange={(event) => update("description", event.target.value)} rows={4} placeholder="Who is it for, what will happen, and what setup will you need?" className={`${inputClass} py-3`} /><span className="mt-1.5 block text-xs text-muted-foreground">{venueName} reads this before accepting your request.</span></label>
                       <div className="border-[1.5px] border-warn-ink/60 bg-warn/10 p-4 text-sm leading-6 text-warn-ink"><strong>Plan for your full crowd.</strong> Include speakers, crew, and plus-ones in the guest count. If the number changes later, check with the venue first.</div>
                     </motion.div>}
 
@@ -342,15 +401,15 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                       <div className="block">
                         {fieldLabel("Mobile number")}
                         <div className="mt-2 flex gap-2">
-                          <input type="tel" value={form.phone} onChange={(event) => updatePhone(event.target.value)} autoComplete="tel" disabled={phoneVerified} className={`${inputClass} mt-0 flex-1 disabled:opacity-60`} />
-                          {!phoneVerified && <button type="button" onClick={sendOtp} disabled={otpBusy || form.phone.trim().length < 8} className={`${venueButton.outline} shrink-0 px-4 disabled:opacity-45`}>{otpSent ? "Resend" : "Send code"}</button>}
+                          <input type="tel" value={form.phone} onChange={(event) => updatePhone(event.target.value)} autoComplete="tel" disabled={phoneIsVerified} className={`${inputClass} mt-0 flex-1 disabled:opacity-60`} />
+                          {!phoneIsVerified && <button type="button" onClick={sendOtp} disabled={otpBusy || form.phone.trim().length < 8} className={`${venueButton.outline} shrink-0 px-4 disabled:opacity-45`}>{otpSent ? "Resend" : "Send code"}</button>}
                         </div>
-                        {phoneVerified ? (
+                        {phoneIsVerified ? (
                           <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-signal-ink"><VenueIcon name="check" className="size-3.5" /> Number verified over WhatsApp</p>
                         ) : (
                           <span className="mt-2 block text-xs text-muted-foreground">We&apos;ll text a code to this number on WhatsApp to confirm it&apos;s reachable.</span>
                         )}
-                        {otpSent && !phoneVerified && (
+                        {otpSent && !phoneIsVerified && (
                           <div className="mt-3 flex items-center gap-2">
                             <input type="text" inputMode="numeric" maxLength={6} value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6-digit code" className={`${inputClass} mt-0 w-36`} />
                             <button type="button" onClick={verifyOtp} disabled={otpBusy || otpCode.length !== 6} className={`${venueButton.primary} shrink-0 px-4 disabled:opacity-45`}>Verify</button>
@@ -364,8 +423,8 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                     </motion.div>}
 
                     {step === 3 && <motion.div key="review" initial={reduceMotion ? false : { opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
-                      <div className="overflow-hidden border-[1.5px] border-foreground bg-venue-card shadow-hard-sm"><div className="border-b-[1.5px] border-foreground p-5"><VenueKicker>Your request</VenueKicker><h3 className="mt-1 font-display text-2xl font-extrabold">{space.name}</h3><p className="mt-1 text-sm text-muted-foreground">{TIME_CAFE.name} · {TIME_CAFE.area}</p></div><dl className="grid grid-cols-2 gap-px bg-foreground/20 text-sm"><div className="bg-card p-4"><dt className="text-xs text-muted-foreground">When</dt><dd className="mt-1 font-bold">{form.date}<br />{form.time} · {form.duration}h</dd></div><div className="bg-card p-4"><dt className="text-xs text-muted-foreground">Event</dt><dd className="mt-1 font-bold">{form.eventType}<br />{form.people} people</dd></div></dl></div>
-                      <div className="border-[1.5px] border-foreground bg-foreground p-5 text-background shadow-hard-sm"><div className="flex items-end justify-between gap-4"><div><p className="text-xs text-background/55">Estimated total</p><p className="mt-1 font-display text-3xl font-extrabold">{total === null ? "Host quote" : formatRupees(total)}</p></div><span className="border border-background/30 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em]">Nothing to pay today</span></div><p className="mt-3 text-xs leading-5 text-background/55">Pay only if {TIME_CAFE.name} accepts. You&apos;ll have 24 hours to confirm the booking.</p></div>
+                      <div className="overflow-hidden border-[1.5px] border-foreground bg-venue-card shadow-hard-sm"><div className="border-b-[1.5px] border-foreground p-5"><VenueKicker>Your request</VenueKicker><h3 className="mt-1 font-display text-2xl font-extrabold">{space.name}</h3><p className="mt-1 text-sm text-muted-foreground">{venueName} · {venueArea}</p></div><dl className="grid grid-cols-2 gap-px bg-foreground/20 text-sm"><div className="bg-card p-4"><dt className="text-xs text-muted-foreground">When</dt><dd className="mt-1 font-bold">{form.date}<br />{form.time} · {form.duration}h</dd></div><div className="bg-card p-4"><dt className="text-xs text-muted-foreground">Event</dt><dd className="mt-1 font-bold">{form.eventType}<br />{form.people} people</dd></div></dl></div>
+                      <div className="border-[1.5px] border-foreground bg-foreground p-5 text-background shadow-hard-sm"><div className="flex items-end justify-between gap-4"><div><p className="text-xs text-background/55">Estimated total</p><p className="mt-1 font-display text-3xl font-extrabold">{total === null ? "Host quote" : formatRupees(total)}</p></div><span className="border border-background/30 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em]">Nothing to pay today</span></div><p className="mt-3 text-xs leading-5 text-background/55">Pay only if {venueName} accepts. You&apos;ll have 24 hours to confirm the booking.</p></div>
                       {space.minimumFoodSpend && <div className="border-[1.5px] border-dashed border-foreground/50 p-4 text-sm leading-6">Prefer to spend on food instead? Ask the host whether a {formatRupees(space.minimumFoodSpend)} minimum order can replace the hourly rent.</div>}
                       <label className="flex items-start gap-3 border-[1.5px] border-foreground bg-venue-card p-4 text-sm leading-6"><input type="checkbox" checked={form.agreedToPolicies} onChange={(event) => update("agreedToPolicies", event.target.checked)} className="mt-1 size-4 shrink-0 accent-[var(--color-primary)]" /><span>I agree to the venue&apos;s house rules, cancellation terms, and guest limit.</span></label>
                     </motion.div>}
@@ -373,7 +432,8 @@ export function BookingFlow({ open, onClose, space, initial }: BookingFlowProps)
                   {error && <p role="alert" className="mt-5 border-[1.5px] border-primary-ink bg-primary/10 px-4 py-3 text-sm font-semibold text-primary-ink">{error}</p>}
                 </div>
                 <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t-[1.5px] border-foreground bg-venue-paper px-5 py-4 sm:px-7">
-                  <button type="button" onClick={() => step === 1 ? onClose() : setStep((current) => current - 1)} className={venueButton.outline}>{step === 1 ? "Cancel" : "Back"}</button>
+                  <button type="button" onClick={() => step === 1 ? onClose() : updateDraft((current) => ({ ...current, step: current.step - 1 }))} className={venueButton.outline}>{step === 1 ? "Cancel" : "Back"}</button>
+                  {saveStatus !== "idle" && <span role="status" className="text-xs text-muted-foreground">{saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Draft saved" : "Saved on this device"}</span>}
                   {step < 3 ? <button type="button" onClick={next} className={venueButton.primary}>Continue <VenueIcon name="arrow" className="size-4" /></button> : <button type="submit" disabled={submitting} className={`${venueButton.primary} disabled:opacity-60`}>{submitting ? "Sending…" : "Request this space"} {!submitting && <VenueIcon name="arrow" className="size-4" />}</button>}
                 </div>
               </form>

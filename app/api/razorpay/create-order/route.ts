@@ -3,6 +3,7 @@ import { createRazorpayOrder } from "@/lib/razorpay";
 import { getBookingByCheckinToken } from "@/lib/venueBookings";
 import { getCatalogVenue } from "@/lib/venueCatalog";
 import { amountDue, rateForSpace } from "@/lib/venues";
+import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 
 /**
  * Creates a Razorpay order for a venue booking's "Pay & confirm" step.
@@ -23,6 +24,8 @@ interface CreateOrderBody {
 }
 
 export async function POST(request: Request) {
+  const user = await getVenueUserFromRequest(request);
+  if (!user) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   let body: CreateOrderBody;
   try {
     body = await request.json();
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: "token is required" }, { status: 400 });
 
   const booking = await getBookingByCheckinToken(token);
-  if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (!booking || booking.organizerUserId !== user.id) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   if (booking.status !== "approved") {
     return NextResponse.json({ error: "This booking isn't ready for payment" }, { status: 409 });
   }

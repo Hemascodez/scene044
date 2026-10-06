@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import QRCode from "qrcode";
-import { createVenueBooking } from "@/lib/venueBookings";
+import { createVenueBooking, listBookingsForOrganizer } from "@/lib/venueBookings";
 import { getCatalogVenue } from "@/lib/venueCatalog";
 import { rateForSpace, VENUE_EVENT_TYPES } from "@/lib/venues";
 import { absoluteUrl } from "@/lib/seo";
+import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
+import { deleteVenueBookingDraft } from "@/lib/venueBookingDrafts";
 
 /**
  * Creates a real, server-side booking request (replaces the old
@@ -36,7 +38,20 @@ function cleanString(value: unknown, max = 300): string | null {
   return trimmed || null;
 }
 
+export async function GET(request: Request) {
+  const user = await getVenueUserFromRequest(request);
+  if (!user) return NextResponse.json({ error: "Sign in to see your bookings." }, { status: 401 });
+  const bookings = await listBookingsForOrganizer(user.id);
+  const entries = await Promise.all(bookings.map(async (booking) => ({
+    booking,
+    qrSvg: await QRCode.toString(absoluteUrl(`/host/checkin/${booking.checkinToken}`), { type: "svg", margin: 1, width: 256 }),
+  })));
+  return NextResponse.json({ ok: true, entries }, { headers: { "Cache-Control": "no-store" } });
+}
+
 export async function POST(request: Request) {
+  const user = await getVenueUserFromRequest(request);
+  if (!user) return NextResponse.json({ error: "Verify your WhatsApp number before booking." }, { status: 401 });
   let body: CreateBookingBody;
   try {
     body = await request.json();
@@ -52,9 +67,9 @@ export async function POST(request: Request) {
   const duration = Number(body.duration);
   const people = Number(body.people);
   const description = cleanString(body.description, 4000);
-  const name = cleanString(body.name, 200);
-  const email = cleanString(body.email, 300);
-  const phone = cleanString(body.phone, 40);
+  const name = user.name;
+  const email = user.email ?? cleanString(body.email, 300);
+  const phone = `+${user.phoneE164}`;
   const trustType = cleanString(body.trustType, 40);
   const trustUrl = cleanString(body.trustUrl, 500);
   const whatsappOptIn = body.whatsappOptIn === true;
@@ -64,7 +79,7 @@ export async function POST(request: Request) {
     !venueSlug || !spaceId || !eventType || !date || !time ||
     !Number.isFinite(duration) || duration <= 0 ||
     !Number.isFinite(people) || people <= 0 ||
-    !description || !name || !email?.includes("@") || !phone
+    !description || !name || !email || !/^\S+@\S+\.\S+$/.test(email) || !phone
   ) {
     return NextResponse.json({ error: "Missing or invalid booking details" }, { status: 400 });
   }
@@ -85,6 +100,7 @@ export async function POST(request: Request) {
   const total = hourlyRate === null ? null : hourlyRate * duration;
 
   const booking = await createVenueBooking({
+    organizerUserId: user.id,
     venueSlug: venue.slug,
     venueName: venue.name,
     spaceId: space.id,
@@ -105,6 +121,14 @@ export async function POST(request: Request) {
     hourlyRate,
     total,
   });
+
+  // The booking is already real at this point. A failed cleanup must never
+  // turn its successful POST into an error that invites a duplicate request.
+  try {
+    await deleteVenueBookingDraft(user.id, venue.slug, space.id);
+  } catch (error) {
+    console.error("Could not clear submitted venue draft", error);
+  }
 
   const checkinUrl = absoluteUrl(`/host/checkin/${booking.checkinToken}`);
   const qrSvg = await QRCode.toString(checkinUrl, { type: "svg", margin: 1, width: 256 });

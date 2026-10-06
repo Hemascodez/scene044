@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyRazorpayPaymentSignature } from "@/lib/razorpay";
 import { getBookingByCheckinToken, setBookingStatus } from "@/lib/venueBookings";
+import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 
 /**
  * Verifies the signature Razorpay Checkout hands back after a payment, then
@@ -25,6 +26,8 @@ function cleanString(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const user = await getVenueUserFromRequest(request);
+  if (!user) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   let body: VerifyPaymentBody;
   try {
     body = await request.json();
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
   }
 
   const booking = await getBookingByCheckinToken(token);
-  if (!booking) return NextResponse.json({ ok: false, error: "Booking not found" }, { status: 404 });
+  if (!booking || booking.organizerUserId !== user.id) return NextResponse.json({ ok: false, error: "Booking not found" }, { status: 404 });
 
   // A verified signature for a booking that isn't `approved` (already paid,
   // or paid out of order) still leaves the payment itself valid — it just

@@ -29,6 +29,7 @@ export const MIN_REVIEW_PHOTOS = 2;
 
 export interface VenueBooking {
   id: number;
+  organizerUserId: number | null;
   code: string;
   checkinToken: string;
   venueSlug: string;
@@ -111,7 +112,7 @@ export function newCheckinToken(): string {
 }
 
 const BOOKING_COLUMNS = `
-  id, code, checkin_token AS "checkinToken",
+  id, organizer_user_id AS "organizerUserId", code, checkin_token AS "checkinToken",
   venue_slug AS "venueSlug", venue_name AS "venueName",
   space_id AS "spaceId", space_name AS "spaceName",
   event_date::text AS "eventDate", start_time AS "startTime",
@@ -126,6 +127,7 @@ const BOOKING_COLUMNS = `
 `;
 
 export interface NewBookingInput {
+  organizerUserId?: number;
   venueSlug: string;
   venueName: string;
   spaceId: string;
@@ -156,11 +158,11 @@ export async function createVenueBooking(input: NewBookingInput): Promise<VenueB
     try {
       const { rows } = await query<VenueBooking>(
         `INSERT INTO venue_bookings
-           (code, checkin_token, venue_slug, venue_name, space_id, space_name,
+         (code, checkin_token, venue_slug, venue_name, space_id, space_name,
             event_date, start_time, duration_hours, people, event_type, description,
             organizer_name, organizer_email, organizer_phone, trust_type, trust_url,
-            whatsapp_opt_in, email_opt_in, hourly_rate, total)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+            whatsapp_opt_in, email_opt_in, hourly_rate, total, organizer_user_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
          RETURNING ${BOOKING_COLUMNS}`,
         [
           newBookingCode(),
@@ -184,6 +186,7 @@ export async function createVenueBooking(input: NewBookingInput): Promise<VenueB
           input.emailOptIn ?? false,
           input.hourlyRate,
           input.total,
+          input.organizerUserId ?? null,
         ],
       );
       return rows[0];
@@ -209,6 +212,15 @@ export async function getBookingByCheckinToken(token: string): Promise<VenueBook
     [token],
   );
   return rows[0] ?? null;
+}
+
+export async function listBookingsForOrganizer(userId: number): Promise<VenueBooking[]> {
+  const { rows } = await query<VenueBooking>(
+    `SELECT ${BOOKING_COLUMNS} FROM venue_bookings
+      WHERE organizer_user_id = $1 ORDER BY created_at DESC LIMIT 200`,
+    [userId],
+  );
+  return rows;
 }
 
 export async function listVenueBookings(venueSlug: string): Promise<VenueBooking[]> {

@@ -9,7 +9,8 @@ import type { Profile } from './AuthModal'
 import { useRouter } from 'next/navigation'
 import { SiteFooter, SiteHeader } from './SiteChrome'
 import { useVenueApp } from './VenueApp'
-import { rememberBookingToken } from '@/lib/client/venueBookingStore'
+import { bookingCreated } from '@/lib/client/venueBookingStore'
+import { useVenueBookingDraft } from '@/lib/client/useVenueBookingDraft'
 import { serviceFee } from '@/lib/venues'
 import {
   ArrowLeft,
@@ -182,6 +183,43 @@ const reviews = [
 const eventTypes = ['Tech meetup', 'Podcast recording', 'Workshop', 'Networking event', 'Product launch']
 const startTimes = Array.from({ length: 13 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`)
 const hourOptions = [3, 4, 5, 6, 7, 8]
+
+type TimeCafeDraft = {
+  spaceId: string
+  eventType: string
+  date: string
+  start: string
+  hours: number
+  guests: string
+  social: string
+  message: string
+}
+
+const initialBookingDraft: TimeCafeDraft = {
+  spaceId: 'floor', eventType: '', date: '', start: '11:00', hours: 3,
+  guests: '25', social: '', message: '',
+}
+
+function parseTimeCafeDraft(data: unknown, spaceId: string): TimeCafeDraft | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  const saved = data as Record<string, unknown>
+  if (saved.kind !== 'figma' || !spaces.some((space) => space.id === spaceId)) return null
+  return {
+    spaceId,
+    eventType: typeof saved.eventType === 'string' && eventTypes.includes(saved.eventType) ? saved.eventType : '',
+    date: typeof saved.date === 'string' ? saved.date : '',
+    start: typeof saved.start === 'string' && startTimes.includes(saved.start) ? saved.start : '11:00',
+    hours: typeof saved.hours === 'number' && hourOptions.includes(saved.hours) ? saved.hours : 3,
+    guests: typeof saved.guests === 'string' ? saved.guests : '25',
+    social: typeof saved.social === 'string' ? saved.social : '',
+    message: typeof saved.message === 'string' ? saved.message : '',
+  }
+}
+
+function serializeTimeCafeDraft(value: TimeCafeDraft): Record<string, unknown> {
+  return { kind: 'figma', eventType: value.eventType, date: value.date, start: value.start,
+    hours: value.hours, guests: value.guests, social: value.social, message: value.message }
+}
 
 const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
 const monoLabel = 'font-mono-b text-[10px] leading-[15px] tracking-[0.8px] uppercase text-stone'
@@ -630,22 +668,19 @@ function SpaceCardCarousel({
  */
 export default function VenueDetail() {
   const router = useRouter()
-  const { profile, requireAuth } = useVenueApp()
+  const { profile, authReady, requireAuth } = useVenueApp()
   const onBack = () => router.push('/venues')
   useReveal()
-  const [spaceId, setSpaceId] = useState('floor')
+  const { value: draft, update: updateDraft, saveStatus, clear: clearDraft } = useVenueBookingDraft({
+    venueSlug: 'time-cafe', initial: initialBookingDraft, profilePhone: profile?.phone ?? null,
+    authReady, parse: parseTimeCafeDraft, serialize: serializeTimeCafeDraft,
+  })
+  const { spaceId, eventType, date, start, hours, guests, social, message } = draft
   const space = spaces.find((s) => s.id === spaceId)!
   const [saved, setSaved] = useState(false)
   const [photo, setPhoto] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
 
-  const [eventType, setEventType] = useState('')
-  const [date, setDate] = useState('')
-  const [start, setStart] = useState('11:00')
-  const [hours, setHours] = useState(3)
-  const [guests, setGuests] = useState('25')
-  const [social, setSocial] = useState('')
-  const [message, setMessage] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'form' | 'sending' | 'sent'>('form')
   const [submitError, setSubmitError] = useState('')
@@ -725,7 +760,8 @@ export default function VenueDetail() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.ok) throw new Error(data.error ?? 'Could not send your request. Try again shortly.')
-      rememberBookingToken(data.token, data.qrSvg)
+      bookingCreated()
+      await clearDraft().catch(() => undefined)
       setStatus('sent')
       setConfirmOpen(true)
     } catch (err) {
@@ -759,9 +795,8 @@ export default function VenueDetail() {
   }
 
   const pickSpace = (id: string) => {
-    setSpaceId(id)
     const max = spaces.find((s) => s.id === id)!.max
-    setGuests((g) => clampGuests(g, max))
+    updateDraft((current) => ({ ...current, spaceId: id, guests: clampGuests(current.guests, max) }))
     setErrors((e) => ({ ...e, guests: '' }))
     bookingRef.current?.classList.remove('flash')
     void bookingRef.current?.offsetWidth
@@ -1121,7 +1156,7 @@ export default function VenueDetail() {
                           options={eventTypes}
                           value={eventType}
                           onChange={(v) => {
-                            setEventType(v)
+                            updateDraft((current) => ({ ...current, eventType: v }))
                             setErrors((e) => ({ ...e, type: '' }))
                           }}
                           invalid={!!errors.type}
@@ -1143,7 +1178,7 @@ export default function VenueDetail() {
                         min={today}
                         value={date}
                         onChange={(e) => {
-                          setDate(e.target.value)
+                          updateDraft((current) => ({ ...current, date: e.target.value }))
                           setErrors((x) => ({ ...x, date: '' }))
                         }}
                         aria-invalid={!!errors.date}
@@ -1157,7 +1192,7 @@ export default function VenueDetail() {
                   <div className="grid grid-cols-2 gap-3">
                     <label className={fieldBox}>
                       <span className={monoLabel}>Start</span>
-                      <select value={start} onChange={(e) => setStart(e.target.value)} className={`${inputCls} cursor-pointer`}>
+                      <select value={start} onChange={(e) => updateDraft((current) => ({ ...current, start: e.target.value }))} className={`${inputCls} cursor-pointer`}>
                         {startTimes.map((t) => (
                           <option key={t}>{t}</option>
                         ))}
@@ -1165,7 +1200,7 @@ export default function VenueDetail() {
                     </label>
                     <label className={fieldBox}>
                       <span className={monoLabel}>Hours</span>
-                      <select value={hours} onChange={(e) => setHours(Number(e.target.value))} className={`${inputCls} cursor-pointer`}>
+                      <select value={hours} onChange={(e) => updateDraft((current) => ({ ...current, hours: Number(e.target.value) }))} className={`${inputCls} cursor-pointer`}>
                         {hourOptions.map((h) => (
                           <option key={h} value={h}>{h} hours</option>
                         ))}
@@ -1184,7 +1219,7 @@ export default function VenueDetail() {
                         max={space.max}
                         value={guests}
                         onChange={(e) => {
-                          setGuests(e.target.value)
+                          updateDraft((current) => ({ ...current, guests: e.target.value }))
                           setErrors((x) => ({ ...x, guests: '' }))
                         }}
                         aria-invalid={!!errors.guests}
@@ -1204,7 +1239,7 @@ export default function VenueDetail() {
                         autoComplete="url"
                         value={social}
                         onChange={(e) => {
-                          setSocial(e.target.value)
+                          updateDraft((current) => ({ ...current, social: e.target.value }))
                           setErrors((x) => ({ ...x, social: '' }))
                         }}
                         placeholder="linkedin.com/in/you or instagram.com/you"
@@ -1224,7 +1259,7 @@ export default function VenueDetail() {
                         rows={3}
                         value={message}
                         onChange={(e) => {
-                          setMessage(e.target.value)
+                          updateDraft((current) => ({ ...current, message: e.target.value }))
                           setErrors((x) => ({ ...x, message: '' }))
                         }}
                         placeholder="Tell Priya what you're planning, how many people, any setup needs…"
@@ -1238,6 +1273,9 @@ export default function VenueDetail() {
                 </div>
 
                 <p className="mt-3 text-xs text-stone"><span className="text-flame">*</span> Required fields</p>
+                {saveStatus !== 'idle' && <p role="status" className="mt-2 text-xs text-stone">
+                  {saveStatus === 'saving' ? 'Saving your draft…' : saveStatus === 'saved' ? 'Draft saved to your account' : 'Draft saved on this device'}
+                </p>}
 
                 <button
                   type="submit"

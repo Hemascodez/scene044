@@ -383,6 +383,58 @@ CREATE INDEX IF NOT EXISTS idx_discovery_items_curator_queue
 -- Holds organizer name/email/phone, so it takes the same posture as
 -- `subscribers`: RLS on with no policies, plus the REVOKE belt-and-braces. The
 -- app's own pg connection is the table owner and bypasses RLS.
+CREATE TABLE IF NOT EXISTS venue_users (
+  id SERIAL PRIMARY KEY,
+  phone_e164 TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  email TEXT,
+  role TEXT NOT NULL DEFAULT 'Organiser' CHECK (role IN ('Organiser', 'Host')),
+  venue TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_verified_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS venue_user_sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES venue_users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_venue_user_sessions_user
+  ON venue_user_sessions (user_id, expires_at DESC);
+
+CREATE TABLE IF NOT EXISTS venue_booking_drafts (
+  user_id INT NOT NULL REFERENCES venue_users(id) ON DELETE CASCADE,
+  venue_slug TEXT NOT NULL,
+  space_id TEXT NOT NULL,
+  form_data JSONB NOT NULL,
+  edited_at_ms BIGINT NOT NULL DEFAULT 0,
+  submitted_at_ms BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, venue_slug)
+);
+
+ALTER TABLE venue_booking_drafts ADD COLUMN IF NOT EXISTS edited_at_ms BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE venue_booking_drafts ADD COLUMN IF NOT EXISTS submitted_at_ms BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE venue_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE venue_user_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE venue_booking_drafts ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    EXECUTE 'REVOKE ALL ON venue_users, venue_user_sessions, venue_booking_drafts FROM anon';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    EXECUTE 'REVOKE ALL ON venue_users, venue_user_sessions, venue_booking_drafts FROM authenticated';
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS venue_bookings (
   id SERIAL PRIMARY KEY,
   -- Short, unambiguous, human-readable. Read aloud at reception and used to
@@ -405,6 +457,7 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   organizer_name TEXT NOT NULL,
   organizer_email TEXT NOT NULL,
   organizer_phone TEXT NOT NULL,
+  organizer_user_id INT REFERENCES venue_users(id),
   trust_type TEXT,
   trust_url TEXT,
   whatsapp_opt_in BOOLEAN NOT NULL DEFAULT false,
@@ -425,6 +478,11 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS organizer_user_id INT REFERENCES venue_users(id);
+
+CREATE INDEX IF NOT EXISTS idx_venue_bookings_organizer_user
+  ON venue_bookings (organizer_user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_venue_bookings_host_queue
   ON venue_bookings (venue_slug, status, event_date);
@@ -636,10 +694,10 @@ CREATE INDEX IF NOT EXISTS idx_venue_reviews_pending
 -- ------------------------------------------------------- Phone OTP verification
 --
 -- One-time codes sent over WhatsApp to prove a booking form's phone number is
--- reachable. `code_hash` is a SHA-256 digest, never the plaintext code — a
--- database read (backup, replica, leak) should not hand out live codes.
--- Short-lived and narrow on purpose: this proves reachability at the moment of
--- booking, not identity, so there is no user table to attach it to.
+-- reachable. `code_hash` is a keyed HMAC digest, never the plaintext code — a
+-- database read alone should not hand out live codes.
+-- Short-lived and narrow on purpose. A successful verification now creates
+-- or resumes a venue_users account and a revocable server-side session.
 CREATE TABLE IF NOT EXISTS phone_otp_verifications (
   id SERIAL PRIMARY KEY,
   phone TEXT NOT NULL,
@@ -653,3 +711,15 @@ CREATE TABLE IF NOT EXISTS phone_otp_verifications (
 -- The verify step's lookup: newest unverified code for a phone.
 CREATE INDEX IF NOT EXISTS idx_phone_otp_lookup
   ON phone_otp_verifications (phone, created_at DESC);
+
+ALTER TABLE phone_otp_verifications ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    EXECUTE 'REVOKE ALL ON phone_otp_verifications FROM anon';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    EXECUTE 'REVOKE ALL ON phone_otp_verifications FROM authenticated';
+  END IF;
+END $$;

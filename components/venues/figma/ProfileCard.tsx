@@ -33,7 +33,7 @@ export default function ProfileCard({
   profile: Profile
   photo: string | null
   stats: { events: number; rating: string; next: string }
-  onSave: (p: Profile) => void
+  onSave: (p: Profile) => Promise<void>
   onPhoto: (src: string | null) => void
   toast: (msg: string, tone?: 'ok' | 'error') => void
   variant?: 'organiser' | 'host'
@@ -46,15 +46,16 @@ export default function ProfileCard({
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [name, setName] = useState(profile.name)
-  const [phone, setPhone] = useState(profile.phone)
-  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({})
+  const [email, setEmail] = useState(profile.email ?? '')
+  const [errors, setErrors] = useState<{ name?: string; email?: string }>({})
+  const [saveError, setSaveError] = useState('')
   const [preview, setPreview] = useState<{ src: string; name: string } | null>(null)
   const [uploadError, setUploadError] = useState('')
   const [drag, setDrag] = useState(false)
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const uploadTitle = useRef<HTMLHeadingElement>(null)
-  const ids = { name: useId(), phone: useId(), err: useId(), hint: useId() }
+  const ids = { name: useId(), email: useId(), phone: useId(), err: useId(), hint: useId() }
   const initials = profile.name
     .split(' ')
     .map((w) => w[0])
@@ -68,23 +69,31 @@ export default function ProfileCard({
 
   const startEdit = () => {
     setName(profile.name)
-    setPhone(profile.phone)
+    setEmail(profile.email ?? '')
     setErrors({})
+    setSaveError('')
     setMode('edit')
   }
 
-  const save = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    const digits = phone.replace(/\D/g, '').slice(-10)
     const next: typeof errors = {}
     if (name.trim().length < 2) next.name = 'Enter your full name.'
-    if (digits.length !== 10) next.phone = 'Enter a 10-digit mobile number.'
+    if ((email.trim() || !host) && !/^\S+@\S+\.\S+$/.test(email.trim())) next.email = 'Enter a valid email address.'
     setErrors(next)
     if (next.name) return document.getElementById(ids.name)?.focus()
-    if (next.phone) return document.getElementById(ids.phone)?.focus()
-    onSave({ ...profile, name: name.trim(), phone: digits })
-    setMode('view')
-    toast('Profile details saved.')
+    if (next.email) return document.getElementById(ids.email)?.focus()
+    setBusy(true)
+    setSaveError('')
+    try {
+      await onSave({ ...profile, name: name.trim(), email: email.trim() })
+      setMode('view')
+      toast('Profile details saved.')
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save your profile.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const pick = (file?: File) => {
@@ -229,42 +238,30 @@ export default function ProfileCard({
           {mode === 'edit' ? (
             <form onSubmit={save} noValidate className="anim-fade flex flex-1 flex-col gap-4" aria-label="Edit profile details">
               <div className="grid gap-4 sm:grid-cols-2">
-                {(
-                  [
-                    ['name', host ? 'Host name' : 'Full name', name, setName, 'name', 'text'],
-                    ['phone', 'Phone number', phone, setPhone, 'tel', 'tel'],
-                  ] as const
-                ).map(([k, label, val, set, ac, type]) => (
-                  <div key={k} className={`${field} flex flex-col gap-1 focus-within:shadow-hard-sm ${errors[k] ? 'border-danger bg-danger-tint' : ''}`}>
-                    <label htmlFor={ids[k]} className="text-xs leading-[18px] text-[#6b7280]">
-                      {label}
-                    </label>
-                    <input
-                      id={ids[k]}
-                      type={type}
-                      autoComplete={ac}
-                      inputMode={k === 'phone' ? 'numeric' : undefined}
-                      value={val}
-                      onChange={(e) => set(e.target.value)}
-                      aria-invalid={!!errors[k]}
-                      aria-describedby={errors[k] ? `${ids[k]}-e` : undefined}
-                      className="w-full bg-transparent font-semi text-sm text-[#111827] outline-none"
-                    />
-                    {errors[k] && (
-                      <FieldError id={`${ids[k]}-e`} live={false}>
-                        {errors[k]}
-                      </FieldError>
-                    )}
-                  </div>
-                ))}
+                <div className={`${field} flex flex-col gap-1 focus-within:shadow-hard-sm ${errors.name ? 'border-danger bg-danger-tint' : ''}`}>
+                  <label htmlFor={ids.name} className="text-xs leading-[18px] text-[#6b7280]">{host ? 'Host name' : 'Full name'}</label>
+                  <input id={ids.name} type="text" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} aria-invalid={!!errors.name} aria-describedby={errors.name ? `${ids.name}-e` : undefined} className="w-full bg-transparent font-semi text-sm text-[#111827] outline-none" />
+                  {errors.name && <FieldError id={`${ids.name}-e`} live={false}>{errors.name}</FieldError>}
+                </div>
+                <div className={`${field} flex flex-col gap-1`}>
+                  <span className="text-xs leading-[18px] text-[#6b7280]">Verified phone number</span>
+                  <span className="font-semi text-sm text-[#111827]">{fmtPhone(profile.phone)}</span>
+                </div>
+                <div className={`${field} flex flex-col gap-1 focus-within:shadow-hard-sm ${errors.email ? 'border-danger bg-danger-tint' : ''}`}>
+                  <label htmlFor={ids.email} className="text-xs leading-[18px] text-[#6b7280]">Email address{host ? ' (optional)' : ''}</label>
+                  <input id={ids.email} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!errors.email} aria-describedby={errors.email ? `${ids.email}-e` : undefined} className="w-full bg-transparent font-semi text-sm text-[#111827] outline-none" />
+                  {errors.email && <FieldError id={`${ids.email}-e`} live={false}>{errors.email}</FieldError>}
+                </div>
               </div>
+              <p className="text-xs text-stone">To use a different number, log out and verify that number on sign in.</p>
+              {saveError && <p role="alert" className="text-sm text-danger">{saveError}</p>}
               <p className="text-xs text-stone">Event stats update automatically after each booking.</p>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setMode('view')} className="press min-h-10 border-[1.5px] border-ink bg-white px-4 font-mono-b text-[11px] tracking-[0.6px] uppercase">
                   Cancel
                 </button>
-                <button type="submit" className="press min-h-10 border-[1.5px] border-ink bg-flame px-5 font-mono-b text-[11px] tracking-[0.6px] text-white uppercase shadow-hard-sm">
-                  Save changes
+                <button type="submit" disabled={busy} aria-busy={busy} className="press min-h-10 border-[1.5px] border-ink bg-flame px-5 font-mono-b text-[11px] tracking-[0.6px] text-white uppercase shadow-hard-sm disabled:opacity-60">
+                  {busy ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
             </form>
@@ -274,6 +271,7 @@ export default function ProfileCard({
                 ...(host && profile.venue ? [['Venue', profile.venue]] : []),
                 [host ? 'Host name' : 'Full name', profile.name],
                 ['Phone number', fmtPhone(profile.phone)],
+                ...(profile.email ? [['Email address', profile.email]] : []),
                 [host ? 'Events hosted' : 'Events organised', String(stats.events)],
                 ['Average rating', stats.rating],
               ].map(([k, v]) => (

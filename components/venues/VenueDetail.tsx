@@ -314,7 +314,7 @@ export function VenueDetail({ venue, reviews, reviewSummary, aspects, initial }:
           <button type="button" onClick={() => setBookingOpen(true)} className={venueButton.primary}>Check availability</button>
         </div>
       </div>
-      <BookingFlow key={`${space.id}-${eventType}-${duration}`} open={bookingOpen} onClose={() => setBookingOpen(false)} space={space} initial={{ ...initial, eventType, duration }} />
+      <BookingFlow key={`${space.id}-${eventType}-${duration}`} open={bookingOpen} onClose={() => setBookingOpen(false)} venueSlug={venue.slug} venueName={venue.name} venueArea={venue.area} space={space} initial={{ ...initial, eventType, duration }} />
     </>
   );
 }
