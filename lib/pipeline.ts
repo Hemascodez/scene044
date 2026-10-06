@@ -693,9 +693,9 @@ export interface CleanupResult {
  * them from every public query while keeping the row for auditing — and for a
  * "you missed this" surface later, which needs exactly this data.
  *
- * The one thing that IS deleted is orphaned poster bytes: images whose event
- * row is gone are pure storage cost with nothing referencing them, and Supabase's
- * free tier is 500 MB.
+ * The one thing that IS deleted is orphaned image bytes. An upload can belong
+ * to an event, a venue/space, or a venue review; all references must be gone
+ * before its bytes are removed.
  */
 export async function runCleanup(): Promise<CleanupResult> {
   const { rowCount: eventsExpired } = await query(
@@ -722,6 +722,15 @@ export async function runCleanup(): Promise<CleanupResult> {
       WHERE pu.created_at < now() - interval '7 days'
         AND NOT EXISTS (
           SELECT 1 FROM events e WHERE e.poster_image_url = '/api/poster/' || pu.id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM venues v WHERE ('/api/poster/' || pu.id) = ANY(v.photos)
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM venue_spaces vs WHERE vs.image = '/api/poster/' || pu.id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM venue_reviews vr WHERE pu.id = ANY(vr.photo_ids)
         )`,
   );
 
