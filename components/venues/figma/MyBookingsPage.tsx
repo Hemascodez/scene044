@@ -55,15 +55,16 @@ function toDesign(entry: { booking: VenueBooking; qrSvg: string }): Booking {
     space: b.spaceName,
     img: SPACE_PHOTO[b.spaceId] ?? "/venues/figma/spaces-f33c5.jpg",
     date: prettyDate(b.eventDate),
-    time: `${b.startTime} · ${b.durationHours} ${b.durationHours === 1 ? "hour" : "hours"}`,
+    time: `${b.startTime} · ${b.trialDurationMinutes ? '5-minute live trial' : `${b.durationHours} ${b.durationHours === 1 ? "hour" : "hours"}`}`,
     guests: `${b.people} people`,
     sentAt: Date.parse(b.createdAt),
     // What the organiser pays: space cost + SCENE's 10% fee (matches Razorpay).
-    amount: b.total === null ? "Host quote" : formatRupees(amountDue(b.total)),
+    amount: b.trialAmountPaise !== null ? formatRupees(b.trialAmountPaise / 100) : b.total === null ? "Host quote" : formatRupees(amountDue(b.total)),
     code: b.code,
     note,
     token: b.checkinToken,
     qrSvg: entry.qrSvg,
+    endsAt: b.status === 'checked_in' ? b.endsAt : null,
   };
 }
 
@@ -126,16 +127,19 @@ export default function MyBookingsPage() {
       body: JSON.stringify({ token: entry.booking.checkinToken }),
     }).then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
     if (!order.ok || !order.data.ok) throw new Error(order.data.error ?? "Could not start payment.");
+    if (order.data.alreadyPaid) { refresh(); return; }
 
     await new Promise<void>((resolve, reject) => {
       openRazorpayCheckout({
+        keyId: order.data.keyId,
         orderId: order.data.orderId,
         amount: order.data.amount,
         currency: order.data.currency,
         name: entry.booking.venueName,
-        description: `${entry.booking.spaceName} · ${entry.booking.durationHours}h`,
+        description: `${entry.booking.spaceName} · ${entry.booking.trialDurationMinutes ? '5-minute live trial' : `${entry.booking.durationHours}h`}`,
         prefill: { name: entry.booking.organizerName, email: entry.booking.organizerEmail, contact: entry.booking.organizerPhone },
         onSuccess: async (response) => {
+          try {
           const verified = await fetch("/api/razorpay/verify-payment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -144,6 +148,7 @@ export default function MyBookingsPage() {
           if (!verified) return reject(new Error("Payment could not be verified."));
           refresh();
           resolve();
+          } catch { reject(new Error('Payment verification interrupted. Retry Pay & confirm to recover your payment without another charge.')); }
         },
         onDismiss: () => reject(new Error("Payment cancelled.")),
         onFailed: (message) => reject(new Error(message)),

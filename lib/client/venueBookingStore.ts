@@ -45,6 +45,9 @@ export interface VenueBooking {
   checkedInAt: string | null;
   endsAt: string | null;
   completedAt: string | null;
+  trialDurationMinutes: number | null;
+  trialAmountPaise: number | null;
+  paidAt: string | null;
   createdAt: string;
 }
 

@@ -26,7 +26,7 @@ function first(value: string | string[] | undefined) {
 export async function generateMetadata({ params }: VenuePageProps): Promise<Metadata> {
   const { slug } = await params;
   const venue = await getCatalogVenue(slug);
-  if (!venue || venue.status === "hidden") {
+  if (slug !== "time-cafe" || !venue || venue.status === "hidden") {
     return { title: "Venue — SCENE/044", robots: { index: false, follow: false } };
   }
 
@@ -60,7 +60,7 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
   const query = await searchParams;
   const venue = await getCatalogVenue(slug);
 
-  if (!venue || venue.status === "hidden") notFound();
+  if (slug !== "time-cafe" || !venue || venue.status === "hidden") notFound();
 
   if (venue.status === "coming-soon") {
     return (

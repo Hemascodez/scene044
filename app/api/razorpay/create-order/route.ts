@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { createRazorpayOrder } from "@/lib/razorpay";
+import { createRazorpayOrder, razorpayCheckoutKey, paymentForOrder, fetchCapturedPayment } from "@/lib/razorpay";
 import { getBookingByCheckinToken } from "@/lib/venueBookings";
 import { getCatalogVenue } from "@/lib/venueCatalog";
-import { amountDue, rateForSpace } from "@/lib/venues";
+import { rateForSpace } from "@/lib/venues";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
+import { bookingChargePaise, recordPaymentOrder, latestPaymentOrder, confirmCapturedPayment } from '@/lib/venueOperations';
 
 /**
  * Creates a Razorpay order for a venue booking's "Pay & confirm" step.
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   const rate = rateForSpace(space, booking.eventType);
-  if (rate === null) {
+  if (rate === null && !booking.trialAmountPaise) {
     return NextResponse.json(
       { error: "This space requires a manual quote and can't be paid online yet" },
       { status: 400 },
@@ -58,9 +59,24 @@ export async function POST(request: Request) {
 
   // Space cost plus SCENE's 10% organizer service fee. The host's payout is
   // computed from the space cost alone (booking.total), so it is unaffected.
-  const amountPaise = Math.round(amountDue(rate * booking.durationHours) * 100);
-  if (amountPaise < 100) {
+  const amountPaise = bookingChargePaise(booking);
+  if (amountPaise === null || amountPaise < 100) {
     return NextResponse.json({ error: "Amount must be at least ₹1" }, { status: 400 });
+  }
+
+  const existing = await latestPaymentOrder(booking.id);
+  if (existing) {
+    try {
+      const payment = await paymentForOrder(existing.orderId);
+      if (payment) {
+        const captured = await fetchCapturedPayment(payment.id, existing);
+        if (captured.status !== 'captured' || !await confirmCapturedPayment(booking.id, existing.orderId, captured.id)) throw new Error('Payment needs reconciliation');
+        return NextResponse.json({ ok: true, alreadyPaid: true });
+      }
+      return NextResponse.json({ ok: true, orderId: existing.orderId, amount: existing.amountPaise, currency: existing.currency, keyId: razorpayCheckoutKey() });
+    } catch {
+      return NextResponse.json({ error: 'Could not check your earlier payment. Please retry; do not pay separately.' }, { status: 502 });
+    }
   }
 
   let result;
@@ -75,10 +91,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not start payment. Try again shortly." }, { status: result.status });
   }
 
+  if (!await recordPaymentOrder(booking.id, result.order.id, result.order.amount)) {
+    return NextResponse.json({ error: 'This booking changed while payment was starting. Refresh your bookings.' }, { status: 409 });
+  }
+
   return NextResponse.json({
     ok: true,
     orderId: result.order.id,
     amount: result.order.amount,
     currency: result.order.currency,
+    keyId: razorpayCheckoutKey(),
   });
 }

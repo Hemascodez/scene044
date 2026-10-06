@@ -170,7 +170,7 @@ export interface VenueListing {
  * this only covers cafes still being onboarded off-catalog, added to whatever
  * count `listPublicVenues()` returns.
  */
-export const VENUES_IN_ONBOARDING = 3;
+export const VENUES_IN_ONBOARDING = 0;
 
 /*
  * The pricing/capacity rules below take only the rooms, not a whole listing.

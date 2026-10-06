@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { VenueBookingsSection } from './VenueBookingsSection';
 import { formatRupees } from "@/lib/venues";
 import {
   VenueAdminApiError,
@@ -35,10 +36,11 @@ import {
   TextInput,
 } from "@/components/curator/adminUi";
 
-type Section = "venues" | "partners" | "reviews" | "earnings";
+type Section = "venues" | "partners" | "reviews" | "earnings" | "bookings";
 
 const SECTIONS: { key: Section; label: string; glyph: string }[] = [
   { key: "venues", label: "Venues", glyph: "◐" },
+  { key: "bookings", label: "All bookings", glyph: "▤" },
   { key: "partners", label: "Partner requests", glyph: "✉" },
   { key: "reviews", label: "Reviews", glyph: "★" },
   { key: "earnings", label: "Earnings", glyph: "₹" },
@@ -186,7 +188,7 @@ export function VenueCuratorApp() {
         </aside>
 
         <main className="min-w-0">
-          {loading ? (
+          {section === 'bookings' ? <VenueBookingsSection /> : loading ? (
             <div className="p-6 text-sm text-[#8ba295]">Loading…</div>
           ) : section === "venues" ? (
             <VenuesSection

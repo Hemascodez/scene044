@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { checkInBooking, listHostBookings, setHostBookingStatus, type HostBooking } from '@/lib/client/hostApi'
+import { HostQrScanner } from '../HostQrScanner'
+import { HostBookingSession } from '../HostBookingSession'
+import { HostMenuPanel } from '../HostMenuPanel'
 import { createManualVenueBlock, readManualVenueBlocks, type ManualVenueBlock } from '@/lib/client/venueBookingStore'
 import { getISTParts } from '@/lib/client/istTime'
 import {
@@ -109,7 +112,7 @@ const loadLogo = () => {
   }
 }
 
-export type HostTab = 'bookings' | 'calendar' | 'checkin' | 'payouts' | 'reviewsForYou' | 'yourReviews' | 'profile'
+export type HostTab = 'bookings' | 'calendar' | 'checkin' | 'orders' | 'payouts' | 'reviewsForYou' | 'yourReviews' | 'profile'
 
 export type HostRequest = {
   id: string
@@ -153,7 +156,7 @@ const dayLabel = (date: string) =>
   new Date(`${date}T12:00:00+05:30`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }).replace(/^(\w+) /, '$1, ')
 
 function toRequest(b: HostBooking): HostRequest {
-  const value = b.total ?? 0
+  const value = b.trialAmountPaise ? 0 : b.total ?? 0
   let group = ''
   try {
     group = b.trustUrl ? new URL(b.trustUrl).hostname.replace(/^www\./, '') : ''
@@ -168,14 +171,14 @@ function toRequest(b: HostBooking): HostRequest {
     orgGroup: group,
     date: dayLabel(b.eventDate),
     time: b.startTime,
-    duration: `${b.durationHours} ${b.durationHours === 1 ? 'hour' : 'hours'}`,
+    duration: b.trialDurationMinutes ? '5-minute live trial' : `${b.durationHours} ${b.durationHours === 1 ? 'hour' : 'hours'}`,
     guests: b.people,
     space: b.spaceName,
     eventPlan: b.description,
     requestedSetup: '',
     linkedin: b.trustUrl ?? '',
     phone: b.organizerPhone,
-    organiserPays: value,
+    organiserPays: b.trialAmountPaise ? b.trialAmountPaise / 100 : value,
     sceneFee: Math.round(value * HOST_FEE_RATE),
     payout: Math.round(value * (1 - HOST_FEE_RATE)),
     status: 'new',
@@ -241,6 +244,7 @@ export default function HostWorkspace({
     }
   }
   const [activeTab, setActiveTab] = useState<HostTab>('bookings')
+  const [orderBookingId, setOrderBookingId] = useState('')
   // Live data: the host's real bookings (polled) and their manual calendar blocks.
   const [hostBookings, setHostBookings] = useState<HostBooking[]>([])
   const [blocks, setBlocks] = useState<ManualVenueBlock[]>([])
@@ -330,7 +334,7 @@ export default function HostWorkspace({
   // Payouts & demand, counted from real bookings — never estimated.
   const monthKey = todayIso.slice(0, 7)
   const monthLabel = new Date(`${todayIso}T12:00:00+05:30`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })
-  const paidThisMonth = hostBookings.filter((b) => ['confirmed', 'checked_in', 'completed'].includes(b.status) && b.eventDate.startsWith(monthKey))
+  const paidThisMonth = hostBookings.filter((b) => !b.trialAmountPaise && ['confirmed', 'checked_in', 'completed'].includes(b.status) && b.eventDate.startsWith(monthKey))
   const monthValue = paidThisMonth.reduce((n, b) => n + (b.total ?? 0), 0)
   const monthFee = Math.round(monthValue * HOST_FEE_RATE)
   const spaceDemand = (() => {
@@ -360,7 +364,7 @@ export default function HostWorkspace({
   const upcomingPayout =
     activeNewRequests.reduce((acc, r) => acc + r.payout, 0) +
     hostBookings
-      .filter((b) => ['approved', 'confirmed', 'checked_in'].includes(b.status) && b.eventDate >= todayIso)
+      .filter((b) => !b.trialAmountPaise && ['approved', 'confirmed', 'checked_in'].includes(b.status) && b.eventDate >= todayIso)
       .reduce((acc, b) => acc + Math.round((b.total ?? 0) * (1 - HOST_FEE_RATE)), 0)
 
   const handleApprove = async (reqId: string) => {
@@ -412,8 +416,9 @@ export default function HostWorkspace({
 
   const confirmArrival = async (code: string) => {
     try {
-      await checkInBooking({ code })
-      showToast(`Checked in ${code} successfully!`)
+      const { booking } = await checkInBooking({ code })
+      showToast(booking.status === 'checked_in' ? `${code}: timer is running.` : `${code}: ${booking.status}.`)
+      setCheckInResult(null)
       refresh()
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Could not check in this booking.')
@@ -526,6 +531,7 @@ export default function HostWorkspace({
               <span>Payouts</span>
             </button>
           {([
+              { id: 'orders', label: 'Sessions & orders', icon: null, count: 0 },
               { id: 'reviewsForYou', label: 'Reviews for you', icon: '/venues/figma/reviews-72dc5.png', count: 2 },
               { id: 'yourReviews', label: 'Your reviews', icon: '/venues/figma/reviews-1c6e7.png', count: 1 },
               { id: 'profile', label: 'Profile', icon: null, count: 0 },
@@ -900,19 +906,7 @@ export default function HostWorkspace({
               </p>
             </div>
 
-            {/* QR Scanner Mock Viewfinder */}
-            <div className="relative mx-auto flex aspect-square max-w-[340px] flex-col items-center justify-center border-[2px] border-ink bg-white p-6 shadow-hard">
-              <div className="relative flex size-48 items-center justify-center rounded-lg border-2 border-dashed border-ink/40 bg-paper">
-                {/* Viewfinder corner brackets */}
-                <span className="absolute -top-1.5 -left-1.5 size-4 border-t-2 border-l-2 border-flame" />
-                <span className="absolute -top-1.5 -right-1.5 size-4 border-t-2 border-r-2 border-flame" />
-                <span className="absolute -bottom-1.5 -left-1.5 size-4 border-b-2 border-l-2 border-flame" />
-                <span className="absolute -bottom-1.5 -right-1.5 size-4 border-b-2 border-r-2 border-flame" />
-
-                <QrCode className="size-20 text-ink/70" />
-              </div>
-              <p className="mt-4 font-mono text-xs text-stone">Point camera at organiser&apos;s QR</p>
-            </div>
+            <HostQrScanner onRefresh={refresh} />
 
             {/* Manual Code Form */}
             <form onSubmit={handleCheckInSearch} className="border-[1.5px] border-ink bg-white p-6 shadow-hard space-y-3">
@@ -926,7 +920,7 @@ export default function HostWorkspace({
                   value={checkInCode}
                   onChange={(e) => setCheckInCode(e.target.value)}
                   placeholder="e.g. SCN-7KQ4XA"
-                  className="flex-1 border-[1.5px] border-ink bg-paper px-3.5 py-2.5 font-mono-b text-sm uppercase tracking-wider text-ink focus:outline-none focus:ring-2 focus:ring-flame"
+                  className="min-w-0 flex-1 border-[1.5px] border-ink bg-paper px-3.5 py-2.5 font-mono-b text-sm uppercase tracking-wider text-ink focus:outline-none focus:ring-2 focus:ring-flame"
                 />
                 <button
                   type="submit"
@@ -953,18 +947,18 @@ export default function HostWorkspace({
                   {checkInResult.status === 'success' && (
                     <div className="space-y-1">
                       <p className="font-head text-sm text-moss flex items-center gap-1.5">
-                        <Check className="size-4" strokeWidth={2.5} /> Check-in Verified!
+                        <Check className="size-4" strokeWidth={2.5} /> Booking found
                       </p>
                       <p className="font-body-m text-ink">{checkInResult.title}</p>
                       <p className="text-stone">{checkInResult.guest}</p>
                       <p className="text-stone">{checkInResult.space}</p>
-                      <button
+                      {hostBookings.find(b => b.code === checkInResult.code)?.status === 'confirmed' && <button
                         type="button"
                         onClick={() => checkInResult.code && confirmArrival(checkInResult.code)}
                         className="press mt-3 w-full border border-moss bg-moss py-2 font-head text-xs uppercase text-white shadow-hard-sm"
                       >
                         Confirm guest arrival
-                      </button>
+                      </button>}
                     </div>
                   )}
 
@@ -982,9 +976,17 @@ export default function HostWorkspace({
                 </div>
               )}
             </form>
+            {hostBookings.filter(b => b.status === 'checked_in').map(b => <HostBookingSession key={b.id} booking={b} onRefresh={refresh} />)}
           </div>
         )}
 
+        {activeTab === 'orders' && <section className="mx-auto max-w-[768px] space-y-4">
+          <h1 className="font-head text-2xl">Sessions & organiser orders</h1>
+          <label className="block text-sm">Choose a checked-in or completed booking<select className="mt-2 w-full min-w-0 border border-ink bg-white p-3" value={orderBookingId} onChange={e => setOrderBookingId(e.target.value)}>
+            <option value="">Select booking</option>{hostBookings.filter(b => ['checked_in','completed'].includes(b.status)).map(b => <option key={b.id} value={b.id}>{b.code} · {b.organizerName} · {b.eventDate} · {b.status.replace('_',' ')}</option>)}
+          </select></label>
+          {hostBookings.filter(b => String(b.id) === orderBookingId && ['checked_in','completed'].includes(b.status)).map(b => <HostBookingSession key={b.id} booking={b} onRefresh={refresh} />)}
+        </section>}
         {(activeTab === 'reviewsForYou' || activeTab === 'yourReviews') && (
           <HostReviews
             key={activeTab}
@@ -1002,6 +1004,7 @@ export default function HostWorkspace({
               <h1 className="font-head text-3xl leading-[45px] text-ink uppercase sm:text-4xl">Host profile</h1>
               <p className="text-sm leading-5 text-stone">This is how organisers see you and your venue.</p>
             </div>
+            <HostMenuPanel />
             {profile && onSaveProfile ? (
               <ProfileCard
                 variant="host"

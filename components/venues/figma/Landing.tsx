@@ -489,12 +489,12 @@ export default function Landing() {
                   Your space could be someone else&apos;s next great event.
                 </h2>
                 <p className="mt-4 max-w-[520px] text-white/70">
-                  Join 40+ curated independent spaces hosting Chennai’s top tech, design, and cultural gatherings. We
-                  handle inquiries, schedule deposits, and on-site guest screening.
+                  Time Cafe is our first venue partner. List your space to welcome Chennai’s tech, design,
+                  and community gatherings, with booking requests and check-in in one place.
                 </p>
                 <dl className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-3">
                   {[
-                    ['₹1.8L – 3.2L', 'Average monthly space earnings'],
+                    ['Time Cafe', 'Our first venue partner'],
                     ['₹0', 'Upfront listing or software fees'],
                     ['100%', 'Verified organiser identity'],
                   ].map(([t, d]) => (

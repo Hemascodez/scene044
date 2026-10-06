@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { verifyRazorpayPaymentSignature } from "@/lib/razorpay";
-import { getBookingByCheckinToken, setBookingStatus } from "@/lib/venueBookings";
+import { verifyRazorpayPaymentSignature, fetchCapturedPayment } from "@/lib/razorpay";
+import { getBookingByCheckinToken } from "@/lib/venueBookings";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
+import { confirmCapturedPayment, getPaymentOrder } from '@/lib/venueOperations';
 
 /**
  * Verifies the signature Razorpay Checkout hands back after a payment, then
@@ -65,7 +66,21 @@ export async function POST(request: Request) {
   // A verified signature for a booking that isn't `approved` (already paid,
   // or paid out of order) still leaves the payment itself valid — it just
   // shouldn't move a booking that's already past this step.
-  const confirmed = booking.status === "approved" ? await setBookingStatus(booking.id, "confirmed") : booking;
-
-  return NextResponse.json({ ok: true, booking: confirmed ?? booking });
+  const order = await getPaymentOrder(orderId);
+  if (!order || order.bookingId !== booking.id || (order.paymentId && order.paymentId !== paymentId)) {
+    return NextResponse.json({ error: 'This payment order does not belong to this booking.' }, { status: 400 });
+  }
+  try {
+    const payment = await fetchCapturedPayment(paymentId, { orderId, amountPaise: order.amountPaise, currency: order.currency });
+    if (payment.order_id !== orderId || payment.amount !== order.amountPaise || payment.currency !== order.currency || payment.status !== 'captured') {
+      return NextResponse.json({ error: 'Payment has not been captured for the expected booking amount.' }, { status: 409 });
+    }
+    if (!await confirmCapturedPayment(booking.id, orderId, paymentId)) {
+      return NextResponse.json({ error: 'Payment received, but the booking needs curator attention.' }, { status: 409 });
+    }
+    return NextResponse.json({ ok: true, booking: await getBookingByCheckinToken(token) });
+  } catch (error) {
+    console.error('Razorpay payment reconciliation failed', error);
+    return NextResponse.json({ error: 'Could not verify the captured payment. Retry verification or contact SCENE with your payment ID.' }, { status: 502 });
+  }
 }

@@ -129,7 +129,7 @@ export async function listAllVenues(): Promise<CatalogVenue[]> {
 export async function listPublicVenues(): Promise<CatalogVenue[]> {
   const { rows } = await query<VenueRow>(
     `SELECT ${VENUE_COLUMNS} FROM venues
-      WHERE status IN ('live','coming-soon')
+      WHERE status = 'live' AND slug = 'time-cafe'
       ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END, name`,
   );
   return attachSpaces(rows);
@@ -418,13 +418,13 @@ export async function venueEarnings(venueSlug?: string): Promise<VenueEarnings> 
     `SELECT
        count(*) FILTER (WHERE status IN ('confirmed','checked_in','completed'))::text AS confirmed,
        count(*) FILTER (WHERE status = 'completed')::text AS completed,
-       COALESCE(sum(total) FILTER (WHERE status IN ('confirmed','checked_in','completed')), 0)::text AS gross
+       COALESCE(sum(total) FILTER (WHERE status IN ('confirmed','checked_in','completed') AND trial_amount_paise IS NULL), 0)::text AS gross
      FROM venue_bookings
      WHERE ($1::text IS NULL OR venue_slug = $1)`,
     [venueSlug ?? null],
   );
   const { rows: orderRows } = await query<{ total: string }>(
-    `SELECT COALESCE(sum(o.amount), 0)::text AS total
+    `SELECT (COALESCE(sum(COALESCE(o.unit_price_paise * o.quantity, o.amount * 100)), 0) / 100.0)::text AS total
        FROM venue_booking_orders o
        JOIN venue_bookings b ON b.id = o.booking_id
       WHERE ($1::text IS NULL OR b.venue_slug = $1)`,

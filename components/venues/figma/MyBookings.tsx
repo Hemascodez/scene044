@@ -6,6 +6,7 @@ import Dialog from './Dialog'
 import ProfileCard from './ProfileCard'
 import ReviewFlow from './ReviewFlow'
 import RequestFlight from './RequestFlight'
+import { BookingCountdown } from '../BookingCountdown'
 import { Close, Star } from './icons'
 import type { Profile } from './AuthModal'
 import { REVIEW_TAGS, type Booking, type HostReview, type Review } from './bookingsData'
@@ -27,7 +28,6 @@ type Tab = 'upcoming' | 'past' | 'declined' | 'for-you' | 'yours'
 type Toast = { id: number; msg: string; tone: 'ok' | 'error' }
 
 const PHOTO_KEY_PREFIX = 'scene044.photo.v2:'
-const QR = ['11110111', '11101000', '11100111', '10010010', '01001001', '10100100', '10110010', '10101001']
 const mono = 'font-mono-b text-[10px] leading-[15px] tracking-[0.6px] uppercase'
 const card = 'border-[1.5px] border-ink bg-white shadow-hard'
 const ghostBtn = `press min-h-10 border-[1.5px] border-ink bg-white px-4 ${mono} text-ink shadow-hard-sm`
@@ -137,6 +137,7 @@ function BookingCard({
             <Meta icon={clockIcon}>{b.time}</Meta>
             <Meta icon={usersIcon}>{b.guests}</Meta>
           </ul>
+          {b.endsAt && <div className="mt-3"><p className="text-sm font-semibold">Event in progress</p><BookingCountdown endsAt={b.endsAt} /></div>}
 
           <div className="mt-4 border-t border-line pt-4">
             {b.status === 'due' && (
@@ -174,13 +175,7 @@ function BookingCard({
                         // The real check-in QR reception scans; the SVG ships with a fixed 256px size.
                         <div role="img" aria-label={`QR code for booking ${b.code}`} className="size-32 shrink-0 border-[1.5px] border-ink bg-white p-2 shadow-[2px_2px_0_0_#111] [&>svg]:size-full" dangerouslySetInnerHTML={{ __html: b.qrSvg }} />
                       ) : (
-                        <div role="img" aria-label={`QR code for booking ${b.code}`} className="grid size-32 shrink-0 grid-cols-8 grid-rows-8 gap-px border-[1.5px] border-ink bg-white p-2 shadow-[2px_2px_0_0_#111]">
-                          {QR.join('')
-                            .split('')
-                            .map((c, k) => (
-                              <span key={k} className={c === '1' ? 'bg-ink' : ''} />
-                            ))}
-                        </div>
+                        <p className="max-w-32 text-xs text-primary-ink">QR unavailable. Refresh this page, or give the host your booking code.</p>
                       )}
                       <div className="text-center sm:text-left">
                         <p className="font-mono text-[10px] leading-[15px] tracking-[0.6px] text-stone uppercase">Booking code</p>

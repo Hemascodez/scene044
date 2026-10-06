@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { checkCuratorAccess } from "@/lib/auth";
 import { addBookingOrder, listBookingOrders } from "@/lib/venueBookings";
+import { addMenuOrder, UUID_PATTERN } from '@/lib/venueOperations';
 
 interface OrderBody {
   description?: unknown;
   amount?: unknown;
+  menuItemId?: unknown;
+  quantity?: unknown;
+  requestKey?: unknown;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -38,6 +42,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
+  if (body.menuItemId !== undefined) {
+    if (typeof body.menuItemId !== 'string' || !UUID_PATTERN.test(body.menuItemId) ||
+      typeof body.requestKey !== 'string' || !UUID_PATTERN.test(body.requestKey) ||
+      !Number.isSafeInteger(body.quantity) || Number(body.quantity) < 1 || Number(body.quantity) > 100) return NextResponse.json({ error: 'Invalid menu item or quantity' }, { status: 400 });
+    const order = await addMenuOrder(bookingId, body.menuItemId, Number(body.quantity), body.requestKey);
+    return order ? NextResponse.json({ ok: true, order }) : NextResponse.json({ error: 'Item unavailable or booking is not checked in' }, { status: 409 });
+  }
   const description = typeof body.description === "string" ? body.description.trim().slice(0, 300) : "";
   const amount = Number(body.amount);
   if (!description || !Number.isFinite(amount) || amount < 0) {

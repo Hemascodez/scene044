@@ -56,6 +56,7 @@ function loadCheckoutScript(): Promise<void> {
 }
 
 export async function openRazorpayCheckout(options: {
+  keyId?: string;
   orderId: string;
   amount: number;
   currency: string;
@@ -66,7 +67,7 @@ export async function openRazorpayCheckout(options: {
   onDismiss: () => void;
   onFailed: (message: string) => void;
 }): Promise<void> {
-  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const keyId = options.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   if (!keyId) throw new Error("NEXT_PUBLIC_RAZORPAY_KEY_ID is not set");
 
   await loadCheckoutScript();

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from 'next/navigation';
 import { checkInBooking } from "@/lib/client/hostApi";
 import type { VenueBookingStatus } from "@/lib/client/venueBookingStore";
 import { venueButton } from "@/components/venues/VenueUi";
 
 export function CheckinPanel({ token, initialStatus }: { token: string; initialStatus: VenueBookingStatus }) {
+  const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -16,6 +18,7 @@ export function CheckinPanel({ token, initialStatus }: { token: string; initialS
     try {
       const result = await checkInBooking({ token });
       setStatus(result.booking.status);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not check in.");
     } finally {

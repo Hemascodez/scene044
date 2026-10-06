@@ -54,6 +54,9 @@ export interface VenueBooking {
   checkedInAt: string | null;
   endsAt: string | null;
   completedAt: string | null;
+  trialDurationMinutes: number | null;
+  trialAmountPaise: number | null;
+  paidAt: string | null;
   createdAt: string;
 }
 
@@ -61,6 +64,8 @@ export interface VenueBookingOrder {
   id: number;
   description: string;
   amount: number;
+  quantity: number;
+  unitPricePaise: number | null;
   createdAt: string;
 }
 
@@ -111,7 +116,7 @@ export function newCheckinToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const BOOKING_COLUMNS = `
+export const BOOKING_COLUMNS = `
   id, organizer_user_id AS "organizerUserId", code, checkin_token AS "checkinToken",
   venue_slug AS "venueSlug", venue_name AS "venueName",
   space_id AS "spaceId", space_name AS "spaceName",
@@ -123,6 +128,7 @@ const BOOKING_COLUMNS = `
   whatsapp_opt_in AS "whatsappOptIn",
   hourly_rate AS "hourlyRate", total, status,
   checked_in_at AS "checkedInAt", ends_at AS "endsAt", completed_at AS "completedAt",
+  trial_duration_minutes AS "trialDurationMinutes", trial_amount_paise AS "trialAmountPaise", paid_at AS "paidAt",
   created_at AS "createdAt"
 `;
 
@@ -311,7 +317,7 @@ export async function checkInBooking(id: number): Promise<VenueBooking | null> {
     `UPDATE venue_bookings
         SET status = 'checked_in',
             checked_in_at = now(),
-            ends_at = now() + (duration_hours * interval '1 hour'),
+            ends_at = now() + COALESCE(trial_duration_minutes * interval '1 minute', duration_hours * interval '1 hour'),
             updated_at = now()
       WHERE id = $1 AND status = 'confirmed'
       RETURNING ${BOOKING_COLUMNS}`,
@@ -342,7 +348,7 @@ export async function addBookingOrder(
     `INSERT INTO venue_booking_orders (booking_id, description, amount)
      SELECT id, $2, $3 FROM venue_bookings
       WHERE id = $1 AND status IN ('checked_in','completed')
-     RETURNING id, description, amount, created_at AS "createdAt"`,
+     RETURNING id, description, amount, quantity, unit_price_paise AS "unitPricePaise", created_at AS "createdAt"`,
     [bookingId, description, amount],
   );
   return rows[0] ?? null;
@@ -350,7 +356,7 @@ export async function addBookingOrder(
 
 export async function listBookingOrders(bookingId: number): Promise<VenueBookingOrder[]> {
   const { rows } = await query<VenueBookingOrder>(
-    `SELECT id, description, amount, created_at AS "createdAt"
+    `SELECT id, description, amount, quantity, unit_price_paise AS "unitPricePaise", created_at AS "createdAt"
        FROM venue_booking_orders WHERE booking_id = $1 ORDER BY created_at, id`,
     [bookingId],
   );
@@ -360,7 +366,7 @@ export async function listBookingOrders(bookingId: number): Promise<VenueBooking
 /** Order totals per booking, for the host's running-tab view. */
 export async function orderTotalsByBooking(venueSlug: string): Promise<Map<number, number>> {
   const { rows } = await query<{ booking_id: number; total: string }>(
-    `SELECT o.booking_id, sum(o.amount)::text AS total
+    `SELECT o.booking_id, (sum(COALESCE(o.unit_price_paise * o.quantity, o.amount * 100)) / 100.0)::text AS total
        FROM venue_booking_orders o
        JOIN venue_bookings b ON b.id = o.booking_id
       WHERE b.venue_slug = $1

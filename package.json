@@ -47,7 +47,8 @@
     "react-dom": "19.2.8",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@zxing/browser": "^0.1.5"
   },
   "devDependencies": {
     "eslint": "^9",

@@ -25,6 +25,43 @@ function credentials(): { keyId: string; keySecret: string } {
   return { keyId, keySecret };
 }
 
+export function razorpayCheckoutKey(): string { return credentials().keyId; }
+
+export interface RazorpayPayment {
+  id: string; order_id: string; amount: number; currency: string; status: string;
+}
+
+/** Recover a paid order if the browser closed before the success callback. */
+export async function paymentForOrder(orderId: string): Promise<RazorpayPayment | null> {
+  if (!/^order_[A-Za-z0-9]+$/.test(orderId)) throw new Error('Invalid order id');
+  const { keyId, keySecret } = credentials();
+  const response = await fetch(`https://api.razorpay.com/v1/orders/${orderId}/payments`, {
+    headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}` },
+    cache: 'no-store', signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw new Error('Could not check existing payment');
+  const data = await response.json() as { items: RazorpayPayment[] };
+  return data.items.find(p => p.status === 'captured' || p.status === 'authorized') ?? null;
+}
+
+export async function fetchCapturedPayment(paymentId: string, expected: { orderId: string; amountPaise: number; currency: string }): Promise<RazorpayPayment> {
+  if (!/^pay_[A-Za-z0-9]+$/.test(paymentId)) throw new Error('Invalid payment id');
+  const { keyId, keySecret } = credentials();
+  const headers = { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`, 'Content-Type': 'application/json' };
+  let response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, { headers, cache: 'no-store' });
+  if (!response.ok) throw new Error('Could not retrieve payment from Razorpay');
+  let payment = await response.json() as RazorpayPayment;
+  if (payment.order_id !== expected.orderId || payment.amount !== expected.amountPaise || payment.currency !== expected.currency) throw new Error('Payment does not match the booking order');
+  if (payment.status === 'authorized') {
+    response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/capture`, {
+      method: 'POST', headers, body: JSON.stringify({ amount: payment.amount, currency: payment.currency }),
+    });
+    if (!response.ok) throw new Error('Payment is authorised but could not be captured. Please retry verification.');
+    payment = await response.json() as RazorpayPayment;
+  }
+  return payment;
+}
+
 /** `amountPaise` must already be the integer paise amount — Razorpay itself
  *  rejects anything below 100 paise (₹1), so the caller validates that first. */
 export async function createRazorpayOrder(input: {
