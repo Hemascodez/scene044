@@ -1,164 +1,76 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { VenueCard } from "@/components/venues/VenueCard";
 import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi";
 import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
 import { ScrollToResultsOnSearch } from "@/components/venues/ScrollToResultsOnSearch";
 import { VenueChrome } from "@/components/venues/figma/VenueChrome";
-import { VENUES_IN_ONBOARDING, venueFitsGroup, venueMaxGuests } from "@/lib/venues";
-import { listPublicVenues, toVenueListing } from "@/lib/venueCatalog";
+import { formatRupees, rateForSpace, venueMaxGuests, venueSearchHref } from "@/lib/venues";
+import { listPublicVenues } from "@/lib/venueCatalog";
+import { matchingSpaces, requestedCapacity, venueDetailSearchHref, venueSearchValues } from "@/lib/venueSearch";
 
-interface SearchPageProps {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-// Every filter combination renders the same catalog with a client-side-style
-// (but server-rendered) narrowing, so all of them canonicalize to the bare
-// path rather than letting each ?location=&date=&people= combination compete
-// as separate indexable pages.
 export const metadata: Metadata = {
-  title: "Search Chennai Event Venues — SCENE/044",
-  description: "Filter Chennai event venues by location, date, and group size to find a space that fits.",
+  title: "Search Chennai Event Spaces — SCENE/044",
+  description: "Compare event spaces by capacity, location and hourly rates before sending a request.",
   alternates: { canonical: "/venues/search" },
 };
 
-function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
+export default async function VenueSearchPage({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = venueSearchValues(await searchParams);
+  const capacity = requestedCapacity(query.people);
+  const invalidCapacity = capacity !== null && !Number.isFinite(capacity);
+  const live = (await listPublicVenues()).filter(venue => venue.status === "live");
+  const matches = live.flatMap(venue => matchingSpaces(venue.spaces, query.people).map(space => ({ venue, space })));
+  const largest = Math.max(0, ...live.map(venue => venueMaxGuests(venue) ?? 0));
+  const mapVenue = matches[0]?.venue;
 
-export default async function VenueSearchPage({ searchParams }: SearchPageProps) {
-  const params = await searchParams;
-  const query = {
-    location: first(params.location),
-    date: first(params.date),
-    time: first(params.time),
-    people: first(params.people),
-    eventType: first(params.eventType),
-  };
-  const hasDate = Boolean(query.date);
-
-  /*
-   * The group-size filter now actually filters.
-   *
-   * It previously collected a guest count and returned the same venue whatever
-   * you typed, so asking for 50 people produced a 30-capacity result presented
-   * as a match. A request we cannot seat is now an explicit, honest miss.
-   */
-  const requestedPeople = Number(query.people);
-  const groupSize = Number.isFinite(requestedPeople) && requestedPeople > 0 ? requestedPeople : null;
-  const venues = await listPublicVenues();
-  const live = venues.filter((venue) => venue.status === "live");
-  const matched = groupSize === null ? live : live.filter((venue) => venueFitsGroup(venue, groupSize));
-  const matches = matched.map(toVenueListing);
-  const tooSmall = groupSize !== null && matches.length === 0 && live.length > 0;
-  const largestCapacity = Math.max(0, ...live.map((venue) => venueMaxGuests(venue) ?? 0));
-  const upcoming = venues.filter((venue) => venue.status === "coming-soon").map(toVenueListing);
-  const comingCount = upcoming.length + VENUES_IN_ONBOARDING;
-
-  return (
-    <VenueChrome>
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-      <VenueKicker>Venue search</VenueKicker>
-      <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">
-        Spaces near {query.location || "Chennai"}
-      </h1>
-      <div className="mt-7">
-        <VenueSearchBar defaults={query} compact />
-      </div>
-
+  return <VenueChrome>
+    <div className="mx-auto max-w-7xl px-4 py-8 font-body sm:px-6 lg:px-8 lg:py-12">
+      <VenueKicker>Find a space</VenueKicker>
+      <h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-0.035em] sm:text-5xl">Spaces in {query.location || "Chennai"}</h1>
+      <div className="mt-7"><VenueSearchBar defaults={query} compact /></div>
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b-[1.5px] border-foreground pb-5">
-        {/* Counts come from the registry, so they stay true as cafes launch. */}
-        <p className="text-sm text-muted-foreground">
-          <strong className="text-foreground">
-            {matches.length} {matches.length === 1 ? "venue" : "venues"} available
-          </strong>
-          {comingCount > 0 && ` · ${comingCount} more launching soon`}
-          {" · Request-based availability"}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            query.eventType,
-            groupSize ? `${groupSize} people` : undefined,
-            hasDate ? "Date selected" : "Any date",
-          ]
-            .filter(Boolean)
-            .map((item) => (
-              <span
-                key={item}
-                className="border-[1.5px] border-foreground bg-venue-card px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
-              >
-                {item}
-              </span>
-            ))}
-        </div>
+        <p className="text-sm text-muted-foreground"><strong className="text-foreground">{matches.length} {matches.length === 1 ? "space fits" : "spaces fit"}{capacity && !invalidCapacity ? ` your ${capacity} attendees` : " your search"}</strong></p>
+        <div className="flex flex-wrap gap-2">{[query.eventType, query.date || "Any date", query.time].filter(Boolean).map(item =>
+          <span key={item} className="border border-foreground bg-venue-card px-3 py-1.5 text-xs">{item}</span>)}</div>
       </div>
-
+      <p className="mt-4 text-sm leading-6 text-muted-foreground">These spaces fit the group size. Your date and time travel with your request; availability is confirmed by the host. Browsing does not make or charge a booking.</p>
       <ScrollToResultsOnSearch trigger={JSON.stringify(query)} targetId="venue-results" />
-      <div id="venue-results" className="mt-8 grid gap-8 scroll-mt-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          {tooSmall ? (
-            <div className="border-[1.5px] border-dashed border-warn-ink bg-warn/5 p-6">
-              <p className="font-display text-xl font-extrabold">
-                Nothing this size yet — our largest space seats {largestCapacity}.
-              </p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                You asked for {groupSize} people. Larger venues are being onboarded now. Try a smaller
-                group, or tell us what you need and we&apos;ll look for a fit.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Link href="/venues/search" className={venueButton.outline}>
-                  Clear group size
-                </Link>
-                <Link href="/venues/partner" className={venueButton.outline}>
-                  Suggest a venue <VenueIcon name="arrow" className="size-4" />
-                </Link>
+      <div id="venue-results" className={`mt-8 grid scroll-mt-24 gap-8 ${mapVenue ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
+        <div className="min-w-0 space-y-6">
+          {matches.length === 0 && <section className="border-[1.5px] border-dashed border-warn-ink bg-warn/5 p-6" aria-label="Search results">
+            <h2 className="font-display text-xl font-extrabold">{invalidCapacity ? "Enter a whole number of attendees" : capacity && largest ? `No space fits ${capacity} attendees` : "No bookable spaces right now"}</h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{invalidCapacity ? "Use a positive whole number to check the capacity." : largest ? `Time Cafe’s largest individual space fits ${largest} people. We won’t show a smaller space as a suitable match.` : "Please check back shortly."}</p>
+            <Link href={venueSearchHref({ ...query, people: "" })} className={`${venueButton.outline} mt-4`}>Clear attendee filter</Link>
+          </section>}
+          {matches.map(({ venue, space }, index) => {
+            const rate = rateForSpace(space, query.eventType);
+            const href = venueDetailSearchHref(venue.slug, query, space.id);
+            const mapUrl = venue.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address || `${venue.name}, ${venue.area}, ${venue.city}`)}`;
+            return <article key={`${venue.slug}:${space.id}`} className="grid min-w-0 overflow-hidden border-[1.5px] border-foreground bg-white shadow-hard sm:grid-cols-[220px_minmax(0,1fr)]">
+              <Link href={href} aria-label={`View details of ${space.name} at ${venue.name}`} className="block min-h-44 overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-ink">
+                <img src={space.image} alt={space.name} loading={index === 0 ? "eager" : "lazy"} className="h-full w-full object-cover" />
+              </Link>
+              <div className="min-w-0 p-5">
+                <p className="text-xs text-muted-foreground">{venue.name} · {venue.area}</p>
+                <h2 className="mt-2 font-display text-xl font-extrabold"><Link href={href} className="underline-offset-4 hover:underline">{space.name}</Link></h2>
+                <p className="mt-2 font-bold text-ok-ink">Fits up to {space.maxGuests} people</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{space.description}</p>
+                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm underline underline-offset-4"><VenueIcon name="map" className="size-4" /> View location on Google Maps<span className="sr-only"> (opens in a new tab)</span></a>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-venue-line pt-4">
+                  <p className="text-sm"><strong className="text-xl">{rate === null ? "Host quote" : formatRupees(rate)}</strong>{rate !== null && " / hour"}<span className="mt-1 block text-xs text-muted-foreground">3-hour minimum · No added service fee</span></p>
+                  <Link href={href} className={venueButton.primary}>View space details <VenueIcon name="arrow" className="size-4" /></Link>
+                </div>
               </div>
-            </div>
-          ) : (
-            matches.map((venue, index) => (
-              <VenueCard key={venue.slug} venue={venue} query={query} priority={index === 0} />
-            ))
-          )}
-
-          {upcoming.map((venue) => (
-            <VenueCard key={venue.slug} venue={venue} />
-          ))}
-
-          {comingCount > upcoming.length && (
-            <div className="border-[1.5px] border-dashed border-foreground/50 p-6 text-center">
-              <p className="font-display text-xl font-extrabold">
-                {comingCount - upcoming.length} more Chennai {comingCount - upcoming.length === 1 ? "cafe" : "cafes"} open
-                for requests soon.
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                We verify photos, capacity, and pricing with each owner before listing, so what you see
-                here is what you get.
-              </p>
-            </div>
-          )}
+            </article>;
+          })}
         </div>
-
-        <aside className="h-fit overflow-hidden border-[1.5px] border-foreground bg-venue-card shadow-hard lg:sticky lg:top-24">
-          <div className="aspect-[4/3] border-b-[1.5px] border-foreground bg-[#deddd2] p-6">
-            <div className="relative h-full overflow-hidden border border-foreground/20 bg-[radial-gradient(circle_at_20%_30%,#fff_0_2px,transparent_3px),linear-gradient(135deg,#e8e7dd_25%,#d6ddd1_25%_50%,#e9e4d9_50%_75%,#d7dfd6_75%)] bg-[length:36px_36px,100%_100%]">
-              <div className="absolute left-[48%] top-[44%] grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center border-[1.5px] border-foreground bg-primary text-white shadow-hard-sm">
-                <VenueIcon name="map" />
-              </div>
-              <span className="absolute bottom-3 left-3 bg-venue-card px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
-                {live[0]?.area ?? "Chennai"}
-              </span>
-            </div>
-          </div>
-          <div className="p-5">
-            <p className="font-display text-xl font-extrabold">Where you&apos;ll be</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Every listing shows its exact address and a map link on the venue page — before you send a
-              request.
-            </p>
-          </div>
-        </aside>
+        {mapVenue && <aside className="h-fit min-w-0 border-[1.5px] border-foreground bg-venue-card shadow-hard lg:sticky lg:top-24">
+          <iframe title={`Map of ${mapVenue.name}`} src={mapVenue.mapEmbedUrl || `https://www.google.com/maps?q=${encodeURIComponent(mapVenue.address || `${mapVenue.name}, ${mapVenue.area}`)}&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="block h-60 w-full border-0" />
+          <div className="p-5"><h2 className="font-display text-xl font-extrabold">Where you’ll be</h2><p className="mt-2 text-sm leading-6">{mapVenue.address || `${mapVenue.area}, ${mapVenue.city}`}</p></div>
+        </aside>}
       </div>
     </div>
-    </VenueChrome>
-  );
+  </VenueChrome>;
 }

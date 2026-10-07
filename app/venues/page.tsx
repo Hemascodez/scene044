@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Landing from "@/components/venues/figma/Landing";
+import { getCatalogVenue } from "@/lib/venueCatalog";
+
+export const dynamic = "force-dynamic";
 
 const TITLE = "Book Event Venues in Chennai — SCENE/044";
 const DESCRIPTION =
@@ -14,6 +17,6 @@ export const metadata: Metadata = {
 };
 
 /** The venue landing page — the approved Figma Make design, verbatim. */
-export default function VenuesLandingPage() {
-  return <Landing />;
+export default async function VenuesLandingPage() {
+  return <Landing venue={await getCatalogVenue("time-cafe")} />;
 }

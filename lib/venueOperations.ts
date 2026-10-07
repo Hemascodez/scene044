@@ -2,12 +2,12 @@ import { pool, query } from '@/lib/db';
 import { amountDue } from '@/lib/venues';
 import { BOOKING_COLUMNS, type VenueBooking, type VenueBookingOrder } from '@/lib/venueBookings';
 
-export async function listCuratorBookings(page: number) {
+export async function listCuratorBookings(page: number, archived = false) {
   const { rows } = await query<VenueBooking & { foodTotalPaise: number; paymentId: string | null }>(`SELECT ${BOOKING_COLUMNS},
     COALESCE((SELECT SUM(COALESCE(unit_price_paise * quantity, amount * 100)) FROM venue_booking_orders o WHERE o.booking_id = b.id), 0)::int AS "foodTotalPaise",
     (SELECT payment_id FROM venue_booking_payments p WHERE p.booking_id = b.id AND p.paid_at IS NOT NULL LIMIT 1) AS "paymentId"
-    FROM venue_bookings b ORDER BY created_at DESC, id DESC LIMIT 50 OFFSET $1`, [(page - 1) * 50]);
-  const count = await query<{ count: number }>('SELECT COUNT(*)::int AS count FROM venue_bookings');
+    FROM venue_bookings b WHERE (archived_at IS NOT NULL) = $2 ORDER BY created_at DESC, id DESC LIMIT 50 OFFSET $1`, [(page - 1) * 50, archived]);
+  const count = await query<{ count: number }>('SELECT COUNT(*)::int AS count FROM venue_bookings WHERE (archived_at IS NOT NULL) = $1', [archived]);
   return { bookings: rows, count: count.rows[0].count, page };
 }
 
@@ -18,7 +18,7 @@ export async function prepareTrial(bookingId: number): Promise<boolean> {
     await client.query('BEGIN');
     await client.query('SELECT id FROM venue_bookings WHERE id = $1 FOR UPDATE', [bookingId]);
     const updated = await client.query(`UPDATE venue_bookings b SET trial_duration_minutes = 5, trial_amount_paise = 1000, updated_at = now()
-      WHERE id = $1 AND venue_slug = 'time-cafe' AND status IN ('requested','approved')
+      WHERE id = $1 AND venue_slug = 'time-cafe' AND status IN ('requested','approved') AND archived_at IS NULL
       AND NOT EXISTS (SELECT 1 FROM venue_booking_payments p WHERE p.booking_id = b.id)`, [bookingId]);
     await client.query('COMMIT'); return updated.rowCount === 1;
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -76,7 +76,7 @@ export async function addMenuOrder(bookingId: number, menuItemId: string, quanti
     INSERT INTO venue_booking_orders(booking_id, description, amount, menu_item_id, quantity, unit_price_paise, request_key)
     SELECT b.id, m.name, CEIL(m.price_paise * $3::numeric / 100)::int, m.id, $3, m.price_paise, $4
       FROM venue_bookings b JOIN venue_menu_items m ON m.venue_slug = b.venue_slug
-      WHERE b.id = $1 AND m.id = $2 AND m.available AND b.status = 'checked_in'
+      WHERE b.id = $1 AND m.id = $2 AND m.available AND b.status = 'checked_in' AND b.archived_at IS NULL
     ON CONFLICT (booking_id, request_key) WHERE request_key IS NOT NULL
     DO UPDATE SET request_key = EXCLUDED.request_key
     RETURNING id, description, amount, quantity, unit_price_paise AS "unitPricePaise", created_at AS "createdAt"`,
@@ -88,7 +88,7 @@ export async function recordPaymentOrder(bookingId: number, orderId: string, amo
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query<Pick<VenueBooking, 'total' | 'trialAmountPaise' | 'status'>>(`SELECT total, trial_amount_paise AS "trialAmountPaise", status FROM venue_bookings WHERE id = $1 FOR UPDATE`, [bookingId]);
+    const { rows } = await client.query<Pick<VenueBooking, 'total' | 'trialAmountPaise' | 'status'>>(`SELECT total, trial_amount_paise AS "trialAmountPaise", status FROM venue_bookings WHERE id = $1 AND archived_at IS NULL FOR UPDATE`, [bookingId]);
     if (!rows[0] || rows[0].status !== 'approved' || bookingChargePaise(rows[0]) !== amountPaise) { await client.query('ROLLBACK'); return false; }
     const result = await client.query(`INSERT INTO venue_booking_payments(order_id, booking_id, amount_paise) VALUES ($2,$1,$3) ON CONFLICT DO NOTHING`, [bookingId, orderId, amountPaise]);
     await client.query('COMMIT'); return result.rowCount === 1;
@@ -110,7 +110,7 @@ export async function confirmCapturedPayment(bookingId: number, orderId: string,
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query<{ status: string }>('SELECT status FROM venue_bookings WHERE id = $1 FOR UPDATE', [bookingId]);
+    const { rows } = await client.query<{ status: string }>('SELECT status FROM venue_bookings WHERE id = $1 AND archived_at IS NULL FOR UPDATE', [bookingId]);
     if (!rows[0] || !['approved', 'confirmed', 'checked_in', 'completed'].includes(rows[0].status)) {
       await client.query('ROLLBACK'); return false;
     }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyRazorpayPaymentSignature, fetchCapturedPayment } from "@/lib/razorpay";
 import { getBookingByCheckinToken } from "@/lib/venueBookings";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
-import { confirmCapturedPayment, getPaymentOrder } from '@/lib/venueOperations';
+import { bookingChargePaise, confirmCapturedPayment, getPaymentOrder } from '@/lib/venueOperations';
 
 /**
  * Verifies the signature Razorpay Checkout hands back after a payment, then
@@ -69,6 +69,9 @@ export async function POST(request: Request) {
   const order = await getPaymentOrder(orderId);
   if (!order || order.bookingId !== booking.id || (order.paymentId && order.paymentId !== paymentId)) {
     return NextResponse.json({ error: 'This payment order does not belong to this booking.' }, { status: 400 });
+  }
+  if (booking.status === 'approved' && order.amountPaise !== bookingChargePaise(booking)) {
+    return NextResponse.json({ error: 'This earlier payment order has a different price. Contact SCENE to reconcile it; no capture has been attempted.' }, { status: 409 });
   }
   try {
     const payment = await fetchCapturedPayment(paymentId, { orderId, amountPaise: order.amountPaise, currency: order.currency });

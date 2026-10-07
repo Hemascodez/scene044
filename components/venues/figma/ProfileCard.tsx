@@ -34,7 +34,7 @@ export default function ProfileCard({
   photo: string | null
   stats: { events: number; rating: string; next: string }
   onSave: (p: Profile) => Promise<void>
-  onPhoto: (src: string | null) => void
+  onPhoto: (src: string | null) => void | Promise<void>
   toast: (msg: string, tone?: 'ok' | 'error') => void
   variant?: 'organiser' | 'host'
   onLogout?: () => void
@@ -97,7 +97,7 @@ export default function ProfileCard({
   }
 
   const pick = (file?: File) => {
-    if (!file) return
+    if (!file || busy) return
     if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
       setPreview(null)
       return setUploadError(`"${file.name}" isn't a supported image. Use JPG, PNG or WEBP.`)
@@ -119,15 +119,16 @@ export default function ProfileCard({
     setDrag(false)
   }
 
-  const upload = () => {
+  const upload = async () => {
     if (!preview) return setUploadError('Choose a photo first, then press Upload.')
     setBusy(true)
-    setTimeout(() => {
-      onPhoto(preview.src)
-      setBusy(false)
+    try {
+      await onPhoto(preview.src)
       closeUpload()
       toast(host ? 'Venue logo uploaded successfully.' : 'Photo uploaded successfully.')
-    }, 900)
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Could not save your photo. Please try again.')
+    } finally { setBusy(false) }
   }
 
   return (
@@ -156,7 +157,7 @@ export default function ProfileCard({
             <h3 ref={uploadTitle} tabIndex={-1} className="font-body-sb text-sm text-ink outline-none">
               {host ? 'Upload venue logo' : 'Upload profile photo'}
             </h3>
-            <button type="button" onClick={closeUpload} aria-label="Close upload" className="grid size-8 place-items-center hover:bg-sand">
+            <button type="button" disabled={busy} onClick={closeUpload} aria-label="Close upload" className="grid size-8 place-items-center hover:bg-sand">
               <Close className="size-4" />
             </button>
           </div>
@@ -202,7 +203,7 @@ export default function ProfileCard({
             <FieldError>{uploadError}</FieldError>
           </div>
           <div className="mt-2 flex justify-end gap-2">
-            <button type="button" onClick={closeUpload} className="press min-h-9 border border-ink bg-white px-4 font-body-sb text-xs">
+            <button type="button" disabled={busy} onClick={closeUpload} className="press min-h-9 border border-ink bg-white px-4 font-body-sb text-xs">
               Cancel
             </button>
             <button type="button" onClick={upload} disabled={busy} aria-busy={busy} className="press min-h-9 min-w-20 border border-ink bg-flame px-4 font-body-sb text-xs text-white disabled:opacity-70">
@@ -336,10 +337,16 @@ export default function ProfileCard({
             </button>
             <button
               type="button"
-              onClick={() => {
-                onPhoto(null)
-                setConfirmRemove(false)
-                toast(host ? 'Venue logo removed.' : 'Photo removed successfully.')
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true)
+                try {
+                  await onPhoto(null)
+                  setConfirmRemove(false)
+                  toast(host ? 'Venue logo removed.' : 'Photo removed successfully.')
+                } catch (error) {
+                  toast(error instanceof Error ? error.message : 'Could not remove your photo. Try again.', 'error')
+                } finally { setBusy(false) }
               }}
               className="press min-h-10 border-[1.5px] border-ink bg-flame px-4 font-mono-b text-[11px] tracking-[0.6px] text-white uppercase shadow-hard-sm"
             >

@@ -45,12 +45,12 @@ export function HostBookingSession({ booking, onRefresh }: { booking: VenueBooki
     <h2 className="font-head text-lg break-words">{booking.organizerName} · {booking.code}</h2>
     <p className="text-sm">{booking.eventType} · {booking.spaceName}</p>
     {booking.trialDurationMinutes && <p className="text-sm font-semibold">Live trial · ₹10 venue payment · 5-minute session</p>}
-    {booking.status === 'checked_in' && booking.endsAt && <BookingCountdown endsAt={booking.endsAt} />}
-    <p className="text-xs">{booking.status === 'checked_in' ? 'Event in progress. The timer persists across refreshes; it does not automatically end the event.' : 'Event completed.'}</p>
+    {!booking.archivedAt && booking.status === 'checked_in' && booking.endsAt && <BookingCountdown endsAt={booking.endsAt} />}
+    <p className="text-xs">{booking.archivedAt ? 'Archived session history — read only.' : booking.status === 'checked_in' ? 'Event in progress. The timer persists across refreshes; it does not automatically end the event.' : 'Event completed.'}</p>
     <ul className="space-y-2 text-sm">{orders.map(o => <li key={o.id} className="flex justify-between gap-3"><span className="break-words">{o.quantity} × {o.description}</span><span className="shrink-0">₹{((o.unitPricePaise === null ? o.amount * 100 : o.unitPricePaise * o.quantity) / 100).toFixed(2)}</span></li>)}</ul>
     <p className="font-semibold">Food & drinks tab: ₹{(total / 100).toFixed(2)}</p>
     <p className="text-xs">Recorded against this organiser&apos;s booking. This tab is not an additional Razorpay charge.</p>
-    {booking.status === 'checked_in' && <>
+    {!booking.archivedAt && booking.status === 'checked_in' && <>
       {!menu.length ? <p className="text-sm">Save available menu items in Host profile first.</p> : <div className="grid gap-2 sm:grid-cols-[1fr_80px_auto]">
         <label className="min-w-0 text-xs">Menu item<select disabled={busy} className="w-full min-w-0 border border-ink p-2 text-sm" value={item} onChange={e => setItem(e.target.value)}><option value="">Select item</option>{menu.map(i => <option key={i.id} value={i.id}>{i.name} · ₹{(i.pricePaise / 100).toFixed(2)}</option>)}</select></label>
         <label className="text-xs">Quantity<input disabled={busy} className="w-full border border-ink p-2 text-sm" type="number" min="1" max="100" value={quantity} onChange={e => setQuantity(Number(e.target.value))} /></label>

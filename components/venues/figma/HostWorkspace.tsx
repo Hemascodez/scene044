@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { checkInBooking, listHostBookings, setHostBookingStatus, type HostBooking } from '@/lib/client/hostApi'
+import { checkInBooking, listHostBookings, listHostReviews, setHostBookingStatus, type HostBooking } from '@/lib/client/hostApi'
+import type { VenueReview } from '@/lib/venueBookings'
+import { chandruReviews } from '@/lib/venueTestimonials'
 import { HostQrScanner } from '../HostQrScanner'
 import { HostBookingSession } from '../HostBookingSession'
 import { HostMenuPanel } from '../HostMenuPanel'
@@ -57,7 +59,7 @@ function ShareVenueEmpty() {
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   const share = async () => {
-    const ok = await copyText(`${window.location.origin}${window.location.pathname}${VENUE_PATH}`)
+    const ok = await copyText(`${window.location.origin}${VENUE_PATH}`)
     if (!ok) return
     setCopied(true)
     window.clearTimeout(timer.current)
@@ -214,7 +216,7 @@ const DECLINE_REASONS = [
 ]
 
 export default function HostWorkspace({
-  hostName = 'Priya',
+  hostName = 'Time Cafe',
   profile,
   onSaveProfile,
   onAuth,
@@ -247,11 +249,19 @@ export default function HostWorkspace({
   const [orderBookingId, setOrderBookingId] = useState('')
   // Live data: the host's real bookings (polled) and their manual calendar blocks.
   const [hostBookings, setHostBookings] = useState<HostBooking[]>([])
+  const [receivedReviews, setReceivedReviews] = useState<VenueReview[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(true)
+  const [reviewsError, setReviewsError] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [blocks, setBlocks] = useState<ManualVenueBlock[]>([])
   const refresh = useCallback(() => {
     listHostBookings()
-      .then((d) => setHostBookings(d.bookings))
-      .catch(() => {})
+      .then((d) => { setHostBookings(d.bookings); setLoadError('') })
+      .catch((error) => setLoadError(error instanceof Error ? error.message : 'Could not load bookings.'))
+    listHostReviews()
+      .then(d => { setReceivedReviews(d.reviews); setReviewsError('') })
+      .catch(error => setReviewsError(error instanceof Error ? error.message : 'Could not load reviews.'))
+      .finally(() => setReviewsLoading(false))
     setBlocks(readManualVenueBlocks())
   }, [])
   useEffect(() => {
@@ -532,8 +542,8 @@ export default function HostWorkspace({
             </button>
           {([
               { id: 'orders', label: 'Sessions & orders', icon: null, count: 0 },
-              { id: 'reviewsForYou', label: 'Reviews for you', icon: '/venues/figma/reviews-72dc5.png', count: 2 },
-              { id: 'yourReviews', label: 'Your reviews', icon: '/venues/figma/reviews-1c6e7.png', count: 1 },
+              { id: 'reviewsForYou', label: 'Reviews for you', icon: '/venues/figma/reviews-72dc5.png', count: reviewsError ? undefined : Math.max(1, chandruReviews(receivedReviews).length) },
+              { id: 'yourReviews', label: 'Your reviews', icon: '/venues/figma/reviews-1c6e7.png', count: 0 },
               { id: 'profile', label: 'Profile', icon: null, count: 0 },
             ] as const).map((t) => (
               <button
@@ -549,7 +559,7 @@ export default function HostWorkspace({
               >
                 {t.id !== 'yourReviews' && (t.icon ? <img src={t.icon} alt="" className="size-4" /> : <Users className="size-4" />)}
                 <span>{t.label}</span>
-                {t.count > 0 && <span
+                {(t.count ?? 0) > 0 && <span
                   className={`grid size-5 place-items-center rounded-full font-mono-b text-[10px] text-white ${
                     activeTab === t.id ? 'bg-flame' : 'bg-stone'
                   }`}
@@ -565,6 +575,10 @@ export default function HostWorkspace({
 
       {/* Main Workspace Body */}
       <main className="mx-auto max-w-[1280px] px-4 py-8 md:px-8 md:py-10">
+        {loadError && <div role="alert" className="mb-6 border-2 border-primary-ink p-4 text-primary-ink">
+          <p>{loadError} Bookings could not be refreshed; this is not an empty-bookings result.</p>
+          <button type="button" className="mt-2 min-h-11 underline" onClick={refresh}>Retry loading bookings</button>
+        </div>}
         {/* ================= TAB 1: BOOKINGS ================= */}
         {activeTab === 'bookings' && (
           <div className="space-y-8 page-in">
@@ -991,9 +1005,11 @@ export default function HostWorkspace({
           <HostReviews
             key={activeTab}
             view={activeTab === 'reviewsForYou' ? 'forYou' : 'yours'}
+            reviews={receivedReviews}
+            loading={reviewsLoading}
+            error={reviewsError}
+            onRetry={refresh}
             onViewBookings={() => setActiveTab('bookings')}
-            onToast={showToast}
-            onReviewOrganiser={(name, event) => setReviewingOrganiser({ name, event })}
           />
         )}
 
@@ -1010,7 +1026,7 @@ export default function HostWorkspace({
                 variant="host"
                 profile={profile}
                 photo={logo}
-                stats={{ events: 48, rating: '4.8', next: nextEvent ? `${nextEvent.timeBadgeTop} ${nextEvent.timeBadgeBottom} · ${nextEvent.title}` : 'Nothing scheduled' }}
+                stats={{ events: hostBookings.filter(b => b.status === 'completed' && !b.trialAmountPaise).length, rating: '—', next: nextEvent ? `${nextEvent.timeBadgeTop} ${nextEvent.timeBadgeBottom} · ${nextEvent.title}` : 'Nothing scheduled' }}
                 onSave={onSaveProfile}
                 onPhoto={saveLogo}
                 toast={(m) => showToast(m)}

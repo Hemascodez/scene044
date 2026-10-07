@@ -57,7 +57,7 @@ const COPY = {
   },
 } as const
 
-const label = "font-['Work_Sans:SemiBold'] font-semibold text-[16px] leading-[18px] text-[#1c1e25]"
+const label = "font-body font-semibold text-[16px] leading-[18px] text-[#1c1e25]"
 const MAX_PHOTOS = 6
 
 function useTrap(onClose: () => void, dep: unknown) {
@@ -191,11 +191,11 @@ export default function ReviewFlow({
       >
         <header className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#111] bg-[#ff432a] px-5 py-4 sm:h-[74px] sm:px-8 sm:py-0">
           {step === 'form' ? (
-            <h2 id={id.title} className="font-['Montserrat:Bold'] text-[24px] leading-tight font-bold text-white sm:text-[32px]">
+            <h2 id={id.title} className="font-p-display text-[24px] leading-tight font-bold text-white sm:text-[32px]">
               {role === 'host' ? 'How was the organiser?' : 'Tell us how it went'}
             </h2>
           ) : (
-            <h2 id={id.title} className="flex items-center gap-3 font-['Montserrat:Bold'] text-[20px] leading-8 font-bold tracking-[-0.6px] text-white uppercase sm:text-[24px]">
+            <h2 id={id.title} className="flex items-center gap-3 font-p-display text-[20px] leading-8 font-bold tracking-[-0.6px] text-white uppercase sm:text-[24px]">
               <span aria-hidden="true" className="size-2.5 rounded-full bg-white" />
               Review published
             </h2>
@@ -208,7 +208,7 @@ export default function ReviewFlow({
         <div className="flex-1 overflow-y-auto">
           {step === 'form' ? (
             <form onSubmit={submit} noValidate className="flex flex-col gap-7 px-5 pt-7 pb-10 sm:px-10">
-              <p className="-mb-2 font-['Work_Sans:Regular'] text-[14px] leading-5 text-[#525252]">
+              <p className="-mb-2 font-body text-[14px] leading-5 text-[#525252]">
                 {role === 'host' ? `You hosted ${subject}. Your review helps other hosts.` : `You booked ${subject}. Your review helps other organisers.`}
               </p>
 
@@ -223,7 +223,7 @@ export default function ReviewFlow({
                   onChange={(e) => setName(e.target.value)}
                   aria-invalid={!!errors.name}
                   aria-describedby={errors.name ? `${id.name}-e` : undefined}
-                  className="w-full border-2 border-black bg-[#f8fafc] aria-invalid:border-danger aria-invalid:bg-danger-tint px-4 py-3 font-['Montserrat:Medium'] text-[14px] text-[#111827] outline-none focus-visible:ring-2 focus-visible:ring-[#ff432a]"
+                  className="w-full border-2 border-black bg-[#f8fafc] aria-invalid:border-danger aria-invalid:bg-danger-tint px-4 py-3 font-p-display text-[14px] text-[#111827] outline-none focus-visible:ring-2 focus-visible:ring-[#ff432a]"
                 />
                 {errors.name && (
                   <p id={`${id.name}-e`} role="alert" className="text-sm text-danger">
@@ -241,7 +241,7 @@ export default function ReviewFlow({
                       type="button"
                       aria-pressed={eventType === t}
                       onClick={() => setEventType(t)}
-                      className={`press border-2 px-4 py-2 font-['Montserrat:Medium'] text-[14px] ${eventType === t ? 'border-black bg-[#ff432a] text-white' : 'border-[#2d2f38] text-[#1c1c18] hover:bg-white'}`}
+                      className={`press border-2 px-4 py-2 font-p-display text-[14px] ${eventType === t ? 'border-black bg-[#ff432a] text-white' : 'border-[#2d2f38] text-[#1c1c18] hover:bg-white'}`}
                     >
                       {t}
                     </button>
@@ -262,7 +262,7 @@ export default function ReviewFlow({
                         setOverall(v)
                         setErrors((e) => ({ ...e, overall: undefined }))
                       }}
-                      className={`press flex items-center gap-2.5 px-5 py-3.5 font-['Montserrat:SemiBold'] text-[14px] text-white sm:px-7 ${
+                      className={`press flex items-center gap-2.5 px-5 py-3.5 font-p-display text-[14px] text-white sm:px-7 ${
                         overall === v ? (v ? 'border-2 border-black bg-[#10b981]' : 'border-2 border-[#ff432a] bg-[#1c1e25]') : 'border border-[#2d2f38] bg-[#1c1e25] opacity-80'
                       }`}
                     >
@@ -270,7 +270,7 @@ export default function ReviewFlow({
                       {v ? 'Worked well!' : 'Not great!'}
                     </button>
                   ))}
-                  <p aria-live="polite" className="flex items-center gap-2 font-['Montserrat:Medium'] text-[14px] text-[#2e3138]">
+                  <p aria-live="polite" className="flex items-center gap-2 font-p-display text-[14px] text-[#2e3138]">
                     {overall === true && (
                       <>
                         Glad it worked for you! <img src={handshake} alt="" className="size-5 object-contain" />
@@ -290,7 +290,7 @@ export default function ReviewFlow({
                 <legend className={`${label} mb-3`}>{c.aspectsLabel}</legend>
                 {c.aspects.map((a) => (
                   <div key={a} className="flex min-h-[68px] items-center justify-between gap-3 border-2 border-[#2d2f38] px-4 sm:px-[22px]">
-                    <span className="font-['Montserrat:Regular'] text-[14px] text-[#1c1c18]">{a}</span>
+                    <span className="font-p-display text-[14px] text-[#1c1c18]">{a}</span>
                     <div className="flex gap-2.5">
                       <Thumb up={false} on={aspects[a] === false} label={`${a}: not great`} onClick={() => setAspects((s) => ({ ...s, [a]: s[a] === false ? null : false }))} />
                       <Thumb up on={aspects[a] === true} label={`${a}: worked well`} onClick={() => setAspects((s) => ({ ...s, [a]: s[a] === true ? null : true }))} />
@@ -309,7 +309,7 @@ export default function ReviewFlow({
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder={c.placeholder}
-                  className="w-full resize-y border-2 border-black bg-transparent px-4 py-3 font-['Montserrat:Regular'] text-[14px] text-[#111827] outline-none placeholder:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#ff432a]"
+                  className="w-full resize-y border-2 border-black bg-transparent px-4 py-3 font-p-display text-[14px] text-[#111827] outline-none placeholder:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#ff432a]"
                 />
               </div>
 
@@ -340,7 +340,7 @@ export default function ReviewFlow({
                   }`}
                 >
                   <img src={uploadIcon} alt="" className="size-8" />
-                  <span className="font-['Work_Sans:Medium'] text-[14px] text-[#1c1c18]">Drop photos here or upload</span>
+                  <span className="font-body text-[14px] text-[#1c1c18]">Drop photos here or upload</span>
                 </button>
                 <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ''))} />
                 {errors.photos && (
@@ -362,7 +362,7 @@ export default function ReviewFlow({
                       <li>
                         <button type="button" onClick={() => fileRef.current?.click()} className="press flex size-[100px] flex-col items-center justify-center gap-1.5 rounded-[10px] border border-[#2d2f38] bg-[#1c1e25]">
                           <img src={plusIcon} alt="" className="size-5" />
-                          <span className="font-['Work_Sans:Medium'] text-[11px] text-[#9ca3af]">Add more</span>
+                          <span className="font-body text-[11px] text-[#9ca3af]">Add more</span>
                         </button>
                       </li>
                     )}
@@ -373,7 +373,7 @@ export default function ReviewFlow({
               <button
                 type="submit"
                 disabled={busy}
-                className="press flex w-full items-center justify-center gap-2 border-[1.5px] border-[#1c1c18] bg-[#ff432a] px-5 py-3 font-['Space_Mono:Bold'] text-[12px] leading-4 tracking-[0.72px] text-white uppercase shadow-[2px_2px_0_#111] disabled:opacity-70"
+                className="press flex w-full items-center justify-center gap-2 border-[1.5px] border-[#1c1c18] bg-[#ff432a] px-5 py-3 font-mono text-[12px] leading-4 tracking-[0.72px] text-white uppercase shadow-[2px_2px_0_#111] disabled:opacity-70"
               >
                 {busy ? 'Publishing…' : 'Publish review'} <span aria-hidden="true">→</span>
               </button>
@@ -390,10 +390,10 @@ export default function ReviewFlow({
                   aria-hidden="true"
                   className="size-[150px] object-contain"
                 />
-                <p data-autofocus tabIndex={-1} className="flex items-center gap-3 font-['Montserrat:Bold'] text-[26px] leading-9 font-bold tracking-[-0.75px] text-[#111] outline-none sm:text-[30px]">
+                <p data-autofocus tabIndex={-1} className="flex items-center gap-3 font-p-display text-[26px] leading-9 font-bold tracking-[-0.75px] text-[#111] outline-none sm:text-[30px]">
                   Thanks for sharing! <img src={confetti} alt="" className="size-9 object-contain" />
                 </p>
-                <p className="max-w-[448px] font-['Work_Sans:Regular'] text-[16px] leading-6 text-[#525252]">{c.successBody}</p>
+                <p className="max-w-[448px] font-body text-[16px] leading-6 text-[#525252]">{c.successBody}</p>
               </div>
 
               <article className="flex flex-col gap-4 rounded-[12px] border-2 border-[#111] bg-white p-[22px] shadow-[4px_4px_0_#111]">
@@ -401,30 +401,30 @@ export default function ReviewFlow({
                   <img src={avatar || avatarDefault} alt="" className="size-12 rounded-full border-2 border-black object-cover" />
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2">
-                      <span className="font-['Montserrat:Bold'] text-[18px] leading-7 font-bold text-[#111]">{role === 'host' ? defaultName : name}</span>
+                      <span className="font-p-display text-[18px] leading-7 font-bold text-[#111]">{role === 'host' ? defaultName : name}</span>
                       <span aria-hidden="true">·</span>
-                      <span className="font-['Space_Mono:Bold'] text-[14px] text-[#ff432a]">{c.role}</span>
+                      <span className="font-mono text-[14px] text-[#ff432a]">{c.role}</span>
                     </p>
-                    <p className="font-['Space_Mono:Regular'] text-[13px] text-[#737373]">
+                    <p className="font-mono text-[13px] text-[#737373]">
                       {role === 'host' ? `About ${name}` : subject} · <span className="text-[#404040]">Just now</span>
                     </p>
                   </div>
                 </div>
-                <span className={`inline-flex w-fit items-center gap-1.5 rounded-[8px] border-2 border-[#111] px-3.5 py-1.5 font-['Montserrat:Bold'] text-[12px] tracking-[0.3px] text-white uppercase shadow-[2px_2px_0_#111] ${overall ? 'bg-[#10b981]' : 'bg-[#1c1e25]'}`}>
+                <span className={`inline-flex w-fit items-center gap-1.5 rounded-[8px] border-2 border-[#111] px-3.5 py-1.5 font-p-display text-[12px] tracking-[0.3px] text-white uppercase shadow-[2px_2px_0_#111] ${overall ? 'bg-[#10b981]' : 'bg-[#1c1e25]'}`}>
                   <img src={overall ? thumbUp : thumbDown} alt="" className="size-3.5" />
                   {overall ? 'Worked well!' : 'Not great'}
                 </span>
-                <blockquote className="border-l-2 border-[rgba(17,17,17,0.2)] pl-3.5 font-['Work_Sans:Italic'] text-[16px] leading-6 text-[#262626] italic">“{quote}”</blockquote>
+                <blockquote className="border-l-2 border-[rgba(17,17,17,0.2)] pl-3.5 font-body text-[16px] leading-6 text-[#262626] italic">“{quote}”</blockquote>
                 {photos.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    <p className="font-['Space_Mono:Regular'] text-[13px] text-[#525252]">
+                    <p className="font-mono text-[13px] text-[#525252]">
                       {photos.length} photo{photos.length > 1 ? 's' : ''} attached
                     </p>
                     <ul className="grid grid-cols-3 gap-2.5">
                       {photos.slice(0, 3).map((p, i) => (
                         <li key={i} className="relative h-[100px] overflow-hidden rounded-[8px] border-2 border-[#111]">
                           <img src={p} alt={`Attached photo ${i + 1}`} className="size-full object-cover" />
-                          <span className="absolute right-1 bottom-1 bg-black/70 px-1 font-['Space_Mono:Regular'] text-[10px] text-white">0{i + 1}</span>
+                          <span className="absolute right-1 bottom-1 bg-black/70 px-1 font-mono text-[10px] text-white">0{i + 1}</span>
                         </li>
                       ))}
                     </ul>
@@ -433,18 +433,18 @@ export default function ReviewFlow({
               </article>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <button type="button" onClick={onClose} className="press flex-1 rounded-[10px] border-2 border-[#111] bg-[#fcf9f2] px-5 py-4 font-['Space_Mono:Bold'] text-[13px] tracking-[0.8px] text-[#111] uppercase shadow-[4px_4px_0_#111]">
+                <button type="button" onClick={onClose} className="press flex-1 rounded-[10px] border-2 border-[#111] bg-[#fcf9f2] px-5 py-4 font-mono text-[13px] tracking-[0.8px] text-[#111] uppercase shadow-[4px_4px_0_#111]">
                   ← {c.back}
                 </button>
                 <button
                   type="button"
                   onClick={() => (onViewReview ? onViewReview() : onClose())}
-                  className="press flex-1 rounded-[10px] border-2 border-[#111] bg-[#ff432a] px-5 py-4 font-['Space_Mono:Bold'] text-[13px] tracking-[0.8px] text-white uppercase shadow-[4px_4px_0_#111]"
+                  className="press flex-1 rounded-[10px] border-2 border-[#111] bg-[#ff432a] px-5 py-4 font-mono text-[13px] tracking-[0.8px] text-white uppercase shadow-[4px_4px_0_#111]"
                 >
                   View my review ↗
                 </button>
               </div>
-              <p className="text-center font-['Space_Mono:Regular'] text-[11px] text-[#404040]">✓ {c.footnote}</p>
+              <p className="text-center font-mono text-[11px] text-[#404040]">✓ {c.footnote}</p>
             </div>
           )}
         </div>

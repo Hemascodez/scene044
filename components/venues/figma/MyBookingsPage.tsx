@@ -58,7 +58,7 @@ function toDesign(entry: { booking: VenueBooking; qrSvg: string }): Booking {
     time: `${b.startTime} · ${b.trialDurationMinutes ? '5-minute live trial' : `${b.durationHours} ${b.durationHours === 1 ? "hour" : "hours"}`}`,
     guests: `${b.people} people`,
     sentAt: Date.parse(b.createdAt),
-    // What the organiser pays: space cost + SCENE's 10% fee (matches Razorpay).
+    // Listed venue price only (matches Razorpay); commission is host-side.
     amount: b.trialAmountPaise !== null ? formatRupees(b.trialAmountPaise / 100) : b.total === null ? "Host quote" : formatRupees(amountDue(b.total)),
     code: b.code,
     note,

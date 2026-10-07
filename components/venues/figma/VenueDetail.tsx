@@ -11,7 +11,13 @@ import { SiteFooter, SiteHeader } from './SiteChrome'
 import { useVenueApp } from './VenueApp'
 import { bookingCreated } from '@/lib/client/venueBookingStore'
 import { useVenueBookingDraft } from '@/lib/client/useVenueBookingDraft'
-import { serviceFee } from '@/lib/venues'
+import { amountDue, rateForSpace, VENUE_EVENT_TYPES, venueSearchHref } from '@/lib/venues'
+import { matchingSpaces, type VenueSearchValues } from '@/lib/venueSearch'
+import { chandruReviews } from '@/lib/venueTestimonials'
+import { ChandruTestimonial } from './ChandruTestimonial'
+import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
+import type { CatalogVenue } from '@/lib/venueCatalog'
+import type { VenueReview } from '@/lib/venueBookings'
 import {
   ArrowLeft,
   ArrowRight,
@@ -40,17 +46,7 @@ const terrace = '/venues/figma/venue-76a4b.jpg'
 const longTable = '/venues/figma/venue-ada0b.jpg'
 const suite = '/venues/figma/venue-10678.jpg'
 const barista = '/venues/figma/venue-25fa2.jpg'
-const r1a = '/venues/figma/venue-d337c.jpg'
-const r1b = '/venues/figma/venue-6def1.jpg'
-const r1c = '/venues/figma/venue-297f9.jpg'
-const r2a = '/venues/figma/venue-b2da5.jpg'
-const r2b = '/venues/figma/venue-df6e9.jpg'
-const r2c = '/venues/figma/venue-74cbf.jpg'
-const r3a = '/venues/figma/venue-db2c1.jpg'
-const r3b = '/venues/figma/venue-d3cd8.jpg'
-const r3c = '/venues/figma/venue-99e14.jpg'
-
-const spaces = [
+const spaceDesigns = [
   {
     id: 'floor',
     dbId: 'first-floor',
@@ -141,13 +137,6 @@ const gallery = [
   { src: barista, alt: 'Barista counter with espresso machine and hanging pendant lights.' },
 ]
 
-const fits = [
-  { t: 'Podcast recording', s: 8, d: 'Wireless mics, quiet interior, intimate corners' },
-  { t: 'Workshop', s: 9, d: 'Projector, supplies, flexible layout, fast wifi', top: true },
-  { t: 'Tech meetup', s: 9, d: 'AV tech on-site, 500 Mbps, 45 seats, barista', top: true },
-  { t: 'Networking event', s: 8, d: 'Courtyard + main hall flow, PA, parking' },
-  { t: 'Product launch', s: 7, d: 'Atmospheric space; smaller audiences work best' },
-]
 
 const amenities = [
   { I: Projector, t: '4K ultra-short projector', d: '120-inch matte wall + HDMI/USB-C' },
@@ -162,26 +151,7 @@ const amenities = [
   { I: Scissors, t: 'Craft & workshop supplies', d: 'Scissors, tape, markers, pins' },
 ]
 
-const reviews = [
-  {
-    q: 'Good acoustics in the presentation suite and fast wifi for a hands-on workshop. Only note: it gets warm in the courtyard by afternoon, so we shifted talks indoors. Host flagged this upfront.',
-    n: 'Faizal Rahman',
-    imgs: [r1a, r1b, r1c],
-  },
-  {
-    q: 'Ran a 40-person JavaScript meetup here. The projector and mic were genuinely production-grade, and the barista kept the room caffeinated. Priya even reset the room layout during our break.',
-    n: 'Aravind Kumar',
-    imgs: [r2a, r2b, r2c],
-  },
-  {
-    q: 'We hosted an intimate launch in the courtyard at dusk. The greenery did all the work - we barely needed decor. Power backup kicked in seamlessly when the street lost supply.',
-    n: 'Nithya Balaji',
-    imgs: [r3a, r3b, r3c],
-  },
-]
-
-const eventTypes = ['Tech meetup', 'Podcast recording', 'Workshop', 'Networking event', 'Product launch']
-const startTimes = Array.from({ length: 13 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`)
+const eventTypes: string[] = [...VENUE_EVENT_TYPES]
 const hourOptions = [3, 4, 5, 6, 7, 8]
 
 type TimeCafeDraft = {
@@ -196,19 +166,20 @@ type TimeCafeDraft = {
 }
 
 const initialBookingDraft: TimeCafeDraft = {
-  spaceId: 'floor', eventType: '', date: '', start: '11:00', hours: 3,
+  spaceId: 'first-floor', eventType: '', date: '', start: '11:00', hours: 3,
   guests: '25', social: '', message: '',
 }
 
 function parseTimeCafeDraft(data: unknown, spaceId: string): TimeCafeDraft | null {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null
   const saved = data as Record<string, unknown>
-  if (saved.kind !== 'figma' || !spaces.some((space) => space.id === spaceId)) return null
+  if (saved.kind !== 'figma') return null
   return {
-    spaceId,
+    // Resume older on-device drafts, but all new saves use catalog space keys.
+    spaceId: spaceDesigns.find(s => s.id === spaceId)?.dbId ?? spaceId,
     eventType: typeof saved.eventType === 'string' && eventTypes.includes(saved.eventType) ? saved.eventType : '',
     date: typeof saved.date === 'string' ? saved.date : '',
-    start: typeof saved.start === 'string' && startTimes.includes(saved.start) ? saved.start : '11:00',
+    start: typeof saved.start === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(saved.start) ? saved.start : '11:00',
     hours: typeof saved.hours === 'number' && hourOptions.includes(saved.hours) ? saved.hours : 3,
     guests: typeof saved.guests === 'string' ? saved.guests : '25',
     social: typeof saved.social === 'string' ? saved.social : '',
@@ -225,71 +196,10 @@ const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
 const monoLabel = 'font-mono-b text-[10px] leading-[15px] tracking-[0.8px] uppercase text-stone'
 const fieldBox =
   'flex flex-col gap-1 border-[1.5px] border-ink bg-paper-2 p-3 transition-colors focus-within:bg-white focus-within:shadow-hard-sm has-[[aria-invalid=true]]:border-danger has-[[aria-invalid=true]]:bg-danger-tint'
-const MAP_QUERY = encodeURIComponent('Time Cafe & Spaces, Wallace Garden, Nungambakkam, Chennai 600006')
 
 const inputCls =
   'w-full bg-transparent font-body-m text-sm text-ink placeholder:text-stone/60 focus:outline-none'
 
-/**
- * Becomes true once the element has genuinely scrolled into the reading zone.
- * Waits for the page (images, fonts) to finish loading so layout shifts during
- * load can't trigger it early, then checks on scroll/resize.
- */
-function useInView<T extends Element>(zone = 0.8, delay = 250) {
-  const ref = useRef<T>(null)
-  const [seen, setSeen] = useState(false)
-  useEffect(() => {
-    let done = false
-    let timer: ReturnType<typeof setTimeout>
-    const check = () => {
-      const el = ref.current
-      if (done || !el) return
-      const r = el.getBoundingClientRect()
-      if (r.top < window.innerHeight * zone && r.bottom > 0) {
-        done = true
-        detach()
-        timer = setTimeout(() => setSeen(true), delay)
-      }
-    }
-    const attach = () => {
-      window.addEventListener('scroll', check, { passive: true })
-      window.addEventListener('resize', check)
-      check()
-    }
-    const detach = () => {
-      window.removeEventListener('scroll', check)
-      window.removeEventListener('resize', check)
-      window.removeEventListener('load', attach)
-    }
-    if (document.readyState === 'complete') requestAnimationFrame(attach)
-    else window.addEventListener('load', attach)
-    return () => {
-      done = true
-      detach()
-      clearTimeout(timer)
-    }
-  }, [zone, delay])
-  return [ref, seen] as const
-}
-
-function CountUp({ to, run, decimals = 1 }: { to: number; run: boolean; decimals?: number }) {
-  const [v, setV] = useState(0)
-  useEffect(() => {
-    if (!run) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced motion skips the count-up animation and shows the final value
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return setV(to)
-    const t0 = performance.now()
-    let raf = 0
-    const step = (t: number) => {
-      const p = Math.min(1, (t - t0) / 1100)
-      setV(to * (1 - Math.pow(1 - p, 3)))
-      if (p < 1) raf = requestAnimationFrame(step)
-    }
-    raf = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf)
-  }, [run, to])
-  return <>{v.toFixed(decimals)}</>
-}
 
 function Lightbox({ index, onIndex, onClose }: { index: number | null; onIndex: (i: number) => void; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -349,102 +259,15 @@ function Lightbox({ index, onIndex, onClose }: { index: number | null; onIndex: 
   )
 }
 
-function FitBar({ label, score }: { label: string; score: number }) {
-  const [ref, seen] = useInView<HTMLDivElement>(0.9, 400)
-  return (
-    <div
-      ref={ref}
-      role="progressbar"
-      aria-label={`${label} fit`}
-      aria-valuemin={0}
-      aria-valuemax={10}
-      aria-valuenow={score}
-      className="mt-2 h-1.5 overflow-hidden bg-white/10"
-    >
-      <div
-        className={`bar-fill h-full bg-gradient-to-r from-flame to-[#ff9a3c] ${seen ? 'run' : ''}`}
-        style={{ width: `${score * 10}%` }}
-      />
-    </div>
-  )
-}
-
-function FitScore() {
-  const [ref, seen] = useInView<HTMLDivElement>(0.75, 350)
-  const R = 34
-  const C = 2 * Math.PI * R
-  return (
-    <section
-      ref={ref}
-      aria-labelledby="fit-title"
-      className="reveal relative mt-10 overflow-hidden border-[1.5px] border-ink bg-[#0a0812] p-6 text-white shadow-hard md:p-10"
-    >
-      <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-flame/25 blur-3xl" />
-      <span aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-20 size-72 rounded-full bg-[#6a4cff]/20 blur-3xl" />
-      <p className="relative font-mono-b text-[11px] tracking-[1.76px] uppercase text-flame">How well it fits your event</p>
-      <h2 id="fit-title" className="relative mt-2 font-head text-2xl leading-tight tracking-[-0.5px] md:text-[32px]">
-        We made an on-site visit for you.
-      </h2>
-
-      <div className="relative mt-6 flex items-center gap-5 border border-white/15 bg-white/5 p-5">
-        <div className="relative size-[88px] shrink-0">
-          <svg viewBox="0 0 80 80" className="size-full -rotate-90" aria-hidden="true">
-            <circle cx="40" cy="40" r={R} fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="7" />
-            <circle
-              cx="40"
-              cy="40"
-              r={R}
-              fill="none"
-              stroke="#ff432a"
-              strokeWidth="7"
-              strokeLinecap="butt"
-              strokeDasharray={C}
-              strokeDashoffset={seen ? C * (1 - 0.82) : C}
-              className="gauge-ring"
-            />
-          </svg>
-          <p className="absolute inset-0 grid place-items-center text-center font-head text-xl leading-none">
-            <span>
-              <CountUp to={8.2} run={seen} />
-              <span className="block pt-0.5 font-mono text-[10px] text-white/60">/10</span>
-            </span>
-          </p>
-        </div>
-        <div>
-          <p className="inline-flex items-center gap-1.5 bg-moss/20 px-2 py-0.5 font-mono-b text-[10px] tracking-[0.8px] uppercase text-[#5be3a8]">
-            <Check className="size-3" strokeWidth={2.5} /> Great Fit
-          </p>
-          <p className="mt-2 font-head text-lg leading-6">Strong fit for your kind of event</p>
-          <p className="mt-1 text-sm leading-[22px] text-[#c8c6c5]">
-            Highly specialized space optimal for tech community and high-production content recording.
-          </p>
-        </div>
-      </div>
-
-      <ul className="relative mt-6 divide-y divide-white/10">
-        {fits.map((f) => (
-          <li key={f.t} className="py-4">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-              <p className="flex items-center gap-2 font-head text-[15px]">
-                {f.t}
-                {f.top && (
-                  <span className="bg-moss/25 px-1.5 py-0.5 font-mono-b text-[9px] tracking-[0.6px] uppercase text-[#5be3a8]">
-                    Top rated
-                  </span>
-                )}
-              </p>
-              <p className="font-mono-b text-sm">
-                <span className="sr-only">Score: </span>
-                {f.s}/10
-              </p>
-            </div>
-            <FitBar label={f.t} score={f.s} />
-            <p className="mt-2 text-xs text-[#c8c6c5]">{f.d}</p>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
+function FitScore({ capacity, guests, name }: { capacity: number; guests: string; name: string }) {
+  const count = Number(guests)
+  const fits = Number.isInteger(count) && count > 0 && count <= capacity
+  return <section aria-labelledby="fit-title" className="reveal relative mt-10 overflow-hidden border-[1.5px] border-ink bg-[#0a0812] p-6 text-white shadow-hard md:p-10">
+    <p className="font-mono-b text-xs uppercase tracking-wider text-white/80">Does this space fit your group?</p>
+    <h2 id="fit-title" className="mt-3 font-head text-2xl">{name} · up to {capacity} guests</h2>
+    <p className="mt-4 text-base leading-7">{guests ? fits ? `Your ${count} attendees fit the published capacity.` : `This space cannot fit ${guests} attendees. Choose a larger space or change your group size.` : 'Enter your attendee count to check the capacity.'}</p>
+    <p className="mt-3 text-sm leading-6 text-white/80">Capacity does not confirm availability. Time Cafe checks your date, setup and requirements before approving a request.</p>
+  </section>
 }
 
 function SpaceCardCarousel({
@@ -454,7 +277,7 @@ function SpaceCardCarousel({
   onKeyDown,
   index,
 }: {
-  space: (typeof spaces)[number]
+  space: Omit<(typeof spaceDesigns)[number], 'price'> & { price: number | null }
   isSelected: boolean
   onSelect: () => void
   onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void
@@ -494,7 +317,7 @@ function SpaceCardCarousel({
 
   // Auto-scroll ONLY when user hovers (desktop) OR when card is scrolled into view (mobile)
   useEffect(() => {
-    if (photos.length <= 1) return
+    if (photos.length <= 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
     const shouldAutoAdvance = isHovered || (isMobile && isIntersectingMobile)
@@ -645,7 +468,7 @@ function SpaceCardCarousel({
           <span className="flex items-center gap-1.5">
             <Users className="size-4 text-flame" /> {space.cap}
           </span>
-          <span className="font-mono-b text-white">{money(space.price)} an hour</span>
+          <span className="font-mono-b text-white">{space.price === null ? 'Host quote' : `${money(space.price)} an hour`}</span>
         </span>
         <span className="mt-3 block text-sm leading-[22px] text-[#c8c6c5]">{space.desc}</span>
         <span
@@ -661,22 +484,49 @@ function SpaceCardCarousel({
 }
 
 /**
- * Time Cafe's venue page, verbatim from the Figma Make prototype. Wiring only:
- * the request goes to the real booking API (after WhatsApp OTP sign-in when
- * needed), each space carries its catalog id, and the service fee is SCENE's
- * real 10% (lib/venues.ts), which is what Razorpay charges.
+ * Time Cafe's approved visual layout, wired to real booking/auth, published
+ * reviews and catalog location data. Organisers pay the listed venue price;
+ * commission is host-side. Detailed equipment copy still needs owner verification.
  */
-export default function VenueDetail() {
+export default function VenueDetail({ venue, publishedReviews = [], search, initialSpaceId }: {
+  venue: CatalogVenue; publishedReviews?: VenueReview[]; search?: VenueSearchValues; initialSpaceId?: string
+}) {
+  // Keep the approved design/gallery, but booking facts come from the same
+  // catalog record used by the POST and Razorpay handlers.
+  const spaces = venue.spaces.map(s => {
+    const design = spaceDesigns.find(d => d.dbId === s.id)
+    return { ...spaceDesigns[0], ...design, id: s.id, dbId: s.id,
+      name: s.name, tag: s.eyebrow, desc: s.description, cap: s.capacity, max: s.maxGuests,
+      img: s.image, alt: s.name, photos: design?.photos ?? [{ src: s.image, alt: s.name }],
+      price: rateForSpace(s, '') }
+  })
+  const reviews = chandruReviews(publishedReviews).map(r => ({ id: r.id, n: r.organizerName || 'Organiser', q: r.comment || '',
+    imgs: r.photoConsent ? r.photoIds.map(id => `/api/poster/${id}`) : [], rating: r.rating,
+    date: new Date(r.createdAt).toLocaleDateString('en-IN'), event: r.eventType || '', source: r.source }));
+  const reviewAverage = reviews.length ? (reviews.reduce((sum,r) => sum + r.rating, 0) / reviews.length).toFixed(2) : null;
+  const mapQuery = encodeURIComponent(venue.address || [venue.name, venue.area, venue.city].join(', '));
   const router = useRouter()
   const { profile, authReady, requireAuth } = useVenueApp()
-  const onBack = () => router.push('/venues')
+  const onBack = () => router.push(search ? venueSearchHref(search) : '/venues')
   useReveal()
+  const searchedSpace = venue.spaces.find(s => s.id === initialSpaceId)
+    ?? matchingSpaces(venue.spaces, search?.people ?? '')[0] ?? venue.spaces[0]
+  const selection: Partial<TimeCafeDraft> = {
+    ...(search?.eventType ? { eventType: search.eventType } : {}),
+    ...(search?.date && /^\d{4}-\d{2}-\d{2}$/.test(search.date) ? { date: search.date } : {}),
+    ...(search?.time && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(search.time) ? { start: search.time } : {}),
+    ...(search?.people.trim() ? { guests: search.people } : {}),
+    ...(initialSpaceId || search?.people.trim() ? { spaceId: searchedSpace?.id } : {}),
+  }
   const { value: draft, update: updateDraft, saveStatus, clear: clearDraft } = useVenueBookingDraft({
-    venueSlug: 'time-cafe', initial: initialBookingDraft, profilePhone: profile?.phone ?? null,
-    authReady, parse: parseTimeCafeDraft, serialize: serializeTimeCafeDraft,
+    venueSlug: 'time-cafe', initial: { ...initialBookingDraft,
+      spaceId: searchedSpace?.id ?? 'first-floor', guests: String(Math.min(25, searchedSpace?.maxGuests ?? 25)), ...selection }, profilePhone: profile?.phone ?? null,
+    authReady, parse: parseTimeCafeDraft, serialize: serializeTimeCafeDraft, selection,
   })
   const { spaceId, eventType, date, start, hours, guests, social, message } = draft
-  const space = spaces.find((s) => s.id === spaceId)!
+  const space = spaces.find((s) => s.id === spaceId) ?? spaces[0]
+  const catalogSpace = venue.spaces.find(s => s.id === space?.dbId)
+  const hourlyRate = catalogSpace ? rateForSpace(catalogSpace, eventType) : null
   const [saved, setSaved] = useState(false)
   const [photo, setPhoto] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
@@ -684,6 +534,7 @@ export default function VenueDetail() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'form' | 'sending' | 'sent'>('form')
   const [submitError, setSubmitError] = useState('')
+  const sending = useRef(false)
 
   const title = useRef<HTMLHeadingElement>(null)
   const sentTitle = useRef<HTMLHeadingElement>(null)
@@ -691,34 +542,27 @@ export default function VenueDetail() {
   const formRef = useRef<HTMLFormElement>(null)
   const bookingRef = useRef<HTMLElement>(null)
   const idBase = useId()
-  const hostName = 'Priya Menon'
+  const hostName = 'Time Cafe team'
 
   useEffect(() => {
     document.title = 'Time Cafe · SCENE/044'
-    window.scrollTo(0, 0)
     title.current?.focus({ preventScroll: true })
     return () => {
       document.title = 'SCENE/044'
     }
   }, [])
 
-  const subtotal = space.price * hours
-  const fee = serviceFee(subtotal)
-  const total = subtotal + fee
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
-
-  const clampGuests = (v: string, max: number) => {
-    const n = Number(v)
-    return v === '' || Number.isNaN(n) ? v : String(Math.min(Math.max(1, n), max))
-  }
+  const subtotal = hourlyRate === null ? null : hourlyRate * hours
+  const total = subtotal === null ? null : amountDue(subtotal)
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 
   const validate = () => {
     const e: Record<string, string> = {}
     if (!eventType) e.type = 'Choose what you are planning.'
-    if (!date) e.date = 'Pick an event date.'
-    else if (date < today) e.date = 'Choose a date that has not passed.'
+    const windowError = validateVenueBookingWindow(date, start, hours)
+    if (windowError) e[windowError.field] = windowError.error
     const g = Number(guests)
-    if (!guests || g < 1) e.guests = 'Enter how many guests are coming.'
+    if (!guests || !Number.isInteger(g) || g < 1) e.guests = 'Enter a whole number of guests.'
     else if (g > space.max) e.guests = `This space fits up to ${space.max} guests.`
     if (!social.trim()) e.social = 'Add a LinkedIn or Instagram link so the host knows who you are.'
     if (message.trim().length < 10) e.message = 'Tell the host a little about your plan (at least 10 characters).'
@@ -726,13 +570,15 @@ export default function VenueDetail() {
     const first = Object.keys(e)[0]
     if (first) {
       const el = formRef.current?.querySelector<HTMLElement>(`[data-field="${first}"]`)
-      ;(el?.matches('input,textarea') ? el : el?.querySelector('button'))?.focus()
+      ;(el?.matches('input,textarea,select') ? el : el?.querySelector('button'))?.focus()
     }
     return !first
   }
 
   /** Sends the real booking request (POST /api/venue-bookings). */
   const send = async (who: Profile) => {
+    if (sending.current || !validate()) return
+    sending.current = true
     setStatus('sending')
     setSubmitError('')
     const link = social.trim()
@@ -767,6 +613,8 @@ export default function VenueDetail() {
     } catch (err) {
       setStatus('form')
       setSubmitError(err instanceof Error ? err.message : 'Could not send your request.')
+    } finally {
+      sending.current = false
     }
   }
 
@@ -796,13 +644,11 @@ export default function VenueDetail() {
 
   const pickSpace = (id: string) => {
     const max = spaces.find((s) => s.id === id)!.max
-    updateDraft((current) => ({ ...current, spaceId: id, guests: clampGuests(current.guests, max) }))
-    setErrors((e) => ({ ...e, guests: '' }))
+    updateDraft((current) => ({ ...current, spaceId: id }))
+    setErrors((e) => ({ ...e, guests: Number(guests) > max ? `This space fits up to ${max} guests. Your group size has not been changed.` : '' }))
     bookingRef.current?.classList.remove('flash')
     void bookingRef.current?.offsetWidth
     bookingRef.current?.classList.add('flash')
-    if (window.matchMedia('(max-width: 1023px)').matches)
-      bookingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const err = (k: string) => (errors[k] ? `${idBase}-${k}` : undefined)
@@ -817,6 +663,8 @@ export default function VenueDetail() {
 
   const dateNice = date ? new Date(`${date}T00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
+  if (!space) return <div className="min-h-screen bg-paper"><SiteHeader wide /><main className="mx-auto max-w-3xl px-5 py-20"><h1 className="font-head text-3xl">Time Cafe</h1><p className="mt-4">No spaces are currently available for booking. Please check back shortly.</p></main><SiteFooter wide /></div>
+
   return (
     <div className="page-in min-h-screen bg-paper text-ink">
       <SiteHeader wide />
@@ -828,7 +676,7 @@ export default function VenueDetail() {
             onClick={onBack}
             className="group flex min-h-8 items-center gap-2 font-mono-b text-xs tracking-[0.96px] uppercase text-stone transition-colors hover:text-ink"
           >
-            <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" /> Chennai | event spaces
+            <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" /> {search ? 'Back to your search' : 'Chennai | event spaces'}
           </button>
           <div className="flex items-center gap-1">
             <button
@@ -865,18 +713,24 @@ export default function VenueDetail() {
           <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-stone">
             <span className="flex items-center gap-1.5">
               <Star className="size-4 text-flame" />
-              <span className="font-body-m text-ink">4.70</span>
-              <span className="font-mono-b text-[11px] tracking-[0.6px] uppercase">(Rating from Google Maps)</span>
+              <span className="font-body-m text-ink">{venue.rating ?? "—"}</span>
+              <span className="font-mono-b text-[11px] tracking-[0.6px] uppercase">(Public cafe rating, not SCENE bookings)</span>
             </span>
             <span aria-hidden="true">·</span>
-            <span className="flex items-center gap-1.5">
-              <MapPin className="size-4" /> valluvar kottam, Nungambakkam, Chennai
-            </span>
+            <a href={venue.mapUrl || `https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-1.5 underline underline-offset-4">
+              <MapPin className="size-4 shrink-0" /> {venue.area}, {venue.city} · Google Maps<span className="sr-only"> (opens in a new tab)</span>
+            </a>
             <span aria-hidden="true">·</span>
             <span className="flex items-center gap-1.5 font-mono-b text-xs tracking-[0.72px] uppercase text-moss">
               <ShieldCheck className="size-[15px]" /> Verified on-site
             </span>
           </p>
+          <p className="mt-3 text-sm leading-6 text-stone">Explore the spaces and location first. A booking request is not a confirmed booking, and no payment is taken here.</p>
+          <details className="mt-4 border border-line bg-white p-4">
+            <summary className="cursor-pointer text-sm font-medium">View map &amp; exact address</summary>
+            <p className="mt-3 text-sm">{venue.address || `${venue.area}, ${venue.city}`}</p>
+            <iframe title={`Location of ${venue.name}`} src={venue.mapEmbedUrl || `https://www.google.com/maps?q=${mapQuery}&z=16&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="mt-4 block h-60 w-full border-0" />
+          </details>
         </header>
 
         <section aria-label="Photos" className="rise mt-6" style={{ '--d': '120ms' } as React.CSSProperties}>
@@ -946,19 +800,19 @@ export default function VenueDetail() {
               <div className="anim-pop flex items-center justify-between gap-4 border-b border-line pb-6">
                 <div>
                   <h2 className="font-head text-xl">Hosted by {hostName}</h2>
-                  <p className="mt-1 text-sm text-stone">Superhost · Hosting since 2021 · Responds within 24 hours</p>
+                  <p className="mt-1 text-sm text-stone">Host response window: 48 hours</p>
                 </div>
                 <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full border-[1.5px] border-ink bg-flame font-head text-sm text-white">
-                  PM
+                  TC
                 </span>
               </div>
             )}
 
             <ul className="reveal grid gap-6 border-b border-line py-8 sm:grid-cols-3">
               {[
-                { I: Users, t: 'Room for 25-30 seated', d: 'Main Hall flexes from a 45-seat lecture set-up to a 30-guest cabaret with the courtyard as breakout space.' },
+                { I: Users, t: `Room for up to ${space.max} guests`, d: `${space.name}: ${space.cap}. Each space is booked separately; capacities cannot be combined into one request.` },
                 { I: ShieldCheck, t: 'Verified on-site', d: 'Our team visited in person, measured every room, and confirmed the AV, power backup, and access claims.' },
-                { I: Clock, t: 'Replies within 24h', d: 'Priya, the host, confirms most weekday requests the same evening. Weekend requests may take a little longer.' },
+                { I: Clock, t: 'Host response window: 48h', d: 'Time Cafe reviews your request. Track its status in Your bookings; nothing is charged when you submit.' },
               ].map(({ I, t, d }) => (
                 <li key={t}>
                   <I className="size-5 text-flame" />
@@ -980,7 +834,7 @@ export default function VenueDetail() {
               </p>
             </section>
 
-            <FitScore />
+            <FitScore capacity={space.max} guests={guests} name={space.name} />
 
             <section aria-labelledby="offers-title" className="reveal border-b border-line py-10">
               <div className="flex flex-wrap items-end justify-between gap-2">
@@ -1030,18 +884,17 @@ export default function VenueDetail() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 id="reviews-title" className="font-head text-xl">Organisers who have hosted here</h2>
-                  <p className="mt-1 flex items-center gap-2 text-sm text-stone">
-                    <Star className="size-4 text-flame" /> <span className="text-ink">4.96</span> · 42 Events hosted
-                  </p>
+                  {reviews.length > 0 && <p className="mt-1 flex items-center gap-2 text-sm text-stone">
+                    <Star className="size-4 text-flame" /> <span className="text-ink">{reviewAverage ?? "No reviews yet"}</span> · {reviews.length} published review{reviews.length === 1 ? "" : "s"}
+                  </p>}
                 </div>
-                <button type="button" className="press border-[1.5px] border-ink bg-flame px-4 py-2 font-mono-b text-[11px] tracking-[0.7px] uppercase text-white shadow-hard-sm">
-                  View all reviews
-                </button>
+
               </div>
+              {!reviews.length && <div className="mt-6"><ChandruTestimonial /></div>}
               <ul className="mt-6 grid gap-5 md:grid-cols-2">
                 {reviews.map((r, i) => (
                   <li
-                    key={r.n}
+                    key={r.id}
                     className="reveal border-[1.5px] border-ink bg-white p-5 shadow-hard transition-transform duration-300 hover:-translate-y-1"
                     style={{ '--d': `${i * 100}ms` } as React.CSSProperties}
                   >
@@ -1055,10 +908,10 @@ export default function VenueDetail() {
                     <div className="mt-4 flex items-end justify-between gap-3">
                       <div>
                         <p className="font-head text-sm">{r.n}</p>
-                        <p className="text-xs text-stone">2 days ago · Tech meetup</p>
+                        <p className="text-xs text-stone">{r.date} · {r.event} · {r.source === "booking" ? "Booked through SCENE" : "Curator-approved review"}</p>
                       </div>
-                      <p className="flex gap-0.5 text-flame" role="img" aria-label="5 out of 5 stars">
-                        {Array.from({ length: 5 }, (_, k) => (
+                      <p className="flex gap-0.5 text-flame" role="img" aria-label={`${r.rating} out of 5 stars`}>
+                        {Array.from({ length: r.rating }, (_, k) => (
                           <Star key={k} className="size-3.5" />
                         ))}
                       </p>
@@ -1070,18 +923,18 @@ export default function VenueDetail() {
 
             <section aria-labelledby="where-title" className="reveal border-t border-line py-10">
               <h2 id="where-title" className="font-head text-xl">Where you will be</h2>
-              <p className="mt-1 text-sm text-stone">Wallace Garden, Nungambakkam, Chennai 600006</p>
+              <p className="mt-1 text-sm text-stone">{venue.address || [venue.area, venue.city].join(', ')}</p>
               <div className="relative mt-5 overflow-hidden border-[1.5px] border-ink bg-sand">
                 <iframe
-                  title="Google Map showing Time Cafe & Spaces, Wallace Garden, Nungambakkam, Chennai"
-                  src={`https://www.google.com/maps?q=${MAP_QUERY}&z=16&output=embed`}
+                  title={`Google Map showing ${venue.name}, ${venue.area}`}
+                  src={`https://www.google.com/maps?q=${mapQuery}&z=16&output=embed`}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   allowFullScreen
                   className="block h-[260px] w-full border-0 sm:h-[320px]"
                 />
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${MAP_QUERY}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
                   target="_blank"
                   rel="noreferrer"
                   className="press absolute bottom-3 left-3 flex items-center gap-2 border-[1.5px] border-ink bg-flame px-4 py-2.5 font-mono-b text-[11px] tracking-[0.7px] uppercase text-white shadow-hard-sm"
@@ -1090,8 +943,7 @@ export default function VenueDetail() {
                 </a>
               </div>
               <p className="mt-4 max-w-[640px] text-sm leading-[22.75px] text-stone">
-                A 4-minute walk from Nungambakkam station and steps from the Wallace Garden cafes. Metro, bus, and app cabs all reach the
-                gate. Exact address is shared once your request is confirmed.
+                Use the map above to plan your visit to Time Cafe. Confirm any accessibility or parking needs with the host before booking.
               </p>
             </section>
 
@@ -1119,7 +971,7 @@ export default function VenueDetail() {
             </section>
           </div>
 
-          <aside ref={bookingRef} aria-label="Booking" className="booking self-start scroll-mt-24 lg:sticky lg:top-24">
+          <aside id="booking-request" ref={bookingRef} aria-label="Booking request panel" tabIndex={0} className="booking min-w-0 self-start scroll-mt-24 focus-visible:outline-2 focus-visible:outline-primary-ink lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:overscroll-y-contain lg:pb-2 lg:pr-2">
             {status !== 'sent' ? (
               <form
                 ref={formRef}
@@ -1129,15 +981,16 @@ export default function VenueDetail() {
                 aria-label={`Request ${space.name}`}
               >
                 <p className="flex items-baseline gap-1.5">
-                  <span key={space.price} className="anim-fade font-head text-2xl">{money(space.price)}</span>
+                  <span key={hourlyRate} className="anim-fade font-head text-2xl">{hourlyRate === null ? 'Host quote' : money(hourlyRate)}</span>
                   <span className="font-mono-b text-xs tracking-[0.48px] uppercase text-stone">/ hour</span>
                   <span className="ml-auto flex items-center gap-1 text-sm text-stone">
-                    <Star className="size-3.5 text-flame" /> 4.96
+                    <Star className="size-3.5 text-flame" /> {reviewAverage ?? "No SCENE reviews yet"}
                   </span>
                 </p>
                 <div className="mt-3 border-y border-line py-3" aria-live="polite">
+                  <h2 className="mb-2 font-head text-lg">Send a booking request</h2>
                   <p key={space.id} className="anim-fade font-head text-sm">{space.name}</p>
-                  <p className="mt-0.5 text-xs text-stone">3-hour minimum · No charge until confirmed</p>
+                  <p className="mt-0.5 text-xs text-stone">3-hour minimum · Pay only after host approval</p>
                 </div>
                 {profile && (
                   <p className="rise mt-3 flex items-center gap-2 bg-moss/10 px-3 py-2 text-xs text-moss">
@@ -1192,21 +1045,20 @@ export default function VenueDetail() {
                   <div className="grid grid-cols-2 gap-3">
                     <label className={fieldBox}>
                       <span className={monoLabel}>Start</span>
-                      <select value={start} onChange={(e) => updateDraft((current) => ({ ...current, start: e.target.value }))} className={`${inputCls} cursor-pointer`}>
-                        {startTimes.map((t) => (
-                          <option key={t}>{t}</option>
-                        ))}
-                      </select>
+                      <input type="time" data-field="start" aria-invalid={!!errors.start} aria-describedby={err('start')} value={start} onChange={(e) => { updateDraft((current) => ({ ...current, start: e.target.value })); setErrors(x => ({ ...x, start: '', hours: '', date: '' })) }} className={inputCls} />
                     </label>
                     <label className={fieldBox}>
                       <span className={monoLabel}>Hours</span>
-                      <select value={hours} onChange={(e) => updateDraft((current) => ({ ...current, hours: Number(e.target.value) }))} className={`${inputCls} cursor-pointer`}>
+                      <select data-field="hours" aria-invalid={!!errors.hours} aria-describedby={err('hours')} value={hours} onChange={(e) => { updateDraft((current) => ({ ...current, hours: Number(e.target.value) })); setErrors(x => ({ ...x, hours: '' })) }} className={`${inputCls} cursor-pointer`}>
                         {hourOptions.map((h) => (
                           <option key={h} value={h}>{h} hours</option>
                         ))}
                       </select>
                     </label>
                   </div>
+
+                  {errorText('start')}
+                  {errorText('hours')}
 
                   <div>
                     <label className={fieldBox}>
@@ -1262,7 +1114,7 @@ export default function VenueDetail() {
                           updateDraft((current) => ({ ...current, message: e.target.value }))
                           setErrors((x) => ({ ...x, message: '' }))
                         }}
-                        placeholder="Tell Priya what you're planning, how many people, any setup needs…"
+                        placeholder="Tell Time Cafe what you're planning, how many people, any setup needs…"
                         aria-invalid={!!errors.message}
                         aria-describedby={err('message')}
                         className={`${inputCls} resize-none`}
@@ -1288,26 +1140,23 @@ export default function VenueDetail() {
                       <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Sending request…
                     </>
                   ) : profile ? (
-                    <>Request reservation <ArrowRight /></>
+                    <>Send booking request <ArrowRight /></>
                   ) : (
                     <>Continue to verify &amp; request <ArrowRight /></>
                   )}
                 </button>
+                <p className="mt-3 text-xs leading-5 text-stone">This sends a request only. The host must approve it before you can pay and confirm the booking.</p>
 
                 {submitError && <FieldError className="mt-3">{submitError}</FieldError>}
 
                 <dl className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
                   <div className="flex justify-between text-stone">
-                    <dt>{money(space.price)} × {hours} hours</dt>
-                    <dd key={subtotal} className="anim-fade">{money(subtotal)}</dd>
-                  </div>
-                  <div className="flex justify-between text-stone">
-                    <dt>Service fee</dt>
-                    <dd key={fee} className="anim-fade">{money(fee)}</dd>
+                    <dt>{hourlyRate === null ? 'Price confirmed by host' : `${money(hourlyRate)} × ${hours} hours`}</dt>
+                    <dd key={subtotal} className="anim-fade">{subtotal === null ? 'Host quote' : money(subtotal)}</dd>
                   </div>
                   <div className="flex justify-between border-t border-line pt-3 font-head">
                     <dt>Estimated total</dt>
-                    <dd key={total} className="anim-fade">{money(total)}</dd>
+                    <dd key={total} className="anim-fade">{total === null ? 'Host quote' : money(total)}</dd>
                   </div>
                 </dl>
               </form>
@@ -1317,10 +1166,10 @@ export default function VenueDetail() {
                   <Check className="size-6" strokeWidth={2.5} />
                 </span>
                 <h2 ref={sentTitle} tabIndex={-1} className="rise mt-4 font-head text-xl focus:outline-none">
-                  Request sent to Priya
+                  Request sent to Time Cafe
                 </h2>
                 <p className="rise mt-2 text-sm leading-[22px] text-stone" style={{ '--d': '80ms' } as React.CSSProperties}>
-                  You&apos;ll hear back within 24 hours. Nothing is charged until the booking is confirmed. We&apos;ve emailed you a copy of the request.
+                  Your request is saved in Your bookings. Time Cafe has a 48-hour response window. You only pay after approval; nothing has been charged now.
                 </p>
                 <dl className="mt-5 divide-y divide-line border-y border-line text-sm">
                   {[
@@ -1330,7 +1179,7 @@ export default function VenueDetail() {
                     ['Date', dateNice],
                     ['Window', `${start} · ${hours}h`],
                     ['Guests', guests],
-                    ['Estimate', money(total)],
+                    ['Estimate', total === null ? 'Host quote' : money(total)],
                   ].map(([k, v], i) => (
                     <div key={k} className="rise flex justify-between gap-4 py-2.5" style={{ '--d': `${140 + i * 50}ms` } as React.CSSProperties}>
                       <dt className="font-mono-b text-[11px] tracking-[0.6px] uppercase text-stone">{k}</dt>

@@ -16,6 +16,8 @@ interface DraftOptions<T extends { spaceId: string }> {
   authReady: boolean;
   parse: (data: unknown, spaceId: string) => T | null;
   serialize: (value: T) => Record<string, unknown>;
+  /** Explicit search criteria override selection fields, not saved prose. */
+  selection?: Partial<T>;
 }
 
 function storageKey(venueSlug: string, owner: string): string {
@@ -44,13 +46,14 @@ function readLocal<T extends { spaceId: string }>(
  * resumed on another device. A draft never establishes identity or consent.
  */
 export function useVenueBookingDraft<T extends { spaceId: string }>({
-  venueSlug, initial, profilePhone, authReady, parse, serialize,
+  venueSlug, initial, profilePhone, authReady, parse, serialize, selection,
 }: DraftOptions<T>) {
   const [value, setValue] = useState<T>(initial);
   const [ready, setReady] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const initialRef = useRef(initial);
+  const selectionRef = useRef(selection);
   const editRevision = useRef(0);
   const dirtyRef = useRef(false);
   const ownerRef = useRef<string | null>(null);
@@ -94,11 +97,20 @@ export function useVenueBookingDraft<T extends { spaceId: string }>({
     const restore = (saved: StoredDraft<T> | null, needsSync: boolean) => {
       if (cancelled) return;
       if (editRevision.current === startRevision && saved) {
-        updatedAtRef.current = saved.updatedAt;
-        setValue(saved.value);
-        dirtyRef.current = needsSync;
-        setDirty(needsSync);
-        setSaveStatus(needsSync || owner === "anon" ? "local" : "saved");
+        const selection = selectionRef.current ?? {};
+        const changed = Object.entries(selection).some(([key, value]) => saved.value[key as keyof T] !== value);
+        const sync = needsSync || changed;
+        updatedAtRef.current = changed ? Math.max(Date.now(), saved.updatedAt + 1) : saved.updatedAt;
+        setValue({ ...saved.value, ...selection });
+        dirtyRef.current = sync;
+        setDirty(sync);
+        setSaveStatus(sync || owner === "anon" ? "local" : "saved");
+      } else if (editRevision.current === startRevision && !saved && Object.keys(selectionRef.current ?? {}).length) {
+        // Search-to-form handoff is progress too; persist it even before the
+        // organiser types their next field, without dropping restored prose.
+        updatedAtRef.current = Math.max(Date.now(), updatedAtRef.current + 1);
+        dirtyRef.current = true;
+        setDirty(true);
       }
       setReady(true);
     };

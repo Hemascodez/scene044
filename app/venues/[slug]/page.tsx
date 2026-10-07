@@ -6,6 +6,7 @@ import FigmaVenueDetail from "@/components/venues/figma/VenueDetail";
 import { VenueChrome } from "@/components/venues/figma/VenueChrome";
 import { getCatalogVenue } from "@/lib/venueCatalog";
 import { aspectScores, listVenueReviews, summariseReviews } from "@/lib/venueBookings";
+import { venueSearchValues } from "@/lib/venueSearch";
 import {
   absoluteUrl,
   serializeJsonLd,
@@ -86,7 +87,8 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
         {jsonLdTimeCafe.map((data, index) => (
           <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }} />
         ))}
-        <FigmaVenueDetail />
+        <FigmaVenueDetail key={JSON.stringify(query)} venue={venue} publishedReviews={await listVenueReviews(venue.slug)}
+          search={Object.keys(query).length ? venueSearchValues(query) : undefined} initialSpaceId={first(query.spaceId)} />
       </>
     );
   }

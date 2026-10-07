@@ -7,6 +7,7 @@ export function VenueBookingsSection() {
   const [bookings, setBookings] = useState<Row[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
+  const [archived, setArchived] = useState(false);
   const [revision, setRevision] = useState(0);
   const [message, setMessage] = useState('Loading bookings…');
   const [busy, setBusy] = useState(false);
@@ -14,14 +15,14 @@ export function VenueBookingsSection() {
     let active = true;
     const load = async () => {
       try {
-        const response = await fetch(`/api/admin/venue-bookings?page=${page}`, { cache: 'no-store' });
+        const response = await fetch(`/api/admin/venue-bookings?page=${page}&archived=${archived}`, { cache: 'no-store' });
         const data = await response.json(); if (!response.ok) throw new Error(data.error);
         if (active) { setBookings(data.bookings); setCount(data.count); setMessage(''); }
       } catch (e) { if (active) setMessage(e instanceof Error ? e.message : 'Could not load bookings'); }
     };
     void load(); const timer = setInterval(load, 15000);
     return () => { active = false; clearInterval(timer); };
-  }, [page, revision]);
+  }, [page, revision, archived]);
   const refresh = () => setRevision(n => n + 1);
   async function action(b: Row, trial: boolean) {
     if (trial && !window.confirm(`Mark ${b.code} as a real ₹10 payment trial with a five-minute check-in timer? Normal bookings are unchanged.`)) return;
@@ -31,20 +32,32 @@ export function VenueBookingsSection() {
       const data = await response.json(); if (!response.ok) throw new Error(data.error); refresh();
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Action failed'); } finally { setBusy(false); }
   }
+  async function restore(b: Row) {
+    if (!window.confirm(`Restore ${b.code} to organiser and host booking lists? Its previous status and payment history will be retained.`)) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/admin/venue-bookings/${b.id}/restore`, { method: 'POST' });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error);
+      setMessage(`${b.code} restored.`); refresh();
+    } catch (e) { setMessage(e instanceof Error ? e.message : 'Restore failed'); } finally { setBusy(false); }
+  }
   return <section className="space-y-4 p-4 sm:p-6 text-[#d8e5dd]">
     <h2 className="text-xl font-semibold">All venue bookings ({count})</h2>
     <p className="text-sm">Requests, payments, check-ins, completed and cancelled bookings. Refreshes every 15 seconds.</p>
     <button type="button" onClick={refresh} className="border px-4 py-2">Refresh</button>
+    <label className="flex items-center gap-2"><input type="checkbox" checked={archived} onChange={e => { setArchived(e.target.checked); setPage(1); setBookings([]); }} />Show archived history</label>
     <p role="status" className="text-sm">{message}</p>
     {bookings.map(b => <article key={b.id} className="min-w-0 space-y-3 border border-[#325342] p-4">
       <h3 className="font-semibold break-words">{b.code} · {b.organizerName} · {b.status.replace('_', ' ')}</h3>
+      {b.archivedAt && <p className="text-sm">Archived · {b.archiveReason}</p>}
       <p className="text-sm break-words">{b.venueName} / {b.spaceName} · {b.eventDate} {b.startTime} · {b.organizerPhone}</p>
       <p className="text-sm">{b.eventType} · {b.people} people · Requested {new Date(b.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
       <p className="text-sm">{b.trialAmountPaise ? '₹10 live trial · 5 minutes' : b.total === null ? 'Host quote' : `Venue base: ₹${b.total}`} · Food tab: ₹{(b.foodTotalPaise / 100).toFixed(2)}</p>
       <p className="text-sm break-all">{b.paidAt ? `Paid ${new Date(b.paidAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} · ${b.paymentId ?? 'Legacy payment'}` : ['confirmed','checked_in','completed'].includes(b.status) ? 'Legacy confirmed booking; no captured-payment record' : 'Not paid'}</p>
       <div className="flex flex-wrap gap-3">
-        {['requested','approved'].includes(b.status) && !b.trialAmountPaise && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, true)}>Prepare ₹10 / 5-minute trial</button>}
-        {b.status === 'requested' && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, false)}>Approve request</button>}
+        {!b.archivedAt && ['requested','approved'].includes(b.status) && !b.trialAmountPaise && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, true)}>Prepare ₹10 / 5-minute trial</button>}
+        {!b.archivedAt && b.status === 'requested' && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, false)}>Approve request</button>}
+        {b.archivedAt && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => restore(b)}>Restore booking</button>}
       </div>
       {['checked_in','completed'].includes(b.status) && <details className="text-ink"><summary className="cursor-pointer text-[#d8e5dd]">Session & organiser&apos;s orders</summary><HostBookingSession booking={b} onRefresh={refresh} /></details>}
     </article>)}

@@ -10,7 +10,7 @@ export default function HostWorkspacePage() {
   const { profile, saveProfile, openAuth, logout } = useVenueApp();
   return (
     <HostWorkspace
-      hostName={profile?.name?.split(" ")[0] || "Priya"}
+      hostName={profile?.name?.split(" ")[0] || "Time Cafe"}
       profile={profile}
       onSaveProfile={saveProfile}
       onAuth={openAuth}

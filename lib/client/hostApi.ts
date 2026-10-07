@@ -1,6 +1,6 @@
 "use client";
 
-import type { VenueBooking, VenueBookingOrder } from "@/lib/venueBookings";
+import type { VenueBooking, VenueBookingOrder, VenueReview } from "@/lib/venueBookings";
 
 /**
  * Thin client over /api/host/*.
@@ -39,6 +39,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type HostBooking = VenueBooking & { orderTotal: number };
+
+export function listHostReviews(): Promise<{ ok: true; reviews: VenueReview[] }> {
+  return request('/api/host/reviews');
+}
 
 export function listHostBookings(venueSlug = "time-cafe"): Promise<{ ok: true; bookings: HostBooking[] }> {
   return request(`/api/host/bookings?venueSlug=${encodeURIComponent(venueSlug)}`);

@@ -92,7 +92,7 @@ export default function Dropdown({
         id={id}
         role="listbox"
         aria-label={label}
-        className={`absolute ${listClassName} z-30 min-w-[220px] origin-top border-[1.5px] border-ink bg-white py-1 shadow-hard transition-all duration-200 ${
+        className={`absolute ${listClassName} z-30 max-h-60 min-w-[220px] origin-top overflow-y-auto overscroll-y-contain border-[1.5px] border-ink bg-white py-1 shadow-hard transition-all duration-200 ${
           open ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-1 opacity-0'
         }`}
       >

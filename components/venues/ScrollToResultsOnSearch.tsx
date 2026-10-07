@@ -19,7 +19,7 @@ export function ScrollToResultsOnSearch({ trigger, targetId }: { trigger: string
       isFirstRender.current = false;
       return;
     }
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(targetId)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? "auto" : "smooth", block: "start" });
   }, [trigger, targetId]);
 
   return null;

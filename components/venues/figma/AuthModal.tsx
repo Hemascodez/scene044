@@ -6,7 +6,7 @@ import { ArrowRight, Check, Close, Phone, Search } from './icons'
 
 export type Profile = { name: string; phone: string; role: 'Organiser' | 'Host'; venue?: string; email?: string }
 
-const VENUES = ['Time Cafe', 'Backyard Cafe', 'The Grand Ballroom', 'Studio 04', 'Rooftop Terrace']
+const VENUES = ['Time Cafe']
 const RESEND_SECS = 60
 
 type Step = 'details' | 'otp' | 'verified'
@@ -195,7 +195,7 @@ export default function AuthModal({
         aria-labelledby={titleId}
         aria-describedby={descId}
         key={step}
-        className="anim-pop relative max-h-[92dvh] w-full overflow-y-auto border-[1.5px] border-ink bg-paper shadow-hard-lg sm:max-w-[384px]"
+        className="anim-pop relative min-h-0 max-h-[92dvh] w-full overflow-y-auto overscroll-y-contain border-[1.5px] border-ink bg-paper shadow-hard-lg sm:max-h-[calc(100dvh-3rem)] sm:max-w-[384px]"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-paper px-5 py-4">
           <p className="font-mono-b text-[11px] leading-[16.5px] tracking-[1.32px] uppercase text-flame">{eyebrow}</p>

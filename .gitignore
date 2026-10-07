@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.neon
+# Private, owner-approved production booking identifiers; never publish to GitHub.
+/db/prelaunch-booking-snapshot.json

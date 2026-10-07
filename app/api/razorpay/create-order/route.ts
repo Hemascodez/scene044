@@ -57,8 +57,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Space cost plus SCENE's 10% organizer service fee. The host's payout is
-  // computed from the space cost alone (booking.total), so it is unaffected.
+  // Organiser pays the listed venue price. Commission is deducted host-side.
   const amountPaise = bookingChargePaise(booking);
   if (amountPaise === null || amountPaise < 100) {
     return NextResponse.json({ error: "Amount must be at least ₹1" }, { status: 400 });
@@ -66,6 +65,9 @@ export async function POST(request: Request) {
 
   const existing = await latestPaymentOrder(booking.id);
   if (existing) {
+    if (existing.amountPaise !== amountPaise || existing.currency !== 'INR') {
+      return NextResponse.json({ error: 'Your earlier payment order has a different price. Contact SCENE before paying; do not pay the old amount.' }, { status: 409 });
+    }
     try {
       const payment = await paymentForOrder(existing.orderId);
       if (payment) {

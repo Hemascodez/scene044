@@ -420,14 +420,14 @@ export async function venueEarnings(venueSlug?: string): Promise<VenueEarnings> 
        count(*) FILTER (WHERE status = 'completed')::text AS completed,
        COALESCE(sum(total) FILTER (WHERE status IN ('confirmed','checked_in','completed') AND trial_amount_paise IS NULL), 0)::text AS gross
      FROM venue_bookings
-     WHERE ($1::text IS NULL OR venue_slug = $1)`,
+     WHERE ($1::text IS NULL OR venue_slug = $1) AND archived_at IS NULL`,
     [venueSlug ?? null],
   );
   const { rows: orderRows } = await query<{ total: string }>(
     `SELECT (COALESCE(sum(COALESCE(o.unit_price_paise * o.quantity, o.amount * 100)), 0) / 100.0)::text AS total
        FROM venue_booking_orders o
        JOIN venue_bookings b ON b.id = o.booking_id
-      WHERE ($1::text IS NULL OR b.venue_slug = $1)`,
+      WHERE ($1::text IS NULL OR b.venue_slug = $1) AND b.archived_at IS NULL`,
     [venueSlug ?? null],
   );
 

@@ -215,20 +215,10 @@ export function rateForSpace(space: VenueSpace, eventType: string): number | nul
   return isProductionEvent(eventType) ? space.productionRate : space.communityRate;
 }
 
-/**
- * SCENE's service fee, charged to the organizer on top of the space cost when
- * they pay. The host's payout is unaffected: it stays 90% of the space cost
- * (the host-side 10% SCENE fee), so this fee is SCENE's alone.
- */
-export const ORGANIZER_SERVICE_FEE_RATE = 0.1;
-
-export function serviceFee(spaceCost: number): number {
-  return Math.round(spaceCost * ORGANIZER_SERVICE_FEE_RATE);
-}
-
-/** What the organizer actually pays: space cost plus the service fee. */
+/** Organisers pay the listed venue price only. SCENE's 10% is deducted on
+ * the host side, never added to the customer checkout. */
 export function amountDue(spaceCost: number): number {
-  return spaceCost + serviceFee(spaceCost);
+  return spaceCost;
 }
 
 export function formatRupees(value: number) {

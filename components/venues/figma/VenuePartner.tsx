@@ -158,7 +158,7 @@ export default function VenuePartner() {
             <div className="flex flex-col">
               <label htmlFor="vn" className={`${label} py-1`}>Venue name</label>
               <p className="pt-1 text-xs text-stone">What organisers will see at the top of your listing.</p>
-              <input id="vn" className={`${input} mt-2.5`} placeholder="Backyard cafe" value={name} onChange={(e) => setName(e.target.value)} />
+              <input id="vn" className={`${input} mt-2.5`} placeholder="Your venue name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="grid gap-6 pt-6 sm:grid-cols-2">
               <div>

@@ -768,3 +768,23 @@ DO $$ BEGIN
 END $$;
 -- Preserve historical rows, but only our onboarded partner is public.
 UPDATE venues SET status = 'hidden' WHERE slug <> 'time-cafe' AND status <> 'hidden';
+
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS archive_reason TEXT;
+CREATE INDEX IF NOT EXISTS idx_venue_bookings_active ON venue_bookings (venue_slug, event_date DESC, id DESC) WHERE archived_at IS NULL;
+
+-- Private, account-owned profile photos; no prototype avatar defaults.
+CREATE TABLE IF NOT EXISTS venue_user_photos (
+  user_id INT PRIMARY KEY REFERENCES venue_users(id) ON DELETE CASCADE,
+  bytes BYTEA NOT NULL CHECK (octet_length(bytes) BETWEEN 4 AND 524288),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE venue_user_photos ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON venue_user_photos FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON venue_user_photos FROM authenticated;
+  END IF;
+END $$;

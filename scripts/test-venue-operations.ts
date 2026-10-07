@@ -18,7 +18,7 @@ async function main() {
   globalThis.__pgPool = { query: testQuery, connect: async () => ({ query: testQuery, release() {} }) } as unknown as Pool;
   try {
     assert.equal(bookingChargePaise({ trialAmountPaise: 1000, total: 2000 }), 1000);
-    assert.equal(bookingChargePaise({ trialAmountPaise: null, total: 2000 }), 220000);
+    assert.equal(bookingChargePaise({ trialAmountPaise: null, total: 2000 }), 200000);
     assert.equal(validateMenuItems([{ id: randomUUID(), name: 'Coffee', category: 'Drinks', pricePaise: -1, available: true }]), null);
     const marker = randomUUID();
     const fixture = await client.query<{ id: number }>(`INSERT INTO venue_bookings(code,checkin_token,venue_slug,venue_name,space_id,space_name,event_date,start_time,duration_hours,people,event_type,description,organizer_name,organizer_email,organizer_phone,hourly_rate,total)

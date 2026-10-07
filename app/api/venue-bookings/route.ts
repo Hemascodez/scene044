@@ -6,6 +6,7 @@ import { rateForSpace, VENUE_EVENT_TYPES } from "@/lib/venues";
 import { absoluteUrl } from "@/lib/seo";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { deleteVenueBookingDraft } from "@/lib/venueBookingDrafts";
+import { validateVenueBookingWindow } from "@/lib/venueBookingValidation";
 
 /**
  * Creates a real, server-side booking request (replaces the old
@@ -58,6 +59,9 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Invalid booking details' }, { status: 400 });
+  }
 
   const venueSlug = cleanString(body.venueSlug, 100);
   const spaceId = cleanString(body.spaceId, 100);
@@ -78,7 +82,7 @@ export async function POST(request: Request) {
   if (
     !venueSlug || !spaceId || !eventType || !date || !time ||
     !Number.isFinite(duration) || duration <= 0 ||
-    !Number.isFinite(people) || people <= 0 ||
+    !Number.isInteger(people) || people <= 0 ||
     !description || !name || !email || !/^\S+@\S+\.\S+$/.test(email) || !phone
   ) {
     return NextResponse.json({ error: "Missing or invalid booking details" }, { status: 400 });
@@ -86,6 +90,8 @@ export async function POST(request: Request) {
   if (!VENUE_EVENT_TYPES.includes(eventType as (typeof VENUE_EVENT_TYPES)[number])) {
     return NextResponse.json({ error: "Unknown event type" }, { status: 400 });
   }
+  const invalidWindow = validateVenueBookingWindow(date, time, duration);
+  if (invalidWindow) return NextResponse.json({ error: invalidWindow.error, field: invalidWindow.field }, { status: 400 });
 
   const venue = await getCatalogVenue(venueSlug);
   const space = venue?.spaces.find((item) => item.id === spaceId);

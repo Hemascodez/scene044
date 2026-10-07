@@ -3,11 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SiteFooter, SiteHeader } from './SiteChrome'
-import Dropdown from './Dropdown'
+import { VenueSearchBar } from '@/components/venues/VenueSearchBar'
+import { readVenueSearchPreferences, venueDetailSearchHref } from '@/lib/venueSearch'
+import { formatRupees, venueFromRate, venueMaxGuests } from '@/lib/venues'
+import type { CatalogVenue } from '@/lib/venueCatalog'
+import { ChandruTestimonial } from './ChandruTestimonial'
 import Carousel from './Carousel'
 import useReveal from './useReveal'
 import HowItWorks from './HowItWorks'
-import { ArrowRight, Check, Clock, Heart, MapPin, Search, ShieldCheck, Star } from './icons'
+import { ArrowRight, Check, Clock, Heart, MapPin, ShieldCheck, Star } from './icons'
 const exterior = '/venues/figma/1f1a5.jpg'
 const hall = '/venues/figma/237e9.jpg'
 const crowd = '/venues/figma/27065.jpg'
@@ -17,13 +21,6 @@ const heroImg3 = '/venues/figma/hero-carousel-3.jpg'
 const heroImg4 = '/venues/figma/hero-carousel-4.jpg'
 const heroImg5 = '/venues/figma/hero-carousel-5.jpg'
 const heroImg6 = '/venues/figma/hero-carousel-6.jpg'
-const jam = '/venues/figma/2010d.jpg'
-const salon = '/venues/figma/5f65d.jpg'
-const mixer = '/venues/figma/249eb.jpg'
-const av1 = '/venues/figma/0e739.jpg'
-const av2 = '/venues/figma/869ee.jpg'
-const av3 = '/venues/figma/03451.jpg'
-
 const phrases = ['Tech meetup', 'Podcast recording', 'Workshop', 'Networking event', 'Product launch']
 
 function Typewriter() {
@@ -80,57 +77,17 @@ const slides = [
 ]
 
 
-const reviews = [
-  {
-    img: jam,
-    alt: 'Time Cafe courtyard set up for a design system jam with designers seated among greenery.',
-    cap: "AI Build meetup · Nov '24",
-    tags: ['Zero audio echo', 'South Indian filter brew'],
-    r: '5.0',
-    q: 'Hosted 35 product designers here. The courtyard airflow kept everyone energized, the AV cables were already connected, and the filter coffee kept flowing. Best venue in Nungambakkam by far!',
-    name: 'Chandru',
-    role: 'Founder · Doing things AI',
-    av: av1,
-    tilt: '-rotate-[1.5deg]',
-  },
-  {
-    img: salon,
-    alt: "AI Builders Salon in progress inside Time Cafe's main hall with attendees on laptops.",
-    cap: "AI Builders Salon · Oct '24",
-    tags: ['4K ultra-short throw', 'DG genset backup'],
-    r: '5.0',
-    q: 'The ultra-short throw projector and 500Mbps leased line meant zero technical hiccups for our live coding demo. Host Prisha even had extension boards pre-routed for all 40 laptops!',
-    name: 'Karthik Subramanian',
-    role: 'Founder · Madras Tech Guild & AI Builders',
-    av: av2,
-    tilt: 'rotate-[1deg] lg:translate-y-6',
-  },
-  {
-    img: mixer,
-    alt: "Founder Sunset Mixer on Time Cafe's terrace at golden hour with greenery and lounge seating.",
-    cap: "Founder Sunset Mixer · Dec '24",
-    tags: ['Sunset golden hour', 'Valet parking easy'],
-    r: '4.9',
-    q: "We transitioned from indoor pitch decks directly into the outdoor courtyard terrace for sundowner networking. Attendees wouldn't stop talking about how aesthetic the greenery and lighting was!",
-    name: 'Priya Sundaram',
-    role: 'Community Architect · Chennai SaaS Circle',
-    av: av3,
-    tilt: '-rotate-[0.75deg]',
-  },
-]
-
 const Eyebrow = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <p className={`font-mono-b text-[11px] leading-4 tracking-[1.32px] uppercase text-flame ${className}`}>{children}</p>
 )
 
 /**
- * The venue landing page, verbatim from the Figma Make prototype. The only
- * changes: navigation goes to real routes, and sign-in uses the shared,
- * real-OTP modal from VenueApp.
+ * Venue landing in the approved visual system, with real navigation/auth.
+ * Prototype testimonials and fabricated booking statistics are not published.
  */
-export default function Landing() {
+export default function Landing({ venue }: { venue: CatalogVenue | null }) {
   const router = useRouter()
-  const onOpenVenue = () => router.push('/venues/time-cafe')
+  const onOpenVenue = () => router.push(venueDetailSearchHref('time-cafe', readVenueSearchPreferences()))
   const onListVenue = () => router.push('/venues/partner')
   useReveal()
   const [saved, setSaved] = useState(false)
@@ -193,48 +150,9 @@ export default function Landing() {
           </div>
 
           {/* Venue search */}
-          <form
-            role="search"
-            aria-label="Search venues"
-            onSubmit={(e) => {
-              e.preventDefault()
-              document.getElementById('spaces')?.scrollIntoView()
-            }}
-            className="rise mt-20 grid rounded-md border-[1.5px] border-ink bg-white shadow-hard-md sm:grid-cols-2 lg:mt-16 lg:grid-cols-[1.2fr_1.15fr_1fr_1fr_68px]"
-            style={{ '--d': '360ms' } as React.CSSProperties}
-          >
-            {[
-              { l: 'Where', p: 'Any neighborhood', t: 'text', o: ['Nungambakkam'] },
-              { l: 'Format', p: 'What are you planning', t: 'text', o: ['Tech meetup', 'Podcast recording', 'Workshop', 'Networking event', 'Product launch'] },
-              { l: 'Date', p: 'Pick a date', t: 'date' },
-              { l: 'Capacity', p: 'How many attendees', t: 'number' },
-            ].map((f) => (
-              <label
-                key={f.l}
-                className="flex flex-col border-b border-line px-5 py-4 transition-colors focus-within:bg-paper-2 sm:odd:border-r lg:border-r lg:border-b-0"
-              >
-                <span className="font-mono-b text-[10px] leading-[14px] tracking-[0.8px] uppercase text-stone">{f.l}</span>
-                {f.o ? (
-                  <Dropdown label={f.l} placeholder={f.p} options={f.o} />
-                ) : (
-                  <input
-                    type={f.t}
-                    min={f.t === 'number' ? 1 : undefined}
-                    placeholder={f.p}
-                    className="mt-0.5 w-full bg-transparent text-[13px] leading-5 text-ink placeholder:text-stone focus:outline-none"
-                  />
-                )}
-              </label>
-            ))}
-            <button
-              type="submit"
-              aria-label="Search venues"
-              className="flex items-center justify-center gap-2 rounded-b-[4px] bg-flame py-4 font-mono-b text-xs lg:rounded-b-none lg:rounded-r-[4px] tracking-[0.8px] text-white transition-[filter] hover:brightness-110 sm:col-span-2 lg:col-span-1"
-            >
-              <Search className="size-5" strokeWidth={2} />
-              <span className="lg:sr-only">SEARCH</span>
-            </button>
-          </form>
+          <div className="rise mt-20 lg:mt-16" style={{ '--d': '360ms' } as React.CSSProperties}>
+            <VenueSearchBar />
+          </div>
         </section>
 
         {/* Process */}
@@ -274,7 +192,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <article className="reveal mt-10 grid overflow-hidden border-[1.5px] border-ink bg-white shadow-hard lg:grid-cols-[594fr_425fr]">
+          {venue?.status === 'live' ? <article className="reveal mt-10 grid overflow-hidden border-[1.5px] border-ink bg-white shadow-hard lg:grid-cols-[594fr_425fr]">
             <div className="relative">
               <Carousel
                 slides={[slides[1], slides[2], slides[0]]}
@@ -290,10 +208,11 @@ export default function Landing() {
                 <div className="space-y-1.5 text-sm text-stone">
                   <p className="flex items-center gap-1.5">
                     <Star className="size-4 text-flame" />
-                    <span className="text-ink">4.96</span> (42 meetups hosted)
+                    <span className="text-ink">Time Cafe</span> · Our current venue partner
                   </p>
                   <p className="flex items-center gap-1.5">
-                    <MapPin className="size-4" /> Wallace Garden, Nungambakkam, Chennai
+                    <MapPin className="size-4 shrink-0" />
+                    <a href={venue.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address || `${venue.name}, ${venue.area}, ${venue.city}`)}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{venue.address || `${venue.area}, ${venue.city}`}<span className="sr-only"> (Google Maps, opens in a new tab)</span></a>
                   </p>
                 </div>
                 <button
@@ -308,11 +227,10 @@ export default function Landing() {
               </div>
               <h3 className="mt-6 font-head text-[32px] leading-tight">Time Cafe</h3>
               <p className="mt-3 text-sm leading-[22.75px] text-stone">
-                Up to 25-30 seated · Main Hall, open-air lush courtyard, and acoustic presentation suite. Ideal for
-                technical meetups, design showcases, intimate product launches, and community mixers.
+                Largest space: up to {venueMaxGuests(venue)} people. {venue.summary}
               </p>
               <ul className="mt-5 flex flex-wrap gap-2" aria-label="Amenities">
-                {['4K ultra-short projector', 'Full barista counter', '500Mbps leased line', 'DG power backup', 'Dedicated AV tech'].map(
+                {venue.amenities.map(
                   (a) => (
                     <li key={a} className="border border-line bg-paper px-2.5 py-1 text-xs text-ink">
                       {a}
@@ -324,7 +242,7 @@ export default function Landing() {
                 <div className="border-[1.5px] border-ink bg-paper-2 px-4 py-3">
                   <p className="font-mono-b text-[10px] tracking-[0.8px] uppercase text-stone">Starting from</p>
                   <p className="font-p-display text-[28px] leading-none">
-                    ₹500 <span className="font-body text-sm text-stone">per hour</span>
+                    {venueFromRate(venue) === null ? 'Host quote' : formatRupees(venueFromRate(venue)!)} <span className="font-body text-sm text-stone">per hour</span>
                   </p>
                   <p className="mt-1 text-xs text-stone">minimum 3 hours</p>
                 </div>
@@ -334,95 +252,32 @@ export default function Landing() {
                     onClick={onOpenVenue}
                     className="press inline-flex items-center gap-2 rounded-md border-[1.5px] border-ink bg-flame px-5 py-3 font-body-sb text-sm text-white shadow-hard-md"
                   >
-                    Request reservation <ArrowRight />
+                    View venue &amp; spaces <ArrowRight />
                   </button>
                   <p className="flex items-center gap-1.5 text-xs text-moss">
-                    <ShieldCheck className="size-3.5" /> Host replies in 24h
+                    <ShieldCheck className="size-3.5" /> Browse first. No booking or charge.
                   </p>
                 </div>
               </div>
             </div>
-          </article>
+          </article> : <p className="mt-8 border border-line bg-white p-5">No venues are currently open for booking. Please check back shortly.</p>}
           <p className="reveal mt-6 text-center text-sm text-stone">
-            More independently owned Chennai venues are joining soon.
+            Time Cafe is our current venue partner.
           </p>
         </section>
 
-        {/* Testimonials */}
-        <section className="relative overflow-hidden border-y-[1.5px] border-ink bg-flame text-white">
+        {/* Keep the landing design; removing sample reviews must not stretch the genuine card. */}
+        <section aria-labelledby="organiser-feedback-title" className="relative overflow-hidden border-y-[1.5px] border-ink bg-flame text-white">
           <div className="mx-auto max-w-[1280px] px-5 py-20 md:px-8 md:py-24">
-            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
-              <div>
-                <p className="reveal inline-block border-[1.5px] border-ink bg-ink px-2.5 py-1 font-mono-b text-[11px] tracking-[1.32px] uppercase">
-                  From people who have been there
-                </p>
-                <h2 className="reveal mt-4 max-w-[680px] font-head text-3xl leading-tight md:text-[40px]">
-                  What organisers &amp; attendees say about Time Cafe ✨☕
-                </h2>
-                <p className="reveal mt-4 max-w-[600px] text-white/85">
-                  48 meetups, design jams, and founder salons hosted with a 4.96★ rating. 100% verified organiser reviews.
-                </p>
-              </div>
-              <ul className="reveal flex max-w-[420px] flex-wrap gap-2 lg:justify-end" aria-label="Highlights">
-                {['House Cold Brew · 4.9★', '500 Mbps Dedicated Fiber', 'Lush Open Courtyard', 'Shure Podcast Studio', 'Plugs at Every Table'].map(
-                  (t) => (
-                    <li key={t} className="border-[1.5px] border-ink bg-paper px-2.5 py-1 font-body-m text-xs text-ink">
-                      {t}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
-
-            <ul className="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-              {reviews.map((r, k) => (
-                <li key={r.name} className="reveal" style={{ '--d': `${k * 120}ms` } as React.CSSProperties}>
-                  <figure
-                    className={`flex h-full flex-col border-[1.5px] border-ink bg-paper p-3 text-ink shadow-hard-lg transition-transform duration-500 hover:rotate-0 ${r.tilt}`}
-                  >
-                    <div className="relative overflow-hidden border-[1.5px] border-ink">
-                      <img src={r.img} alt={r.alt} loading="lazy" className="aspect-[4/3] w-full object-cover transition-transform duration-700 hover:scale-105" />
-                      <p className="absolute bottom-2 left-2 bg-ink px-2 py-0.5 font-mono-b text-[10px] tracking-[0.6px] text-white">
-                        {r.cap}
-                      </p>
-                    </div>
-                    <div className="flex flex-1 flex-col p-2 pt-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <ul className="flex flex-wrap gap-1.5">
-                          {r.tags.map((t) => (
-                            <li key={t} className="border border-line bg-paper-2 px-2 py-0.5 text-[11px] text-stone">
-                              {t}
-                            </li>
-                          ))}
-                        </ul>
-                        <span className="flex items-center gap-1 font-mono-b text-xs">
-                          <Star className="size-3.5 text-flame" />
-                          <span className="sr-only">Rated </span>
-                          {r.r}
-                        </span>
-                      </div>
-                      <blockquote className="mt-5 flex-1 text-sm leading-[22.75px]">“{r.q}”</blockquote>
-                      <figcaption className="mt-5 flex items-center gap-3 border-t border-line pt-4">
-                        <img src={r.av} alt="" className="size-9 rounded-full border border-ink object-cover" />
-                        <div className="min-w-0">
-                          <p className="flex items-center gap-1 font-body-sb text-sm">
-                            {r.name}
-                            <ShieldCheck className="size-3.5 text-moss" />
-                            <span className="sr-only">(verified organiser)</span>
-                          </p>
-                          <p className="truncate text-xs text-stone">{r.role}</p>
-                        </div>
-                      </figcaption>
-                    </div>
-                  </figure>
-                </li>
-              ))}
-            </ul>
-            <p className="reveal mt-14 flex flex-wrap items-center justify-center gap-x-2 text-sm text-white/90">
-              <Star className="size-4 text-paper" />
-              <strong className="font-body-sb text-white">4.96 out of 5</strong> · Based on 48 verified Chennai tech &amp;
-              design community events
+            <p className="reveal inline-block border-[1.5px] border-ink bg-ink px-2.5 py-1 font-mono-b text-[11px] tracking-[1.32px] uppercase">
+              From people who have been there
             </p>
+            <h2 id="organiser-feedback-title" className="reveal mt-4 max-w-[680px] font-head text-3xl leading-tight md:text-[40px]">
+              What organisers &amp; attendees say about Time Cafe
+            </h2>
+            <ul className="mt-10 grid items-start gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-6" aria-label="Organiser reviews">
+              <li className="reveal min-w-0"><ChandruTestimonial variant="landing" /></li>
+            </ul>
           </div>
         </section>
 
@@ -438,18 +293,10 @@ export default function Landing() {
                 SCENE/044 helps people in Chennai find well-curated events. Venue booking extends that same care to the
                 spaces those events happen in.
               </p>
-              <figure className="reveal trust-quote mt-8 max-w-[480px] border-[1.5px] border-ink bg-paper p-6 shadow-hard">
-                <div className="trust-stars flex gap-0.5 text-flame" role="img" aria-label="5 out of 5 stars">
-                  {Array.from({ length: 5 }).map((_, k) => (
-                    <Star key={k} className="size-4" />
-                  ))}
-                </div>
-                <blockquote className="mt-4 leading-7">
-                  “I knew what the space cost, what was included and what to expect before we booked. That made planning
-                  the event so much easier.”
-                </blockquote>
-                <figcaption className="mt-4 font-mono text-xs text-stone">— A SCENE/044 Organiser</figcaption>
-              </figure>
+              <div className="reveal mt-8 max-w-[480px] border-[1.5px] border-ink bg-paper p-6 shadow-hard">
+                <p className="font-head text-lg">The price you see is the venue price.</p>
+                <p className="mt-3 leading-7 text-stone">Send a request, wait for Time Cafe&apos;s approval, then pay to confirm. SCENE&apos;s commission is handled with the host, not added to your total.</p>
+              </div>
             </div>
             <ul className="space-y-4 self-center">
               {[

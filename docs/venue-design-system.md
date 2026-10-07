@@ -46,9 +46,10 @@ the prototype** (5445px and 6379px) and match slice-for-slice.
   real WhatsApp OTP sign-in (`figma/AuthModal.tsx` → `/api/whatsapp/*`). The
   modal adds one field the prototype lacked: email, which the booking API
   requires.
-- **Service fee**: organisers pay space cost + **10%** (`lib/venues.ts`
-  `ORGANIZER_SERVICE_FEE_RATE`), shown on the booking card and charged by
-  `/api/razorpay/create-order`. Host payout stays 90% of the space cost.
+- **Pricing**: organisers pay only the listed space cost (`lib/venues.ts`
+  `amountDue`), shown on the booking card and charged by
+  `/api/razorpay/create-order`. Host payout stays 90% of the space cost;
+  SCENE's 10% commission is deducted on the host side.
 - **My bookings**: real bookings, real Razorpay payment, the real check-in QR,
   real **withdraw** (`DELETE /api/venue-bookings/[token]`, only while
   `requested` — `withdrawRequestedBooking`), reviews sent to the curator queue.

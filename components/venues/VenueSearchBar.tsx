@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { VENUE_EVENT_TYPES, venueSearchHref } from "@/lib/venues";
+import { DEFAULT_VENUE_SEARCH, readVenueSearchPreferences, saveVenueSearchPreferences, type VenueSearchValues } from "@/lib/venueSearch";
 import { VenueIcon, type VenueIconName } from "@/components/venues/VenueUi";
 
 interface VenueSearchBarProps {
@@ -27,15 +28,26 @@ function Field({ icon, label, children }: { icon: VenueIconName; label: string; 
 
 export function VenueSearchBar({ defaults = {}, compact = false }: VenueSearchBarProps) {
   const router = useRouter();
-  const [location, setLocation] = useState(defaults.location ?? "Nungambakkam, Chennai");
-  const [date, setDate] = useState(defaults.date ?? "");
-  const [time, setTime] = useState(defaults.time ?? "18:00");
-  const [people, setPeople] = useState(defaults.people ?? "25");
-  const [eventType, setEventType] = useState(defaults.eventType ?? "Tech meetup");
+  const [values, setValues] = useState<VenueSearchValues>({ ...DEFAULT_VENUE_SEARCH, ...defaults });
+  const defaultsKey = JSON.stringify(defaults);
+  useEffect(() => {
+    const explicit = JSON.parse(defaultsKey) as Partial<VenueSearchValues>;
+    const restored = { ...DEFAULT_VENUE_SEARCH, ...readVenueSearchPreferences(), ...explicit };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restore tab preferences after hydration; URL values take precedence
+    setValues(restored);
+    saveVenueSearchPreferences(restored);
+  }, [defaultsKey]);
+  const { location, date, time, people, eventType } = values;
+  function change(key: keyof VenueSearchValues, value: string) {
+    const next = { ...values, [key]: value };
+    setValues(next);
+    saveVenueSearchPreferences(next);
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push(venueSearchHref({ location, date, time, people, eventType }));
+    saveVenueSearchPreferences(values);
+    router.push(venueSearchHref(values));
   }
 
   return (
@@ -51,11 +63,11 @@ export function VenueSearchBar({ defaults = {}, compact = false }: VenueSearchBa
       aria-label="Search venues"
     >
       <Field icon="map" label="Where">
-        <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Area or city" className={CONTROL} />
+        <input value={location} onChange={(event) => change("location", event.target.value)} placeholder="Area or city" className={CONTROL} />
       </Field>
       <Field icon="spark" label="Format">
         <span className="relative">
-          <select value={eventType} onChange={(event) => setEventType(event.target.value)} aria-label="Event type" className={`${CONTROL} w-full appearance-none pr-6`}>
+          <select value={eventType} onChange={(event) => change("eventType", event.target.value)} aria-label="Event type" className={`${CONTROL} w-full appearance-none pr-6`}>
             {VENUE_EVENT_TYPES.map((item) => (
               <option key={item}>{item}</option>
             ))}
@@ -64,17 +76,17 @@ export function VenueSearchBar({ defaults = {}, compact = false }: VenueSearchBa
         </span>
       </Field>
       <Field icon="calendar" label="Date">
-        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={CONTROL} aria-label="Event date" />
+        <input type="date" value={date} onChange={(event) => change("date", event.target.value)} className={CONTROL} aria-label="Event date" />
       </Field>
       <Field icon="clock" label="Starts">
-        <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className={CONTROL} aria-label="Start time" />
+        <input type="time" value={time} onChange={(event) => change("time", event.target.value)} className={CONTROL} aria-label="Start time" />
       </Field>
       <Field icon="people" label="People">
-        <input type="number" min="1" max="100" value={people} onChange={(event) => setPeople(event.target.value)} className={CONTROL} aria-label="Number of people" />
+        <input type="number" min="1" step="1" value={people} onChange={(event) => change("people", event.target.value)} placeholder="Any group size" className={CONTROL} aria-label="Number of people" />
       </Field>
       <button
         type="submit"
-        aria-label="Show matching venues"
+        aria-label="Show matching spaces"
         className="flex min-h-14 items-center justify-center gap-2 bg-primary px-6 font-mono text-xs font-bold uppercase tracking-[0.08em] text-white transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground sm:col-span-2 lg:col-span-1 lg:w-[68px] lg:px-0"
       >
         <VenueIcon name="search" className="size-5" />

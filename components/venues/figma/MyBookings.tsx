@@ -11,7 +11,7 @@ import { Close, Star } from './icons'
 import type { Profile } from './AuthModal'
 import { REVIEW_TAGS, type Booking, type HostReview, type Review } from './bookingsData'
 import { SiteFooter } from './SiteChrome'
-const avatarDefault = '/venues/figma/profile-9d83e.jpg'
+import { saveVenueProfilePhoto } from '@/lib/client/venueProfilePhoto'
 const arrowWhite = '/venues/figma/profile-623be.svg'
 const pinIcon = '/venues/figma/profile-58648.svg'
 const calIcon = '/venues/figma/profile-135c7.svg'
@@ -27,7 +27,6 @@ const quoteIcon = '/venues/figma/profile-971d5.svg'
 type Tab = 'upcoming' | 'past' | 'declined' | 'for-you' | 'yours'
 type Toast = { id: number; msg: string; tone: 'ok' | 'error' }
 
-const PHOTO_KEY_PREFIX = 'scene044.photo.v2:'
 const mono = 'font-mono-b text-[10px] leading-[15px] tracking-[0.6px] uppercase'
 const card = 'border-[1.5px] border-ink bg-white shadow-hard'
 const ghostBtn = `press min-h-10 border-[1.5px] border-ink bg-white px-4 ${mono} text-ink shadow-hard-sm`
@@ -40,12 +39,6 @@ const statusMeta: Record<Booking['status'], { label: string; color: string }> = 
   completed: { label: 'Completed', color: 'text-ink bg-ink' },
   declined: { label: 'Declined', color: 'text-flame bg-flame' },
   withdrawn: { label: 'Withdrawn', color: 'text-stone bg-stone' },
-}
-
-const loadPhoto = (phone: string | undefined) => {
-  if (!phone) return avatarDefault
-  const v = localStorage.getItem(`${PHOTO_KEY_PREFIX}${phone}`)
-  return v === null ? avatarDefault : v === '' ? null : v
 }
 
 function Stars({ value, className = 'size-3.5' }: { value: number; className?: string }) {
@@ -441,13 +434,25 @@ export default function MyBookings({
   hostReviews?: HostReview[]
 }) {
   const [tab, setTab] = useState<Tab>('upcoming')
-  // localStorage only exists in the browser: render the default first (server and
-  // first client render agree), then load the saved photo after mount.
-  const [photo, setPhoto] = useState<string | null>(avatarDefault)
+  const [storedPhoto, setStoredPhoto] = useState<{ owner: string | undefined; src: string | null }>({ owner: undefined, src: null })
+  const photo = storedPhoto.owner === profile?.phone ? storedPhoto.src : null
+  const [photoVersion, setPhotoVersion] = useState(0)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads localStorage after mount
-    setPhoto(loadPhoto(profile?.phone))
-  }, [profile?.phone])
+    if (!profile?.phone) return;
+    const controller = new AbortController();
+    let objectUrl: string | undefined;
+    fetch('/api/venue-auth/photo', { signal: controller.signal, cache: 'no-store' })
+      .then(async response => {
+        if (controller.signal.aborted) return;
+        if (response.status === 404) { setStoredPhoto({ owner: profile.phone, src: null }); return; }
+        if (!response.ok) throw new Error('Could not load your profile photo.');
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setStoredPhoto({ owner: profile.phone, src: objectUrl });
+      }).catch(() => { if (!controller.signal.aborted) setStoredPhoto({ owner: profile.phone, src: null }); });
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [profile?.phone, photoVersion])
   const [toasts, setToasts] = useState<Toast[]>([])
   const [paying, setPaying] = useState<Booking | null>(null)
   const [payBusy, setPayBusy] = useState(false)
@@ -467,13 +472,10 @@ export default function MyBookings({
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200)
   }
 
-  const savePhoto = (src: string | null) => {
-    setPhoto(src)
-    try {
-      if (profile?.phone) localStorage.setItem(`${PHOTO_KEY_PREFIX}${profile.phone}`, src ?? '')
-    } catch {
-      /* storage full — keep in memory only */
-    }
+  const savePhoto = async (src: string | null) => {
+    await saveVenueProfilePhoto(src);
+    setStoredPhoto({ owner: profile?.phone, src });
+    setPhotoVersion(version => version + 1);
   }
 
   const upcoming = bookings.filter((b) => ['due', 'confirmed', 'sent'].includes(b.status))

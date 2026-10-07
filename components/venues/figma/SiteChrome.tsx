@@ -43,9 +43,9 @@ export function SiteHeader({ onLanding = false, wide = false }: { onLanding?: bo
           <ul className="hidden items-center gap-8 md:flex">
             {NAV.map(([label, hash]) => (
               <li key={label}>
-                <Link href={onLanding ? hash : `/venues${hash}`} className="text-sm leading-5 text-stone transition-colors hover:text-ink">
+                <a href={onLanding ? hash : `/venues${hash}`} className="text-sm leading-5 text-stone transition-colors hover:text-ink">
                   {label}
-                </Link>
+                </a>
               </li>
             ))}
           </ul>

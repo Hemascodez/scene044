@@ -57,6 +57,8 @@ export interface VenueBooking {
   trialDurationMinutes: number | null;
   trialAmountPaise: number | null;
   paidAt: string | null;
+  archivedAt?: string | null;
+  archiveReason?: string | null;
   createdAt: string;
 }
 
@@ -129,6 +131,7 @@ export const BOOKING_COLUMNS = `
   hourly_rate AS "hourlyRate", total, status,
   checked_in_at AS "checkedInAt", ends_at AS "endsAt", completed_at AS "completedAt",
   trial_duration_minutes AS "trialDurationMinutes", trial_amount_paise AS "trialAmountPaise", paid_at AS "paidAt",
+  archived_at AS "archivedAt", archive_reason AS "archiveReason",
   created_at AS "createdAt"
 `;
 
@@ -206,7 +209,7 @@ export async function createVenueBooking(input: NewBookingInput): Promise<VenueB
 
 export async function getBookingByCode(code: string): Promise<VenueBooking | null> {
   const { rows } = await query<VenueBooking>(
-    `SELECT ${BOOKING_COLUMNS} FROM venue_bookings WHERE code = $1`,
+    `SELECT ${BOOKING_COLUMNS} FROM venue_bookings WHERE code = $1 AND archived_at IS NULL`,
     [code.trim().toUpperCase()],
   );
   return rows[0] ?? null;
@@ -214,7 +217,7 @@ export async function getBookingByCode(code: string): Promise<VenueBooking | nul
 
 export async function getBookingByCheckinToken(token: string): Promise<VenueBooking | null> {
   const { rows } = await query<VenueBooking>(
-    `SELECT ${BOOKING_COLUMNS} FROM venue_bookings WHERE checkin_token = $1`,
+    `SELECT ${BOOKING_COLUMNS} FROM venue_bookings WHERE checkin_token = $1 AND archived_at IS NULL`,
     [token],
   );
   return rows[0] ?? null;
@@ -223,7 +226,7 @@ export async function getBookingByCheckinToken(token: string): Promise<VenueBook
 export async function listBookingsForOrganizer(userId: number): Promise<VenueBooking[]> {
   const { rows } = await query<VenueBooking>(
     `SELECT ${BOOKING_COLUMNS} FROM venue_bookings
-      WHERE organizer_user_id = $1 ORDER BY created_at DESC LIMIT 200`,
+      WHERE organizer_user_id = $1 AND archived_at IS NULL ORDER BY created_at DESC LIMIT 200`,
     [userId],
   );
   return rows;
@@ -232,7 +235,7 @@ export async function listBookingsForOrganizer(userId: number): Promise<VenueBoo
 export async function listVenueBookings(venueSlug: string): Promise<VenueBooking[]> {
   const { rows } = await query<VenueBooking>(
     `SELECT ${BOOKING_COLUMNS} FROM venue_bookings
-      WHERE venue_slug = $1
+      WHERE venue_slug = $1 AND archived_at IS NULL
       ORDER BY event_date DESC, id DESC
       LIMIT 200`,
     [venueSlug],
@@ -270,7 +273,7 @@ export async function setBookingStatus(
   const { rows } = await query<VenueBooking>(
     `UPDATE venue_bookings
         SET status = $2, updated_at = now()
-      WHERE id = $1 AND status = ANY($3::text[])
+      WHERE id = $1 AND status = ANY($3::text[]) AND archived_at IS NULL
       RETURNING ${BOOKING_COLUMNS}`,
     [
       id,
@@ -297,7 +300,7 @@ export async function withdrawRequestedBooking(id: number): Promise<VenueBooking
   const { rows } = await query<VenueBooking>(
     `UPDATE venue_bookings
         SET status = 'cancelled', updated_at = now()
-      WHERE id = $1 AND status = 'requested'
+      WHERE id = $1 AND status = 'requested' AND archived_at IS NULL
       RETURNING ${BOOKING_COLUMNS}`,
     [id],
   );
@@ -319,7 +322,7 @@ export async function checkInBooking(id: number): Promise<VenueBooking | null> {
             checked_in_at = now(),
             ends_at = now() + COALESCE(trial_duration_minutes * interval '1 minute', duration_hours * interval '1 hour'),
             updated_at = now()
-      WHERE id = $1 AND status = 'confirmed'
+      WHERE id = $1 AND status = 'confirmed' AND archived_at IS NULL
       RETURNING ${BOOKING_COLUMNS}`,
     [id],
   );
@@ -330,7 +333,7 @@ export async function completeBooking(id: number): Promise<VenueBooking | null> 
   const { rows } = await query<VenueBooking>(
     `UPDATE venue_bookings
         SET status = 'completed', completed_at = now(), updated_at = now()
-      WHERE id = $1 AND status = 'checked_in'
+      WHERE id = $1 AND status = 'checked_in' AND archived_at IS NULL
       RETURNING ${BOOKING_COLUMNS}`,
     [id],
   );
@@ -347,7 +350,7 @@ export async function addBookingOrder(
   const { rows } = await query<VenueBookingOrder>(
     `INSERT INTO venue_booking_orders (booking_id, description, amount)
      SELECT id, $2, $3 FROM venue_bookings
-      WHERE id = $1 AND status IN ('checked_in','completed')
+      WHERE id = $1 AND status IN ('checked_in','completed') AND archived_at IS NULL
      RETURNING id, description, amount, quantity, unit_price_paise AS "unitPricePaise", created_at AS "createdAt"`,
     [bookingId, description, amount],
   );
@@ -369,7 +372,7 @@ export async function orderTotalsByBooking(venueSlug: string): Promise<Map<numbe
     `SELECT o.booking_id, (sum(COALESCE(o.unit_price_paise * o.quantity, o.amount * 100)) / 100.0)::text AS total
        FROM venue_booking_orders o
        JOIN venue_bookings b ON b.id = o.booking_id
-      WHERE b.venue_slug = $1
+      WHERE b.venue_slug = $1 AND b.archived_at IS NULL
       GROUP BY o.booking_id`,
     [venueSlug],
   );
@@ -381,6 +384,7 @@ export async function findOverrunBookings(): Promise<VenueBooking[]> {
   const { rows } = await query<VenueBooking>(
     `SELECT ${BOOKING_COLUMNS} FROM venue_bookings
       WHERE status = 'checked_in'
+        AND archived_at IS NULL
         AND overrun_notified_at IS NULL
         AND ends_at IS NOT NULL
         AND ends_at <= now()
@@ -396,7 +400,7 @@ export async function claimOverrunNotification(id: number): Promise<boolean> {
   const { rowCount } = await query(
     `UPDATE venue_bookings
         SET overrun_notified_at = now(), updated_at = now()
-      WHERE id = $1 AND overrun_notified_at IS NULL`,
+      WHERE id = $1 AND overrun_notified_at IS NULL AND archived_at IS NULL`,
     [id],
   );
   return (rowCount ?? 0) > 0;
@@ -435,7 +439,7 @@ export async function createVenueReview(input: NewReviewInput): Promise<VenueRev
     `INSERT INTO venue_reviews
        (booking_id, venue_slug, rating, tags, comment, photo_ids, photo_consent, source, status)
      SELECT id, $2, $3, $4, $5, $6, $7, 'booking', 'published' FROM venue_bookings
-      WHERE id = $1 AND status = 'completed'
+      WHERE id = $1 AND status = 'completed' AND archived_at IS NULL
      ON CONFLICT (booking_id) WHERE booking_id IS NOT NULL DO NOTHING
      RETURNING ${REVIEW_COLUMNS}`,
     [
@@ -507,6 +511,7 @@ export async function listVenueReviews(venueSlug: string, limit = 50): Promise<V
        FROM venue_reviews r
        LEFT JOIN venue_bookings b ON b.id = r.booking_id
       WHERE r.venue_slug = $1 AND r.status = 'published'
+        AND (r.booking_id IS NULL OR (b.archived_at IS NULL AND b.trial_amount_paise IS NULL))
       ORDER BY r.created_at DESC
       LIMIT $2`,
     [venueSlug, limit],
