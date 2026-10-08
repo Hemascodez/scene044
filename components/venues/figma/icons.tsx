@@ -48,6 +48,13 @@ export const Clock = (p: P) =>
     </>,
     p,
   )
+/** Verified-organiser seal (rosette + tick), from the approved Figma frame. */
+export const VerifiedSeal = ({ className = 'size-4' }: { className?: string }) => (
+  <svg viewBox="0 0 16 16" className={className} aria-hidden="true" fill="currentColor">
+    <path d="M5.52727 16L4.14545 13.5619L1.52727 12.9524L1.78182 10.1333L0 8L1.78182 5.86667L1.52727 3.04762L4.14545 2.4381L5.52727 0L8 1.10476L10.4727 0L11.8545 2.4381L14.4727 3.04762L14.2182 5.86667L16 8L14.2182 10.1333L14.4727 12.9524L11.8545 13.5619L10.4727 16L8 14.8952L5.52727 16ZM6.14545 14.0571L8 13.219L9.89091 14.0571L10.9091 12.2286L12.9091 11.7333L12.7273 9.6L14.0727 8L12.7273 6.36191L12.9091 4.22857L10.9091 3.77143L9.85455 1.94286L8 2.78095L6.10909 1.94286L5.09091 3.77143L3.09091 4.22857L3.27273 6.36191L1.92727 8L3.27273 9.6L3.09091 11.7714L5.09091 12.2286L6.14545 14.0571ZM7.23636 10.7048L11.3455 6.4L10.3273 5.29524L7.23636 8.53333L5.67273 6.93333L4.65455 8L7.23636 10.7048Z" />
+  </svg>
+)
+
 export const Star = ({ className = 'size-4' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
     <path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9L12 2.8z" />

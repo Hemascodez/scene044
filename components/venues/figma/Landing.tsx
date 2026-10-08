@@ -7,11 +7,11 @@ import { VenueSearchBar } from '@/components/venues/VenueSearchBar'
 import { readVenueSearchPreferences, venueDetailSearchHref } from '@/lib/venueSearch'
 import { formatRupees, venueFromRate, venueMaxGuests } from '@/lib/venues'
 import type { CatalogVenue } from '@/lib/venueCatalog'
-import { ChandruTestimonial } from './ChandruTestimonial'
+import { LANDING_TESTIMONIALS, LANDING_TESTIMONIAL_SUMMARY } from '@/lib/venueTestimonials'
 import Carousel from './Carousel'
 import useReveal from './useReveal'
 import HowItWorks from './HowItWorks'
-import { ArrowRight, Check, Clock, Heart, MapPin, ShieldCheck, Star } from './icons'
+import { ArrowRight, Check, Clock, Heart, MapPin, ShieldCheck, Star, VerifiedSeal } from './icons'
 const exterior = '/venues/figma/1f1a5.jpg'
 const hall = '/venues/figma/237e9.jpg'
 const crowd = '/venues/figma/27065.jpg'
@@ -266,18 +266,109 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
           </p>
         </section>
 
-        {/* Keep the landing design; removing sample reviews must not stretch the genuine card. */}
+        {/* "What changed when they found SCENE/044" — the approved Figma frame
+            (Scene workflows Main, node 230:1286). Copy, photos and ratings are
+            owner-supplied editorial content (lib/venueTestimonials.ts), kept
+            separate from database reviews. */}
         <section aria-labelledby="organiser-feedback-title" className="relative overflow-hidden border-y-[1.5px] border-ink bg-flame text-white">
           <div className="mx-auto max-w-[1280px] px-5 py-20 md:px-8 md:py-24">
-            <p className="reveal inline-block border-[1.5px] border-ink bg-ink px-2.5 py-1 font-mono-b text-[11px] tracking-[1.32px] uppercase">
-              From people who have been there
-            </p>
-            <h2 id="organiser-feedback-title" className="reveal mt-4 max-w-[680px] font-head text-3xl leading-tight md:text-[40px]">
-              What organisers &amp; attendees say about Time Cafe
-            </h2>
-            <ul className="mt-10 grid items-start gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-6" aria-label="Organiser reviews">
-              <li className="reveal min-w-0"><ChandruTestimonial variant="landing" /></li>
+            <div className="flex flex-col gap-8 border-b-[1.5px] border-ink/30 pb-8 lg:flex-row lg:items-end">
+              <div className="min-w-0 flex-1">
+                <p className="reveal inline-flex items-center gap-2 bg-ink px-3 py-1.5 font-mono-b text-[10px] leading-[15px] tracking-[1.2px] text-paper-2 uppercase">
+                  <span aria-hidden="true" className="size-1.5 rounded-full bg-flame" />
+                  {LANDING_TESTIMONIAL_SUMMARY.eyebrow}
+                </p>
+                <h2 id="organiser-feedback-title" className="reveal mt-4 max-w-[555px] font-p-display text-[32px] leading-[1.1] tracking-[-1px] text-paper-2 md:text-[40px] md:leading-[44px]">
+                  {LANDING_TESTIMONIAL_SUMMARY.heading}
+                </h2>
+                <p className="reveal mt-4 max-w-[555px] text-[15px] leading-[24.375px] text-ink">
+                  {LANDING_TESTIMONIAL_SUMMARY.intro}
+                </p>
+              </div>
+              {/* Badge then chips, right-aligned — the Figma frame scatters these;
+                  a right-aligned wrap keeps that read and stays responsive. */}
+              <div className="reveal flex shrink-0 flex-col items-end gap-2 lg:w-[320px]">
+                <p className="bg-white px-2.5 py-1.5 font-mono-b text-[10px] leading-[15px] tracking-[0.4px] text-flame">
+                  {LANDING_TESTIMONIAL_SUMMARY.badge}
+                </p>
+                <ul className="flex flex-wrap justify-end gap-2" aria-label="What organisers say changed">
+                  {LANDING_TESTIMONIAL_SUMMARY.chips.map((chip) => (
+                    <li key={chip} className="bg-ink px-2.5 py-1.5 font-mono-b text-[10px] leading-[15px] tracking-[0.4px] text-paper-2">
+                      {chip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <ul className="mt-10 grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3" aria-label="Organiser reviews">
+              {LANDING_TESTIMONIALS.map((t, i) => (
+                <li
+                  key={t.id}
+                  className="reveal relative flex min-w-0 flex-col gap-3 border-[1.5px] border-ink bg-ink px-5 pb-5 pt-7 shadow-[3px_3px_0_0_#111]"
+                  style={{ '--d': `${i * 90}ms` } as React.CSSProperties}
+                >
+                  <span aria-hidden="true" className="absolute -top-3 left-1/2 -translate-x-1/2 text-lg leading-7">{t.pin}</span>
+
+                  {/* Polaroid: tilted white frame with a printed caption. */}
+                  <figure className={`${t.tilt} mx-auto w-full max-w-[243px] border-[1.5px] border-ink bg-white px-2 pb-3 pt-2 shadow-[2px_2px_0_0_#111]`}>
+                    <img
+                      src={t.eventPhoto}
+                      alt={t.eventPhotoAlt}
+                      loading="lazy"
+                      decoding="async"
+                      className="aspect-[4/3] w-full object-cover"
+                    />
+                    <figcaption className="pt-2 text-center font-mono-b text-[11px] leading-[16.5px] tracking-[-0.275px] text-[#111]">
+                      {t.caption}
+                    </figcaption>
+                  </figure>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <p className="bg-moss/20 px-2 py-1 font-mono-b text-[10px] leading-[15px] tracking-[0.4px] text-[#10b981] uppercase">
+                      {t.outcome}
+                    </p>
+                    <p className="flex shrink-0 items-center gap-1 bg-[#0f2b20] px-2 py-1 font-mono-b text-[10px] leading-[15px] tracking-[0.4px] text-[#8bf0bd]">
+                      <Star className="size-[11px]" />
+                      <span className="sr-only">Rated </span>{t.rating}
+                      <span className="sr-only"> out of 5</span>
+                    </p>
+                  </div>
+
+                  <blockquote className="text-sm leading-[22.75px] text-paper-2">{t.quote}</blockquote>
+
+                  <figcaption className="mt-auto flex items-center gap-3 border-t border-[#5f5e5e]/50 pt-4">
+                    <img
+                      src={t.profilePhoto}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="size-10 shrink-0 rounded-full border border-white/25 object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 font-head text-sm leading-5 text-paper-2">
+                        {t.name}
+                        <VerifiedSeal className="size-4 shrink-0 text-moss" />
+                        <span className="sr-only">(verified organiser)</span>
+                      </p>
+                      <p className="pt-0.5 font-mono text-[11px] leading-[15.125px] text-[#c8c6c5]">
+                        <span className="font-mono-b">{t.role}</span>
+                        <br />
+                        {t.org}
+                      </p>
+                    </div>
+                  </figcaption>
+                </li>
+              ))}
             </ul>
+
+            <div className="reveal mt-10 flex flex-wrap items-center gap-2 border-t border-ink/30 pt-6">
+              <p className="flex items-center gap-1.5 font-head text-[15px] leading-[22.5px] text-paper-2">
+                <Star className="size-[15px]" />
+                {LANDING_TESTIMONIAL_SUMMARY.rating}
+              </p>
+              <p className="text-[13px] leading-[19.5px] text-ink">{LANDING_TESTIMONIAL_SUMMARY.ratingNote}</p>
+            </div>
           </div>
         </section>
 
