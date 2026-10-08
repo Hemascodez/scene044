@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 
 const thumbDown = '/venues/figma/review-flow-55f52.svg'
 const thumbUp = '/venues/figma/review-flow-76d85.svg'
@@ -10,7 +11,6 @@ const xIcon = '/venues/figma/review-flow-88dd8.svg'
 const plusIcon = '/venues/figma/review-flow-f5c51.svg'
 const confetti = '/venues/figma/review-flow-77193.png'
 const reviewPublishedAnimation = '/venues/figma/review-flow-review-published.mp4'
-const avatarDefault = '/venues/figma/review-flow-9d83e.jpg'
 
 export type ReviewRole = 'organiser' | 'host'
 export type ReviewResult = {
@@ -115,6 +115,7 @@ export default function ReviewFlow({
   onClose,
   onSubmit,
   onViewReview,
+  moderationPending = false,
 }: {
   role: ReviewRole
   /** Prefilled reviewee (host) or reviewer (organiser) name */
@@ -123,10 +124,13 @@ export default function ReviewFlow({
   subject: string
   avatar?: string | null
   onClose: () => void
-  onSubmit?: (r: ReviewResult) => void
+  onSubmit?: (r: ReviewResult) => void | Promise<void>
   onViewReview?: () => void
+  /** Public venue reviews need curator approval, not instant publication. */
+  moderationPending?: boolean
 }) {
   const c = COPY[role]
+  const reducedMotion = useReducedMotion()
   const [step, setStep] = useState<'form' | 'done'>('form')
   const [name, setName] = useState(defaultName)
   const [eventType, setEventType] = useState<string>(c.events[0])
@@ -137,6 +141,8 @@ export default function ReviewFlow({
   const [drag, setDrag] = useState(false)
   const [errors, setErrors] = useState<{ name?: string; overall?: string; photos?: string }>({})
   const [busy, setBusy] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [photoConsent, setPhotoConsent] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const panel = useTrap(onClose, step)
   const id = { title: useId(), name: useId(), text: useId(), photos: useId(), err: useId() }
@@ -152,12 +158,14 @@ export default function ReviewFlow({
     if (imgs.length) setErrors((e) => ({ ...e, photos: undefined }))
   }
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (busy) return
     const err: typeof errors = {}
     if (!name.trim()) err.name = role === 'host' ? 'Add the organiser’s name.' : 'Add your name.'
     if (overall === null) err.overall = 'Choose “Not great” or “Worked well”.'
     if (role === 'organiser' && photos.length === 0) err.photos = 'Add at least one event photo to publish your review.'
+    if (moderationPending && !photoConsent) err.photos = 'Confirm that SCENE can display your event photos with your review.'
     setErrors(err)
     if (Object.keys(err).length) {
       const first = err.name ? id.name : err.overall ? 'overall-0' : 'photo-drop'
@@ -165,11 +173,15 @@ export default function ReviewFlow({
       return
     }
     setBusy(true)
-    setTimeout(() => {
-      onSubmit?.({ name: name.trim(), eventType, workedWell: !!overall, aspects, text: text.trim(), photos })
-      setBusy(false)
+    setSubmitError('')
+    try {
+      await onSubmit?.({ name: name.trim(), eventType, workedWell: !!overall, aspects, text: text.trim(), photos })
       setStep('done')
-    }, 700)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Could not save your review. Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const quote =
@@ -197,7 +209,7 @@ export default function ReviewFlow({
           ) : (
             <h2 id={id.title} className="flex items-center gap-3 font-p-display text-[20px] leading-8 font-bold tracking-[-0.6px] text-white uppercase sm:text-[24px]">
               <span aria-hidden="true" className="size-2.5 rounded-full bg-white" />
-              Review published
+              {moderationPending ? 'Review submitted' : 'Review published'}
             </h2>
           )}
           <button type="button" onClick={onClose} aria-label="Close review" className="press grid size-10 shrink-0 place-items-center rounded-[8px] bg-[#111] sm:size-9 sm:rounded-none sm:bg-[#1c1e25]">
@@ -209,7 +221,7 @@ export default function ReviewFlow({
           {step === 'form' ? (
             <form onSubmit={submit} noValidate className="flex flex-col gap-7 px-5 pt-7 pb-10 sm:px-10">
               <p className="-mb-2 font-body text-[14px] leading-5 text-[#525252]">
-                {role === 'host' ? `You hosted ${subject}. Your review helps other hosts.` : `You booked ${subject}. Your review helps other organisers.`}
+                {role === 'host' ? `You hosted ${subject}. Your review helps other hosts.` : `You hosted an event at ${subject}. Your review helps other organisers.`}
               </p>
 
               <div className="flex flex-col gap-3.5">
@@ -370,18 +382,23 @@ export default function ReviewFlow({
                 )}
               </div>
 
+              {moderationPending && <label className="flex min-h-11 items-start gap-3 text-sm text-ink">
+                <input type="checkbox" checked={photoConsent} onChange={e => setPhotoConsent(e.target.checked)} className="mt-1 size-5 shrink-0" />
+                I have permission to share these event photos and agree to show them with my review after approval.
+              </label>}
+              {submitError && <p role="alert" className="text-sm text-danger-ink">{submitError}</p>}
               <button
                 type="submit"
                 disabled={busy}
                 className="press flex w-full items-center justify-center gap-2 border-[1.5px] border-[#1c1c18] bg-[#ff432a] px-5 py-3 font-mono text-[12px] leading-4 tracking-[0.72px] text-white uppercase shadow-[2px_2px_0_#111] disabled:opacity-70"
               >
-                {busy ? 'Publishing…' : 'Publish review'} <span aria-hidden="true">→</span>
+                {busy ? 'Saving…' : moderationPending ? 'Submit review' : 'Publish review'} <span aria-hidden="true">→</span>
               </button>
             </form>
           ) : (
             <div className="page-in flex flex-col gap-7 px-5 py-8 sm:p-8">
               <div className="flex flex-col items-center gap-3 text-center">
-                <video
+                {reducedMotion ? <img src={confetti} alt="" className="size-[150px] object-contain" /> : <video
                   src={reviewPublishedAnimation}
                   autoPlay
                   muted
@@ -389,16 +406,16 @@ export default function ReviewFlow({
                   preload="auto"
                   aria-hidden="true"
                   className="size-[150px] object-contain"
-                />
+                />}
                 <p data-autofocus tabIndex={-1} className="flex items-center gap-3 font-p-display text-[26px] leading-9 font-bold tracking-[-0.75px] text-[#111] outline-none sm:text-[30px]">
                   Thanks for sharing! <img src={confetti} alt="" className="size-9 object-contain" />
                 </p>
-                <p className="max-w-[448px] font-body text-[16px] leading-6 text-[#525252]">{c.successBody}</p>
+                <p className="max-w-[448px] font-body text-[16px] leading-6 text-[#525252]">{moderationPending ? 'Your review and event photos are saved. Our team will check them before they appear on the venue page.' : c.successBody}</p>
               </div>
 
               <article className="flex flex-col gap-4 rounded-[12px] border-2 border-[#111] bg-white p-[22px] shadow-[4px_4px_0_#111]">
                 <div className="flex items-center gap-3 border-b border-[rgba(17,17,17,0.15)] pb-3">
-                  <img src={avatar || avatarDefault} alt="" className="size-12 rounded-full border-2 border-black object-cover" />
+                  {avatar ? <img src={avatar} alt="" className="size-12 rounded-full border-2 border-black object-cover" /> : <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full border-2 border-black bg-paper font-head">{name.trim().slice(0, 1).toUpperCase()}</span>}
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2">
                       <span className="font-p-display text-[18px] leading-7 font-bold text-[#111]">{role === 'host' ? defaultName : name}</span>
@@ -441,10 +458,10 @@ export default function ReviewFlow({
                   onClick={() => (onViewReview ? onViewReview() : onClose())}
                   className="press flex-1 rounded-[10px] border-2 border-[#111] bg-[#ff432a] px-5 py-4 font-mono text-[13px] tracking-[0.8px] text-white uppercase shadow-[4px_4px_0_#111]"
                 >
-                  View my review ↗
+                  {moderationPending ? 'Done' : 'View my review ↗'}
                 </button>
               </div>
-              <p className="text-center font-mono text-[11px] text-[#404040]">✓ {c.footnote}</p>
+              <p className="text-center font-mono text-[11px] text-[#404040]">{moderationPending ? 'Reviews become public after approval.' : `✓ ${c.footnote}`}</p>
             </div>
           )}
         </div>

@@ -25,6 +25,7 @@ import { GET as hostVenue, PATCH as savePhotos } from '../app/api/host/venue/rou
 import { POST as uploadPhoto } from '../app/api/host/venue/photos/route';
 import { PATCH as roomPhoto } from '../app/api/host/venue/spaces/[rowId]/route';
 import { POST as createSpace } from '../app/api/host/venue/spaces/route';
+import { POST as addPublicReview, GET as publicReviews } from '../app/api/venues/[slug]/reviews/route';
 import { validateVenueBookingWindow } from '../lib/venueBookingValidation';
 import { GET as poster } from '../app/api/poster/[id]/route';
 import { GET as adminVenues } from '../app/api/admin/venues/route';
@@ -314,7 +315,27 @@ async function main() {
     await sql("UPDATE venue_user_sessions SET expires_at=now()-interval '1 minute'");
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, hostToken)), false);
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, undefined, true)), true, 'curator access remains independent');
-    console.log('PASS: approved-host OTP/session, host/admin separation, gallery upload/serve/save/reorder/remove, magic-byte validation and size limits, photo ownership, scoped room edit with intact rates/capacity, QR clock + repeat scan, menu-order snapshots + retry, completion, revocation, expiry and countdown format. No cloud writes, OTP messages or payments.');
+    // The existing post-event review UI submits photos atomically, pending approval.
+    await sql("UPDATE venue_user_sessions SET expires_at=now()+interval '1 day' WHERE user_id=1");
+    const reviewContext = { params: Promise.resolve({ slug: 'time-cafe' }) };
+    const photoReview = (token?: string, bytes = png, consent = true) => {
+      const form = new FormData();
+      form.set('review', JSON.stringify({ reviewerName: 'Fixture organiser', eventType: 'Workshop', rating: 5, tags: ['Wifi'], comment: 'Real submission test', photoConsent: consent }));
+      form.append('photos', new File([new Uint8Array(bytes)], 'event.png', { type: 'image/png' }));
+      return new Request('http://localhost:3000/api/venues/time-cafe/reviews', { method: 'POST', headers: token ? { cookie: `${VENUE_SESSION_COOKIE}=${token}` } : {}, body: form });
+    };
+    assert.equal((await addPublicReview(photoReview(), reviewContext)).status, 401);
+    assert.equal((await addPublicReview(photoReview(organiserToken, Buffer.from('<svg>bad</svg>')), reviewContext)).status, 400);
+    assert.equal((await addPublicReview(photoReview(organiserToken, png, false), reviewContext)).status, 400);
+    const submitted = await addPublicReview(photoReview(organiserToken), reviewContext);
+    assert.equal(submitted.status, 200);
+    const submittedId = (await submitted.json()).review.id;
+    const savedReview = (await sql('SELECT status,photo_ids,photo_consent FROM venue_reviews WHERE id=$1', [submittedId])).rows[0];
+    assert.equal(savedReview.status, 'pending'); assert.equal(savedReview.photo_consent, true);
+    assert.equal((savedReview.photo_ids as number[]).length, 1);
+    assert.equal((await poster(new Request('http://localhost:3000/api/poster/1'), { params: Promise.resolve({ id: String((savedReview.photo_ids as number[])[0]) }) })).status, 200);
+    assert.equal((await (await publicReviews(new Request('http://localhost:3000/api/venues/time-cafe/reviews'), reviewContext)).json()).reviews.length, 0, 'pending reviews never appear publicly');
+    console.log('PASS: host access, venue editor, booking lifecycle, plus authenticated review/photo persistence, consent, MIME verification and pending moderation. No cloud writes, OTP messages or payments.');
   } finally {
     globalThis.__pgPool = oldPool; globalThis.fetch = oldFetch;
     if (oldCurator === undefined) delete process.env.CURATOR_PASSWORD; else process.env.CURATOR_PASSWORD = oldCurator;

@@ -18,8 +18,8 @@ import { ChandruTestimonial } from './ChandruTestimonial'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
-import Dialog from './Dialog'
-import { SelfReviewForm } from '@/components/venues/SelfReviewForm'
+import ReviewFlow from './ReviewFlow'
+import { submitVenueReviewWithPhotos } from '@/lib/client/venueReviewApi'
 import type { VenueReview } from '@/lib/venueBookings'
 import {
   ArrowLeft,
@@ -896,7 +896,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                     <Star className="size-4 text-flame" /> <span className="text-ink">{reviewAverage ?? "No reviews yet"}</span> · {reviews.length} published review{reviews.length === 1 ? "" : "s"}
                   </p>}
                 </div>
-                <button type="button" onClick={() => setReviewOpen(true)} className="press min-h-11 border-[1.5px] border-ink bg-white px-4 py-3 font-mono-b text-xs uppercase shadow-hard-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink">
+                <button type="button" onClick={() => profile ? setReviewOpen(true) : requireAuth(() => setReviewOpen(true))} className="press min-h-11 border-[1.5px] border-ink bg-white px-4 py-3 font-mono-b text-xs uppercase shadow-hard-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink">
                   Add review
                 </button>
               </div>
@@ -1239,9 +1239,9 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
         />
       )}
 
-      {reviewOpen && <Dialog title={`Review ${venue.name}`} onClose={() => setReviewOpen(false)}>
-        <SelfReviewForm venueSlug={venue.slug} venueName={venue.name} onDone={() => setReviewOpen(false)} />
-      </Dialog>}
+      {reviewOpen && <ReviewFlow role="organiser" defaultName={profile?.name ?? ''} subject={venue.name}
+        moderationPending onClose={() => setReviewOpen(false)}
+        onSubmit={result => submitVenueReviewWithPhotos(venue.slug, result)} />}
       <SiteFooter wide />
     </div>
   )
