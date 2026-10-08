@@ -6,6 +6,8 @@ import type { VenueReview } from '@/lib/venueBookings'
 import { chandruReviews } from '@/lib/venueTestimonials'
 import { HostQrScanner } from '../HostQrScanner'
 import { HostBookingSession } from '../HostBookingSession'
+import { HostVenuePanel } from '../HostVenuePanel'
+import { formatRemaining } from '../BookingCountdown'
 import { HostMenuPanel } from '../HostMenuPanel'
 import { createManualVenueBlock, readManualVenueBlocks, type ManualVenueBlock } from '@/lib/client/venueBookingStore'
 import { getISTParts } from '@/lib/client/istTime'
@@ -114,7 +116,7 @@ const loadLogo = () => {
   }
 }
 
-export type HostTab = 'bookings' | 'calendar' | 'checkin' | 'orders' | 'payouts' | 'reviewsForYou' | 'yourReviews' | 'profile'
+export type HostTab = 'bookings' | 'calendar' | 'checkin' | 'orders' | 'venue' | 'payouts' | 'reviewsForYou' | 'yourReviews' | 'profile'
 
 export type HostRequest = {
   id: string
@@ -149,6 +151,9 @@ type ConfirmedItem = {
   guests: number
   code: string
   status: 'Paid' | 'Awaiting payment'
+  /** Checked in and still running — this event is happening right now. */
+  live: boolean
+  endsAt: string | null
 }
 
 /** The host's payout is 90% of the space cost; SCENE's host-side fee is the other 10%. */
@@ -198,6 +203,8 @@ function toConfirmed(b: HostBooking, todayIso: string): ConfirmedItem {
     guests: b.people,
     code: b.code,
     status: b.status === 'approved' ? 'Awaiting payment' : 'Paid',
+    live: b.status === 'checked_in',
+    endsAt: b.endsAt ?? null,
   }
 }
 
@@ -247,6 +254,12 @@ export default function HostWorkspace({
   }
   const [activeTab, setActiveTab] = useState<HostTab>('bookings')
   const [orderBookingId, setOrderBookingId] = useState('')
+  /** Ticks so the "Running now" pill in the bookings list stays roughly current. */
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000)
+    return () => clearInterval(timer)
+  }, [])
   // Live data: the host's real bookings (polled) and their manual calendar blocks.
   const [hostBookings, setHostBookings] = useState<HostBooking[]>([])
   const [receivedReviews, setReceivedReviews] = useState<VenueReview[]>([])
@@ -271,6 +284,19 @@ export default function HostWorkspace({
     return () => window.clearInterval(id)
   }, [refresh])
   const todayIso = isoDay(new Date())
+  /** Sessions that have a tab: running events first, so the live one is the default. */
+  const sessionBookings = useMemo(
+    () =>
+      hostBookings
+        .filter((b) => b.status === 'checked_in' || b.status === 'completed')
+        .sort((a, b) => (a.status === b.status ? 0 : a.status === 'checked_in' ? -1 : 1)),
+    [hostBookings],
+  )
+  const selectedSessionId = sessionBookings.some((b) => String(b.id) === orderBookingId)
+    ? orderBookingId
+    : sessionBookings.length
+      ? String(sessionBookings[0].id)
+      : ''
   const requests = useMemo(() => hostBookings.filter((b) => b.status === 'requested').map(toRequest), [hostBookings])
   const confirmedList = useMemo(
     () =>
@@ -315,7 +341,7 @@ export default function HostWorkspace({
   const weekDays = useMemo(() => {
     const now = new Date(`${todayIso}T12:00:00+05:30`)
     const start = new Date(now)
-    start.setDate(now.getDate() - 6 + calWeekOffset * 7)
+    start.setDate(now.getDate() + calWeekOffset * 7)
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start)
       d.setDate(start.getDate() + i)
@@ -365,8 +391,9 @@ export default function HostWorkspace({
       slot,
       count: hostBookings.filter((b) => test(new Date(`${b.eventDate}T12:00:00+05:30`).getDay(), Number(b.startTime.slice(0, 2)))).length,
     }))
-    const max = Math.max(1, ...rows.map((r) => r.count))
-    return rows.map((r) => ({ ...r, pct: Math.round((r.count / max) * 100) }))
+    const used = rows.filter((r) => r.count > 0)
+    const max = Math.max(1, ...used.map((r) => r.count))
+    return used.map((r) => ({ ...r, pct: Math.round((r.count / max) * 100) }))
   })()
   const nextEvent = confirmedList[0]
 
@@ -484,7 +511,7 @@ export default function HostWorkspace({
               type="button"
               onClick={() => setActiveTab('bookings')}
               aria-current={activeTab === 'bookings' ? 'page' : undefined}
-              className={`flex items-center gap-2 border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
+              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
                 activeTab === 'bookings'
                   ? 'border-flame text-flame'
                   : 'border-transparent text-stone hover:text-ink'
@@ -503,7 +530,7 @@ export default function HostWorkspace({
               type="button"
               onClick={() => setActiveTab('calendar')}
               aria-current={activeTab === 'calendar' ? 'page' : undefined}
-              className={`flex items-center gap-2 border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
+              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
                 activeTab === 'calendar'
                   ? 'border-flame text-flame'
                   : 'border-transparent text-stone hover:text-ink'
@@ -517,7 +544,7 @@ export default function HostWorkspace({
               type="button"
               onClick={() => setActiveTab('checkin')}
               aria-current={activeTab === 'checkin' ? 'page' : undefined}
-              className={`flex items-center gap-2 border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
+              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
                 activeTab === 'checkin'
                   ? 'border-flame text-flame'
                   : 'border-transparent text-stone hover:text-ink'
@@ -531,7 +558,7 @@ export default function HostWorkspace({
               type="button"
               onClick={() => setActiveTab('payouts')}
               aria-current={activeTab === 'payouts' ? 'page' : undefined}
-              className={`flex items-center gap-2 border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
+              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 font-head text-sm transition-colors ${
                 activeTab === 'payouts'
                   ? 'border-flame text-flame'
                   : 'border-transparent text-stone hover:text-ink'
@@ -541,7 +568,8 @@ export default function HostWorkspace({
               <span>Payouts</span>
             </button>
           {([
-              { id: 'orders', label: 'Sessions & orders', icon: null, count: 0 },
+              { id: 'venue', label: 'Your venue', icon: null, count: 0 },
+              { id: 'orders', label: 'Sessions', icon: null, count: 0 },
               { id: 'reviewsForYou', label: 'Reviews for you', icon: '/venues/figma/reviews-72dc5.png', count: reviewsError ? undefined : Math.max(1, chandruReviews(receivedReviews).length) },
               { id: 'yourReviews', label: 'Your reviews', icon: '/venues/figma/reviews-1c6e7.png', count: 0 },
               { id: 'profile', label: 'Profile', icon: null, count: 0 },
@@ -613,10 +641,11 @@ export default function HostWorkspace({
                 <dd className="mt-2 font-head text-3xl text-ink">{confirmedList.length}</dd>
               </div>
               <div className="border-[1.5px] border-ink bg-white p-5 shadow-hard">
-                <dt className="font-mono text-xs text-stone uppercase">Estimated payout</dt>
+                <dt className="font-mono text-xs text-stone uppercase">Upcoming payout</dt>
                 <dd className="mt-2 font-head text-3xl text-moss">
                   ₹{upcomingPayout.toLocaleString('en-IN')}
                 </dd>
+                <p className="mt-1 font-mono text-[11px] text-stone">Across every confirmed date ahead</p>
               </div>
             </dl>
 
@@ -795,20 +824,37 @@ export default function HostWorkspace({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono-b text-[11px] ${
-                          item.status === 'Paid'
-                            ? 'border border-moss/40 bg-moss/10 text-moss'
-                            : 'border border-flame/40 bg-flame/10 text-flame'
-                        }`}
-                      >
+                      {item.live ? (
+                        <>
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-flame/40 bg-flame/10 px-2.5 py-1 font-mono-b text-[11px] text-flame">
+                            <span aria-hidden="true" className="size-1.5 rounded-full bg-flame rf-beacon" />
+                            Running now
+                            {item.endsAt && <span className="tabular-nums">· {formatRemaining(Math.max(0, Math.ceil((new Date(item.endsAt).getTime() - now) / 1000)))}</span>}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { setOrderBookingId(item.id); setActiveTab('orders') }}
+                            className="press border-[1.5px] border-ink bg-ink px-3 py-1.5 font-mono-b text-[11px] uppercase tracking-[0.06em] text-white"
+                          >
+                            Open session
+                          </button>
+                        </>
+                      ) : (
                         <span
-                          className={`size-1.5 rounded-full ${
-                            item.status === 'Paid' ? 'bg-moss' : 'bg-flame animate-pulse'
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono-b text-[11px] ${
+                            item.status === 'Paid'
+                              ? 'border border-moss/40 bg-moss/10 text-moss'
+                              : 'border border-flame/40 bg-flame/10 text-flame'
                           }`}
-                        />
-                        {item.status}
-                      </span>
+                        >
+                          <span
+                            className={`size-1.5 rounded-full ${
+                              item.status === 'Paid' ? 'bg-moss' : 'bg-flame animate-pulse'
+                            }`}
+                          />
+                          {item.status}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -878,10 +924,14 @@ export default function HostWorkspace({
                 return (
                   <div
                     key={slot.iso}
-                    className="min-h-[160px] border border-line bg-paper p-2.5 flex flex-col justify-between"
+                    className={`min-h-[160px] border p-2.5 flex flex-col justify-between ${
+                      slot.iso === todayIso ? 'border-ink bg-white' : 'border-line bg-paper'
+                    }`}
                   >
                     <div className="flex items-center justify-between font-mono text-xs">
-                      <span className="text-stone">{slot.dayName}</span>
+                      <span className={slot.iso === todayIso ? 'font-mono-b text-ink' : 'text-stone'}>
+                        {slot.iso === todayIso ? 'Today' : slot.dayName}
+                      </span>
                       <span className="font-head text-sm text-ink">{slot.dayNum}</span>
                     </div>
 
@@ -990,17 +1040,51 @@ export default function HostWorkspace({
                 </div>
               )}
             </form>
-            {hostBookings.filter(b => b.status === 'checked_in').map(b => <HostBookingSession key={b.id} booking={b} onRefresh={refresh} />)}
+            {hostBookings.filter(b => b.status === 'checked_in').map(b => <HostBookingSession key={b.id} booking={b} onRefresh={refresh} onOpenProfile={() => setActiveTab('profile')} />)}
           </div>
         )}
 
         {activeTab === 'orders' && <section className="mx-auto max-w-[768px] space-y-4">
-          <h1 className="font-head text-2xl">Sessions & organiser orders</h1>
-          <label className="block text-sm">Choose a checked-in or completed booking<select className="mt-2 w-full min-w-0 border border-ink bg-white p-3" value={orderBookingId} onChange={e => setOrderBookingId(e.target.value)}>
-            <option value="">Select booking</option>{hostBookings.filter(b => ['checked_in','completed'].includes(b.status)).map(b => <option key={b.id} value={b.id}>{b.code} · {b.organizerName} · {b.eventDate} · {b.status.replace('_',' ')}</option>)}
-          </select></label>
-          {hostBookings.filter(b => String(b.id) === orderBookingId && ['checked_in','completed'].includes(b.status)).map(b => <HostBookingSession key={b.id} booking={b} onRefresh={refresh} />)}
+          <header>
+            <h1 className="font-head text-2xl">Sessions &amp; organiser orders</h1>
+            <p className="mt-1 text-sm text-stone">Pick an event to see its food &amp; drinks tab, or add to it while the event is running.</p>
+          </header>
+          {sessionBookings.length === 0 ? (
+            <p className="border-[1.5px] border-dashed border-ink/40 bg-paper px-4 py-6 text-center text-sm text-stone">
+              No sessions yet. Check an organiser in from the{' '}
+              <button type="button" onClick={() => setActiveTab('checkin')} className="font-body-sb text-ink underline underline-offset-4 hover:text-flame">Check-in</button>{' '}
+              tab and the event will appear here.
+            </p>
+          ) : (
+            <>
+              <label className="block">
+                <span className="font-mono-b text-[10px] uppercase tracking-[0.1em] text-stone">Event</span>
+                <select
+                  className="mt-1.5 w-full min-w-0 border-[1.5px] border-ink bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-flame"
+                  value={selectedSessionId}
+                  onChange={e => setOrderBookingId(e.target.value)}
+                >
+                  {sessionBookings.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.status === 'checked_in' ? '● Running · ' : ''}{b.organizerName} · {b.eventDate} · {b.code}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {sessionBookings.filter(b => String(b.id) === selectedSessionId).map(b => <HostBookingSession key={b.id} booking={b} onRefresh={refresh} onOpenProfile={() => setActiveTab('profile')} />)}
+            </>
+          )}
         </section>}
+        {activeTab === 'venue' && (
+          <div className="mx-auto flex max-w-[768px] flex-col gap-8 page-in">
+            <div className="flex flex-col gap-1">
+              <p className="font-mono-b text-xs leading-4 tracking-[1.44px] text-flame uppercase">Your listing</p>
+              <h1 className="font-head text-3xl leading-[45px] text-ink uppercase sm:text-4xl">Your venue</h1>
+              <p className="text-sm leading-5 text-stone">Photos and rooms, exactly as organisers see them.</p>
+            </div>
+            <HostVenuePanel slug={VENUE_PATH.replace('/venues/', '')} />
+          </div>
+        )}
         {(activeTab === 'reviewsForYou' || activeTab === 'yourReviews') && (
           <HostReviews
             key={activeTab}
@@ -1078,7 +1162,7 @@ export default function HostWorkspace({
                 <dd className="mt-2 font-head text-3xl text-stone">−₹{monthFee.toLocaleString('en-IN')}</dd>
               </div>
               <div className="border-[1.5px] border-ink bg-white p-5 shadow-hard">
-                <dt className="font-mono text-xs text-stone uppercase">Estimated payout</dt>
+                <dt className="font-mono text-xs text-stone uppercase">Estimated payout · this month</dt>
                 <dd className="mt-2 font-head text-3xl text-moss">₹{(monthValue - monthFee).toLocaleString('en-IN')}</dd>
               </div>
             </dl>
@@ -1099,7 +1183,7 @@ export default function HostWorkspace({
                     <div key={s.name} className="space-y-1.5 font-mono text-xs">
                       <div className="flex justify-between">
                         <span className="text-ink">{s.name}</span>
-                        <span className="text-stone">{s.count} requests</span>
+                        <span className="text-stone">{s.count} {s.count === 1 ? 'request' : 'requests'}</span>
                       </div>
                       <div className="h-2 w-full overflow-hidden border border-ink bg-paper">
                         <div
@@ -1121,11 +1205,12 @@ export default function HostWorkspace({
                   </h2>
                 </div>
                 <div className="mt-4 space-y-4">
+                  {slotDemand.length === 0 && <p className="font-mono text-xs text-stone">No requests yet — this fills in from your real bookings.</p>}
                   {slotDemand.map((t) => (
                     <div key={t.slot} className="space-y-1.5 font-mono text-xs">
                       <div className="flex justify-between">
                         <span className="text-ink">{t.slot}</span>
-                        <span className="text-stone">{t.count} requests</span>
+                        <span className="text-stone">{t.count} {t.count === 1 ? 'request' : 'requests'}</span>
                       </div>
                       <div className="h-2 w-full overflow-hidden border border-ink bg-paper">
                         <div

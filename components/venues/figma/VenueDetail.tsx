@@ -201,7 +201,7 @@ const inputCls =
   'w-full bg-transparent font-body-m text-sm text-ink placeholder:text-stone/60 focus:outline-none'
 
 
-function Lightbox({ index, onIndex, onClose }: { index: number | null; onIndex: (i: number) => void; onClose: () => void }) {
+function Lightbox({ index, onIndex, onClose, gallery }: { index: number | null; onIndex: (i: number) => void; onClose: () => void; gallery: { src: string; alt: string }[] }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const d = ref.current
@@ -491,7 +491,12 @@ function SpaceCardCarousel({
 export default function VenueDetail({ venue, publishedReviews = [], search, initialSpaceId }: {
   venue: CatalogVenue; publishedReviews?: VenueReview[]; search?: VenueSearchValues; initialSpaceId?: string
 }) {
-  // Keep the approved design/gallery, but booking facts come from the same
+  // Photos the host manages in their workspace replace the design art once they
+  // add any; venues with an empty gallery still render the approved design.
+  const photos = venue.photos.length
+    ? venue.photos.map((src, i) => ({ src, alt: `${venue.name} photo ${i + 1}` }))
+    : gallery
+  // Keep the approved design, but booking facts come from the same
   // catalog record used by the POST and Razorpay handlers.
   const spaces = venue.spaces.map(s => {
     const design = spaceDesigns.find(d => d.dbId === s.id)
@@ -735,7 +740,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
 
         <section aria-label="Photos" className="rise mt-6" style={{ '--d': '120ms' } as React.CSSProperties}>
           <div className="flex h-[300px] snap-x snap-mandatory gap-[1.5px] overflow-x-auto overscroll-x-contain border-[1.5px] border-ink bg-ink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[380px] lg:grid lg:h-[448px] lg:snap-none lg:grid-cols-4 lg:grid-rows-2 lg:overflow-hidden">
-            {gallery.slice(0, 5).map((g, i) => (
+            {photos.slice(0, 5).map((g, i) => (
               <button
                 key={g.src}
                 type="button"
@@ -752,14 +757,14 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 />
                 {i === 4 && (
                   <span className="absolute bottom-3 right-3 border-[1.5px] border-ink bg-paper px-3 py-2 font-mono-b text-[10px] tracking-[0.6px] uppercase shadow-hard-sm">
-                    Show all {gallery.length} photos
+                    Show all {photos.length} photos
                   </span>
                 )}
               </button>
             ))}
           </div>
         </section>
-        <Lightbox index={photo} onIndex={setPhoto} onClose={() => setPhoto(null)} />
+        <Lightbox index={photo} onIndex={setPhoto} onClose={() => setPhoto(null)} gallery={photos} />
 
         <section aria-labelledby="spaces-title" className="reveal mt-12 border-[1.5px] border-ink bg-[#0a0812] p-6 text-white shadow-hard md:p-10">
           <p className="font-mono-b text-[11px] tracking-[1.76px] uppercase text-flame">Pick your space</p>
