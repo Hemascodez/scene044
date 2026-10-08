@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VenueBookingsSection } from './VenueBookingsSection';
 import { VenueHostAccessSection } from './VenueHostAccessSection';
+import { VenueHostChanges } from './VenueHostChanges';
 import { formatRupees } from "@/lib/venues";
 import {
   VenueAdminApiError,
@@ -37,12 +38,13 @@ import {
   TextInput,
 } from "@/components/curator/adminUi";
 
-type Section = "venues" | "partners" | "reviews" | "earnings" | "bookings" | "hosts";
+type Section = "venues" | "partners" | "reviews" | "earnings" | "bookings" | "hosts" | "changes";
 
 const SECTIONS: { key: Section; label: string; glyph: string }[] = [
   { key: "venues", label: "Venues", glyph: "◐" },
   { key: "bookings", label: "All bookings", glyph: "▤" },
   { key: "hosts", label: "Host access", glyph: "◈" },
+  { key: "changes", label: "Host changes", glyph: "✎" },
   { key: "partners", label: "Partner requests", glyph: "✉" },
   { key: "reviews", label: "Reviews", glyph: "★" },
   { key: "earnings", label: "Earnings", glyph: "₹" },
@@ -57,6 +59,7 @@ export function VenueCuratorApp() {
   const [pendingReviews, setPendingReviews] = useState<AdminVenueReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [unreadChanges, setUnreadChanges] = useState(0);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const router = useRouter();
 
@@ -158,7 +161,7 @@ export function VenueCuratorApp() {
           <nav className="flex gap-1 overflow-x-auto p-3 lg:flex-col lg:overflow-visible">
             {SECTIONS.map((s) => {
               const active = section === s.key;
-              const badge = s.key === "partners" ? newPartnerCount : s.key === "reviews" ? pendingReviews.length : 0;
+              const badge = s.key === "changes" ? unreadChanges : s.key === "partners" ? newPartnerCount : s.key === "reviews" ? pendingReviews.length : 0;
               return (
                 <button
                   key={s.key}
@@ -190,7 +193,8 @@ export function VenueCuratorApp() {
         </aside>
 
         <main className="min-w-0">
-          {section === 'hosts' ? <VenueHostAccessSection /> : section === 'bookings' ? <VenueBookingsSection /> : loading ? (
+          <VenueHostChanges active={section === 'changes'} onUnread={setUnreadChanges} onNotify={announce} />
+          {section === 'changes' ? null : section === 'hosts' ? <VenueHostAccessSection /> : section === 'bookings' ? <VenueBookingsSection /> : loading ? (
             <div className="p-6 text-sm text-[#8ba295]">Loading…</div>
           ) : section === "venues" ? (
             <VenuesSection

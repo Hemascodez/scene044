@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getHostVenueSlug, HOST_ACCESS_MESSAGE } from '@/lib/venueHostAccess';
-import { getCatalogVenue, updateVenueSpaceImage } from '@/lib/venueCatalog';
+import { getCatalogVenue } from '@/lib/venueCatalog';
+import { saveHostPhotos } from '@/lib/venueHostChanges';
 import { canUseHostPhotos } from '@/lib/venueHostPhotos';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ rowId: string }> }) {
@@ -21,7 +22,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ro
     const venue = await getCatalogVenue(slug);
     if (!venue?.spaces.some(space => space.rowId === id)) return NextResponse.json({ error: 'Room not found.' }, { status: 404 });
     if (!await canUseHostPhotos(venue, [image.trim()])) return NextResponse.json({ error: 'Use a photo uploaded for your venue.' }, { status: 400 });
-    const space = await updateVenueSpaceImage(slug, id, image.trim());
+    const space = await saveHostPhotos(request, slug, image.trim(), id)
+      ? (await getCatalogVenue(slug))?.spaces.find(room => room.rowId === id) : null;
     return space ? NextResponse.json({ ok: true, space })
       : NextResponse.json({ error: 'Room not found.' }, { status: 404 });
   } catch (error) {

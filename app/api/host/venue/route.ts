@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getHostVenueSlug, HOST_ACCESS_MESSAGE } from '@/lib/venueHostAccess';
-import { getCatalogVenue, updateVenue } from '@/lib/venueCatalog';
+import { getCatalogVenue } from '@/lib/venueCatalog';
+import { saveHostPhotos } from '@/lib/venueHostChanges';
 import { canUseHostPhotos, MAX_VENUE_PHOTOS, parseHostPhotos } from '@/lib/venueHostPhotos';
 
 const headers = { 'Cache-Control': 'no-store' };
@@ -36,7 +37,7 @@ export async function PATCH(request: Request) {
     if (!await canUseHostPhotos(venue, photos)) {
       return NextResponse.json({ error: 'Use photos uploaded for your venue.' }, { status: 400, headers });
     }
-    const saved = await updateVenue(slug, { photos });
+    const saved = await saveHostPhotos(request, slug, photos) ? await getCatalogVenue(slug) : null;
     return saved ? NextResponse.json({ ok: true, venue: saved }, { headers })
       : NextResponse.json({ error: 'Venue not found.' }, { status: 404, headers });
   } catch (error) {

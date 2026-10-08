@@ -74,3 +74,17 @@ menu-order retries, event completion, revoked access, and expired sessions.
 It blocks external requests and never sends WhatsApp messages or takes payment.
 If a local sandbox prevents Turbopack's worker from binding a port,
 `npm run build -- --webpack` verifies the supported alternative compiler.
+# Curator change alerts
+
+Saving the host gallery (including cover order/removal) or a room photo writes a
+durable `venue_host_changes` record in the same transaction as the catalog edit.
+Unchanged saves create no alert. Public venue routes read the current catalog
+on each request; an already-open visitor page needs a refresh to see the edit.
+
+The curator's **Host changes** section shows the venue, saved account name,
+changed field and IST timestamp. Its unread badge and toast poll every 15 seconds.
+Marking read preserves the history. The API is curator-only; hosts cannot read or
+acknowledge the feed. No WhatsApp message is sent for these edits (no approved
+venue-edit template exists). Gallery uploads remain drafts until Save changes;
+room photos save immediately. Account profile name/email and private menu edits
+are separate from the venue's public catalog, not public venue metadata edits.
