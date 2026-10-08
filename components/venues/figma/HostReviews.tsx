@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { VenueReview } from '@/lib/venueBookings'
 import { ArrowRight, Star } from './icons'
-import { chandruReviews } from '@/lib/venueTestimonials'
+import { publishedVenueReviews } from '@/lib/venueTestimonials'
 import { ChandruTestimonial } from './ChandruTestimonial'
 
 export type ReviewsView = 'forYou' | 'yours'
@@ -17,7 +17,7 @@ export default function HostReviews({ view, reviews, loading, error, onRetry, on
 }) {
   const [sort, setSort] = useState('recent')
   const received = view === 'forYou'
-  const genuine = venueSlug === 'time-cafe' ? chandruReviews(reviews) : reviews.filter(r => r.status === 'published')
+  const genuine = publishedVenueReviews(reviews)
   const sorted = [...genuine].sort((a, b) => sort === 'highest' ? b.rating - a.rating
     : sort === 'lowest' ? a.rating - b.rating : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const average = genuine.length ? (genuine.reduce((sum, r) => sum + r.rating, 0) / genuine.length).toFixed(1) : null

@@ -13,7 +13,7 @@ import { bookingCreated } from '@/lib/client/venueBookingStore'
 import { useVenueBookingDraft } from '@/lib/client/useVenueBookingDraft'
 import { amountDue, rateForSpace, VENUE_EVENT_TYPES, venueSearchHref } from '@/lib/venues'
 import { matchingSpaces, type VenueSearchValues } from '@/lib/venueSearch'
-import { chandruReviews } from '@/lib/venueTestimonials'
+import { publishedVenueReviews } from '@/lib/venueTestimonials'
 import { ChandruTestimonial } from './ChandruTestimonial'
 import { EventFit } from './EventFit'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
@@ -508,7 +508,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
       img: s.image, alt: s.name, photos: venueRoomPhotos(s.image, s.name, design?.photos, s.photos),
       price: rateForSpace(s, '') }
   })
-  const reviews = chandruReviews(publishedReviews).map(r => ({ id: r.id, n: r.organizerName || 'Organiser', q: r.comment || '',
+  const reviews = publishedVenueReviews(publishedReviews).map(r => ({ id: r.id, n: r.organizerName || 'Organiser', q: r.comment || '',
     imgs: r.photoConsent ? r.photoIds.map(id => `/api/poster/${id}`) : [], rating: r.rating,
     date: new Date(r.createdAt).toLocaleDateString('en-IN'), event: r.eventType || '', source: r.source }));
   const reviewAverage = reviews.length ? (reviews.reduce((sum,r) => sum + r.rating, 0) / reviews.length).toFixed(2) : null;

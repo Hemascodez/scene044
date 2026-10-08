@@ -16,6 +16,12 @@ export function chandruReviews(reviews: readonly VenueReview[]): VenueReview[] {
   return reviews.filter(review => review.status === "published" && review.organizerName?.trim().toLowerCase() === "chandru");
 }
 
+/** Live APIs return persisted reviews only. Newly approved reviews must not be
+ * hidden simply because the reviewer isn't Chandru; editorial content stays separate. */
+export function publishedVenueReviews(reviews: readonly VenueReview[]): VenueReview[] {
+  return reviews.filter(review => review.status === 'published');
+}
+
 /**
  * The landing page's "What changed when they found SCENE/044" section.
  *

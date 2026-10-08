@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { checkInBooking, listHostBookings, listHostReviews, setHostBookingStatus, type HostBooking } from '@/lib/client/hostApi'
 import type { VenueReview } from '@/lib/venueBookings'
-import { chandruReviews } from '@/lib/venueTestimonials'
+import { publishedVenueReviews } from '@/lib/venueTestimonials'
 import { HostQrScanner } from '../HostQrScanner'
 import { HostBookingSession } from '../HostBookingSession'
 import { HostVenuePanel } from '../HostVenuePanel'
@@ -527,7 +527,7 @@ export default function HostWorkspace({
           {([
               { id: 'venue', label: 'Your venue', icon: null, count: 0 },
               { id: 'orders', label: 'Sessions', icon: null, count: 0 },
-              { id: 'reviewsForYou', label: 'Reviews for you', icon: '/venues/figma/reviews-72dc5.png', count: reviewsError ? undefined : Math.max(1, chandruReviews(receivedReviews).length) },
+              { id: 'reviewsForYou', label: 'Reviews for you', icon: '/venues/figma/reviews-72dc5.png', count: reviewsError ? undefined : Math.max(venue?.slug === 'time-cafe' ? 1 : 0, publishedVenueReviews(receivedReviews).length) },
               { id: 'yourReviews', label: 'Your reviews', icon: '/venues/figma/reviews-1c6e7.png', count: 0 },
               { id: 'profile', label: 'Profile', icon: null, count: 0 },
             ] as const).map((t) => (

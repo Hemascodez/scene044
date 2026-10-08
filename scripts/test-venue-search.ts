@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { TIME_CAFE } from '../lib/venues';
 import { matchingSpaces, requestedCapacity, venueDetailSearchHref, venueSearchValues, readVenueSearchPreferences, saveVenueSearchPreferences } from '../lib/venueSearch';
-import { chandruReviews, CHANDRU_TESTIMONIAL } from '../lib/venueTestimonials';
+import { chandruReviews, publishedVenueReviews, CHANDRU_TESTIMONIAL } from '../lib/venueTestimonials';
 import type { VenueReview } from '../lib/venueBookings';
 
 assert.equal(matchingSpaces(TIME_CAFE.spaces, '50').length, 0);
@@ -29,6 +29,11 @@ assert.deepEqual(chandruReviews([
   { ...base, id: 3, organizerName: 'Chandru', status: 'pending' },
 ]).map(r => r.id), [1]);
 assert.equal(CHANDRU_TESTIMONIAL.name, 'Chandru');
+assert.deepEqual(publishedVenueReviews([
+  { ...base, organizerName: 'New real organiser' },
+  { ...base, id: 2, organizerName: 'Awaiting approval', status: 'pending' },
+  { ...base, id: 3, organizerName: 'Rejected sample', status: 'rejected' },
+]).map(review => review.id), [1], 'approved new reviewers are visible; pending and rejected records are not');
 assert.equal(CHANDRU_TESTIMONIAL.profilePhoto, '/venues/figma/0e739.jpg');
 assert.deepEqual(CHANDRU_TESTIMONIAL.eventPhotos.map(photo => photo.src), ['/venues/figma/2010d.jpg']);
 assert.ok(!('rating' in CHANDRU_TESTIMONIAL), 'do not invent aggregate or booking ratings');
