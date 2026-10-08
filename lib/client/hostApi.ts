@@ -69,8 +69,8 @@ export function listHostReviews(): Promise<{ ok: true; reviews: VenueReview[] }>
   return request('/api/host/reviews');
 }
 
-export function listHostBookings(venueSlug = "time-cafe"): Promise<{ ok: true; bookings: HostBooking[] }> {
-  return request(`/api/host/bookings?venueSlug=${encodeURIComponent(venueSlug)}`);
+export function listHostBookings(venueSlug?: string): Promise<{ ok: true; bookings: HostBooking[] }> {
+  return request(`/api/host/bookings${venueSlug ? `?venueSlug=${encodeURIComponent(venueSlug)}` : ''}`);
 }
 
 export function setHostBookingStatus(

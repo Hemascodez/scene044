@@ -5,7 +5,7 @@
  */
 
 import crypto from "node:crypto";
-import { HOST_ACCESS_MESSAGE, HOST_VENUE_SLUG } from '@/lib/venueHostAccess';
+import { HOST_ACCESS_MESSAGE } from '@/lib/venueHostAccess';
 import { pool, query } from "@/lib/db";
 import { sendWhatsappTemplate, type WhatsappTemplateSendResult } from "@/lib/whatsappSend";
 import {
@@ -130,15 +130,18 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    let hostVenue: { slug: string; name: string } | undefined;
     if (details.role === 'Host') {
-      const approval = await client.query(
-        `SELECT id FROM venue_host_access WHERE venue_slug = $1 AND phone_e164 = $2 AND revoked_at IS NULL FOR SHARE`,
-        [HOST_VENUE_SLUG, phone],
+      const approval = await client.query<{ slug: string; name: string }>(
+        `SELECT v.slug, v.name FROM venue_host_access h JOIN venues v ON v.slug = h.venue_slug
+         WHERE (v.slug = $1 OR v.name = $1) AND h.phone_e164 = $2 AND h.revoked_at IS NULL FOR SHARE OF h`,
+        [details.venue ?? '', phone],
       );
-      if (details.venue !== 'Time Cafe' || !approval.rows.length) {
+      if (approval.rows.length !== 1) {
         await client.query('ROLLBACK');
         return { ok: false, error: HOST_ACCESS_MESSAGE, forbidden: true };
       }
+      hostVenue = approval.rows[0];
     }
     const { rows } = await client.query<{ id: number; code_hash: string; attempts: number; expired: boolean }>(
       `SELECT id, code_hash, attempts, (expires_at < now()) AS expired
@@ -164,7 +167,7 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
     const name = details.name?.trim().slice(0, 120) || "Organiser";
     const email = details.email?.trim().toLowerCase().slice(0, 300) || null;
     const role = details.role === "Host" ? "Host" : "Organiser";
-    const venue = role === 'Host' ? 'Time Cafe' : null;
+    const venue = hostVenue?.name ?? null;
     const { rows: users } = await client.query<VenueUser>(
       `INSERT INTO venue_users (phone_e164, name, email, role, venue)
        VALUES ($1, $2, $3, $4, $5)
@@ -188,9 +191,9 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
     );
     const sessionToken = newVenueSessionToken();
     await client.query(
-      `INSERT INTO venue_user_sessions (user_id, token_hash, expires_at)
-       VALUES ($1, $2, now() + ($3 * interval '1 second'))`,
-      [user.id, hashVenueSession(sessionToken), VENUE_SESSION_AGE_SECONDS],
+      `INSERT INTO venue_user_sessions (user_id, token_hash, expires_at, host_venue_slug)
+       VALUES ($1, $2, now() + ($3 * interval '1 second'), $4)`,
+      [user.id, hashVenueSession(sessionToken), VENUE_SESSION_AGE_SECONDS, hostVenue?.slug ?? null],
     );
     // A successful newer code retires older outstanding codes too; they must
     // not be replayable to create a second session after this login.

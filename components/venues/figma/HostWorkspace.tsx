@@ -55,13 +55,13 @@ const copyText = async (text: string) => {
   }
 }
 
-function ShareVenueEmpty() {
+function ShareVenueEmpty({ venuePath }: { venuePath: string }) {
   const [copied, setCopied] = useState(false)
   const timer = useRef<number>(undefined)
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   const share = async () => {
-    const ok = await copyText(`${window.location.origin}${VENUE_PATH}`)
+    const ok = await copyText(`${window.location.origin}${venuePath}`)
     if (!ok) return
     setCopied(true)
     window.clearTimeout(timer.current)
@@ -223,6 +223,7 @@ const DECLINE_REASONS = [
 ]
 
 export default function HostWorkspace({
+  venue,
   hostName = 'Time Cafe',
   profile,
   onSaveProfile,
@@ -230,6 +231,7 @@ export default function HostWorkspace({
   onExit,
   onLogout,
 }: {
+  venue?: { slug: string; name: string; photo: string | null }
   hostName?: string
   profile?: Profile | null
   onSaveProfile?: (p: Profile) => Promise<void>
@@ -237,6 +239,7 @@ export default function HostWorkspace({
   onExit: () => void
   onLogout?: () => void
 }) {
+  const venuePath = venue ? `/venues/${venue.slug}` : VENUE_PATH
   // Loaded after mount so the server render and the first client render agree.
   const [logo, setLogo] = useState<string | null>(null)
   useEffect(() => {
@@ -482,12 +485,12 @@ export default function HostWorkspace({
           <div className="flex h-[72px] items-center justify-between">
             <div className="flex items-center gap-3.5">
               <img
-                src={exterior}
-                alt="Time Cafe storefront"
+                src={venue?.photo ?? exterior}
+                alt={`${venue?.name ?? 'Time Cafe'} storefront`}
                 className="size-10 rounded border-[1.5px] border-ink object-cover shadow-hard-sm"
               />
               <div>
-                <p className="font-head text-base leading-tight text-ink">Time Cafe</p>
+                <p className="font-head text-base leading-tight text-ink">{venue?.name ?? 'Time Cafe'}</p>
                 <p className="font-mono text-[11px] text-stone tracking-wide">Bookings workspace</p>
               </div>
             </div>
@@ -664,7 +667,7 @@ export default function HostWorkspace({
               {activeNewRequests.length === 0 ? (
                 confirmedList.length === 0 ? (
                   <div className="mt-6">
-                    <ShareVenueEmpty />
+                    <ShareVenueEmpty venuePath={venuePath} />
                   </div>
                 ) : (
                   <div className="mt-6 rounded border border-dashed border-ink/30 bg-white/70 p-8 text-center">
@@ -1082,11 +1085,12 @@ export default function HostWorkspace({
               <h1 className="font-head text-3xl leading-[45px] text-ink uppercase sm:text-4xl">Your venue</h1>
               <p className="text-sm leading-5 text-stone">Photos and rooms, exactly as organisers see them.</p>
             </div>
-            <HostVenuePanel slug={VENUE_PATH.replace('/venues/', '')} />
+            <HostVenuePanel slug={venuePath.replace('/venues/', '')} />
           </div>
         )}
         {(activeTab === 'reviewsForYou' || activeTab === 'yourReviews') && (
           <HostReviews
+            venueSlug={venue?.slug}
             key={activeTab}
             view={activeTab === 'reviewsForYou' ? 'forYou' : 'yours'}
             reviews={receivedReviews}

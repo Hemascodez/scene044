@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import type { Pool } from 'pg';
 import { NextRequest } from 'next/server';
 import { proxy } from '../proxy';
-import { HOST_ACCESS_MESSAGE, checkHostAccess, isApprovedHostPhone } from '../lib/venueHostAccess';
+import { HOST_ACCESS_MESSAGE, checkHostAccess, isApprovedHostPhone, isSameOriginMutation } from '../lib/venueHostAccess';
 import { getVenueUserFromRequest, hashVenueSession, VENUE_SESSION_COOKIE } from '../lib/venueUserAuth';
 import { POST as approve, GET as members } from '../app/api/admin/venue-hosts/route';
 import { DELETE as revoke } from '../app/api/admin/venue-hosts/[id]/route';
@@ -68,6 +68,8 @@ async function main() {
     await db.exec(schema.slice(schema.indexOf('CREATE TABLE IF NOT EXISTS poster_uploads'), schema.indexOf('CREATE TABLE IF NOT EXISTS clicks')));
     await db.exec(schema.slice(schema.indexOf('CREATE TABLE IF NOT EXISTS venue_users')));
     await db.exec(readFileSync(new URL('../db/migrations/2026-10-08-venue-host-access.sql', import.meta.url), 'utf8'));
+    const multiVenueMigration = readFileSync(new URL('../db/migrations/2026-10-08-multi-venue-host-access.sql', import.meta.url), 'utf8');
+    await db.exec(multiVenueMigration); await db.exec(multiVenueMigration);
     await sql("INSERT INTO venue_users(id,phone_e164,name,email,role,venue) VALUES(1,'919876543210','Fixture organiser','fixture@example.invalid','Organiser',NULL),(2,'919876543211','Forged host',NULL,'Host','Time Cafe')");
     for (const [id, token] of [[1, organiserToken], [2, forgedHostToken]] as const) await sql("INSERT INTO venue_user_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 day')", [id, hashVenueSession(token)]);
     await sql("INSERT INTO venues(id,slug,name,area,status,photos) VALUES(1,'time-cafe','Time Cafe','Nungambakkam','live',ARRAY['/venues/original.jpg']),(2,'other-fixture','Other fixture','Test','live',ARRAY['/venues/other.jpg'])");
@@ -83,6 +85,16 @@ async function main() {
     assert.equal((await approve(req('/api/admin/venue-hosts', 'POST', { phone: hostPhone }, organiserToken))).status, 401);
     assert.equal((await approve(req('/api/admin/venue-hosts', 'POST', { phone: '637916780' }, undefined, true))).status, 400);
     assert.equal((await approve(req('/api/admin/venue-hosts', 'POST', { phone: hostPhone }, undefined, true, true))).status, 403);
+    const railwayRequest = (origin: string, extra: Record<string, string> = {}) => new Request('http://0.0.0.0:8080/api/admin/venue-hosts', {
+      method: 'POST', headers: { origin, 'sec-fetch-site': 'same-origin', authorization: `Basic ${Buffer.from('curator:fixture-curator').toString('base64')}`, ...extra },
+      body: JSON.stringify({ phone: hostPhone, venueSlug: 'time-cafe' }),
+    });
+    assert.equal(isSameOriginMutation(railwayRequest('https://scene044.in')), true, 'Railway internal URL accepts canonical external origin');
+    assert.equal(isSameOriginMutation(railwayRequest('https://www.scene044.in')), true);
+    assert.equal(isSameOriginMutation(railwayRequest('https://attacker.invalid', { 'x-forwarded-host': 'attacker.invalid', 'x-forwarded-proto': 'https' })), false);
+    assert.equal(isSameOriginMutation(railwayRequest('null')), false);
+    assert.equal(isSameOriginMutation(railwayRequest('https://scene044.in', { 'sec-fetch-site': 'cross-site' })), false);
+    assert.equal((await approve(req('/api/admin/venue-hosts', 'POST', { phone: hostPhone, venueSlug: 'not-a-venue' }, undefined, true))).status, 400);
     const rejected = await sendOtp(req('/api/whatsapp/send-otp', 'POST', details));
     assert.equal(rejected.status, 403);
     assert.equal((await rejected.json()).error, HOST_ACCESS_MESSAGE);
@@ -90,7 +102,7 @@ async function main() {
     assert.equal((await verifyOtp(req('/api/whatsapp/verify-otp', 'POST', details))).status, 403);
     assert.equal((await sql('SELECT count(*)::int AS n FROM venue_host_access')).rows[0].n, 0);
 
-    assert.equal((await approve(req('/api/admin/venue-hosts', 'POST', { phone: hostPhone, label: 'Fixture team' }, undefined, true))).status, 200);
+    assert.equal((await approve(railwayRequest('https://scene044.in'))).status, 200, 'live proxy origin works with optional name absent');
     assert.equal(await isApprovedHostPhone('+91 98765 43210'), true);
     assert.equal(await checkHostAccess(req('/host')), false, 'approval alone does not create a session');
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, organiserToken)), false, 'must complete host OTP sign-in');
@@ -112,6 +124,29 @@ async function main() {
     const list = await members(req('/api/admin/venue-hosts', 'GET', undefined, undefined, true));
     assert.equal(list.headers.get('cache-control'), 'no-store');
     const memberId = (await list.json()).hosts[0].id;
+
+    // The same verified person can belong to two venues without a browser's
+    // query string or a login on another device changing an existing session.
+    assert.equal((await approve(req('/api/admin/venue-hosts', 'POST', { phone: hostPhone, venueSlug: 'other-fixture' }, undefined, true))).status, 200);
+    await otp(hostPhone);
+    const otherLogin = await verifyOtp(req('/api/whatsapp/verify-otp', 'POST', { ...details, venue: 'Other fixture' }));
+    assert.equal(otherLogin.status, 200);
+    const otherToken = otherLogin.headers.get('set-cookie')!.match(/scene044_venue_session=([a-f0-9]{64})/)![1];
+    assert.equal((await (await hostVenue(req('/api/host/venue', 'GET', undefined, otherToken))).json()).venue.slug, 'other-fixture');
+    assert.equal((await (await bookings(req('/api/host/bookings', 'GET', undefined, otherToken))).json()).bookings[0].id, 2);
+    assert.equal(await checkHostAccess(req('/api/host/bookings/1/status', 'POST', {}, otherToken), 1), false);
+    assert.equal((await (await hostVenue(req('/api/host/venue', 'GET', undefined, hostToken))).json()).venue.slug, 'time-cafe', 'first device remains scoped to Time Cafe');
+    await otp(hostPhone);
+    const organiserLogin = await verifyOtp(req('/api/whatsapp/verify-otp', 'POST', { ...details, role: 'Organiser' }));
+    const organiserOnlyToken = organiserLogin.headers.get('set-cookie')!.match(/scene044_venue_session=([a-f0-9]{64})/)![1];
+    await db.exec(multiVenueMigration);
+    assert.equal(await checkHostAccess(req('/host', 'GET', undefined, organiserOnlyToken)), false, 'organiser session never gains host access on redeploy');
+    assert.equal(await checkHostAccess(req('/host', 'GET', undefined, hostToken)), true, 'organiser sign-in does not revoke another verified host device');
+    const both = (await (await members(req('/api/admin/venue-hosts', 'GET', undefined, undefined, true))).json()).hosts;
+    const otherMember = both.find((h: { venueSlug: string }) => h.venueSlug === 'other-fixture');
+    assert.equal((await revoke(req(`/api/admin/venue-hosts/${otherMember.id}`, 'DELETE', undefined, undefined, true), context(otherMember.id))).status, 200);
+    assert.equal(await checkHostAccess(req('/host', 'GET', undefined, otherToken)), false);
+    assert.equal(await checkHostAccess(req('/host', 'GET', undefined, hostToken)), true, 'removing one membership leaves the other intact');
 
     // The real approved-host session reaches the photo APIs, never admin APIs.
     for (const path of ['/api/host/venue', '/api/host/bookings']) {
@@ -234,7 +269,7 @@ async function main() {
       ['/api/host/bookings/1/orders', 'POST', addOrder], ['/api/host/bookings/1/complete', 'POST', complete],
     ] as const) assert.equal((await handler(req(path, method, undefined, hostToken), context(1))).status, 401, path);
     assert.equal((await approve(req('/api/admin/venue-hosts', 'POST', { phone: hostPhone, label: 'Reapproved' }, undefined, true))).status, 200);
-    assert.equal((await sql('SELECT count(*)::int AS n FROM venue_host_access')).rows[0].n, 1, 'duplicate approval restores the same access record');
+    assert.equal((await sql('SELECT count(*)::int AS n FROM venue_host_access')).rows[0].n, 2, 'duplicate approval restores the same per-venue access record');
     await sql("UPDATE venue_user_sessions SET expires_at=now()-interval '1 minute'");
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, hostToken)), false);
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, undefined, true)), true, 'curator access remains independent');

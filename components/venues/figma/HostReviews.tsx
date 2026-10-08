@@ -10,13 +10,14 @@ export type ReviewsView = 'forYou' | 'yours'
 
 /** Received reviews are published records, never prototype testimonials.
  * There is no persisted host-to-organiser review feed yet; do not invent one. */
-export default function HostReviews({ view, reviews, loading, error, onRetry, onViewBookings }: {
+export default function HostReviews({ view, reviews, loading, error, onRetry, onViewBookings, venueSlug = 'time-cafe' }: {
   view: ReviewsView; reviews: VenueReview[]; loading: boolean; error: string
   onRetry: () => void; onViewBookings: () => void
+  venueSlug?: string
 }) {
   const [sort, setSort] = useState('recent')
   const received = view === 'forYou'
-  const genuine = chandruReviews(reviews)
+  const genuine = venueSlug === 'time-cafe' ? chandruReviews(reviews) : reviews.filter(r => r.status === 'published')
   const sorted = [...genuine].sort((a, b) => sort === 'highest' ? b.rating - a.rating
     : sort === 'lowest' ? a.rating - b.rating : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const average = genuine.length ? (genuine.reduce((sum, r) => sum + r.rating, 0) / genuine.length).toFixed(1) : null
@@ -24,7 +25,7 @@ export default function HostReviews({ view, reviews, loading, error, onRetry, on
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 className="font-head text-2xl">{received ? 'How your space worked' : 'Reviews for organisers'}</h1>
-        <p className="mt-1 text-sm text-stone">{received ? 'Chandru’s feedback from hosting at Time Cafe.' : 'Reviews you have shared about organisers you have hosted.'}</p>
+        <p className="mt-1 text-sm text-stone">{received ? 'Feedback from organisers who have hosted at your venue.' : 'Reviews you have shared about organisers you have hosted.'}</p>
       </div>
       {received && genuine.length > 0 && <label className="font-mono-b text-xs">Sort reviews
         <select value={sort} onChange={e => setSort(e.target.value)} className="ml-2 min-h-11 border border-ink bg-white p-2">
@@ -57,9 +58,9 @@ export default function HostReviews({ view, reviews, loading, error, onRetry, on
         {r.tags.length > 0 && <ul aria-label="Review highlights" className="mt-5 flex flex-wrap gap-2">{r.tags.map(tag => <li key={tag} className="border border-ink bg-paper px-3 py-2 text-sm">{tag}</li>)}</ul>}
         {r.photoConsent && r.photoIds.length > 0 && <ul aria-label="Event photos" className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">{r.photoIds.map(id => <li key={id}><a href={`/api/poster/${id}`} target="_blank" rel="noopener noreferrer"><img src={`/api/poster/${id}`} alt="Organiser-uploaded event photo" className="aspect-[4/3] w-full border border-ink object-cover" loading="lazy" /></a></li>)}</ul>}
       </article>)}
-    </> : received ? <ChandruTestimonial /> : <section className="border-2 border-ink bg-white px-6 py-16 text-center shadow-hard">
+    </> : received && venueSlug === 'time-cafe' ? <ChandruTestimonial /> : <section className="border-2 border-ink bg-white px-6 py-16 text-center shadow-hard">
       <h2 className="font-head text-2xl">{received ? 'No published reviews yet' : 'You haven’t reviewed any organisers yet'}</h2>
-      <p className="mx-auto mt-3 max-w-lg text-base leading-relaxed text-stone">{received ? 'Published organiser reviews will appear here. Draft and unapproved reviews are not shown.' : 'Reviews received by Time Cafe appear in Reviews for you. They are not reviews written by Time Cafe.'}</p>
+      <p className="mx-auto mt-3 max-w-lg text-base leading-relaxed text-stone">{received ? 'Published organiser reviews will appear here. Draft and unapproved reviews are not shown.' : 'Reviews received by your venue appear in Reviews for you. They are not reviews written by you.'}</p>
       <button type="button" onClick={onViewBookings} className="press mt-6 inline-flex min-h-11 items-center gap-2 border-2 border-ink bg-primary-ink px-5 py-3 font-mono-b text-xs text-white shadow-hard-sm">View your bookings <ArrowRight /></button>
     </section>}
   </div>

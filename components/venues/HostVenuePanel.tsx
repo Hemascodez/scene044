@@ -59,7 +59,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
         if (!active) return;
         setError(
           e instanceof HostApiError && (e.status === 401 || e.status === 403)
-            ? 'Contact your Time Cafe admin to add your number to sign in.'
+            ? 'Contact your venue admin to add your number to sign in.'
             : e instanceof Error
               ? e.message
               : 'Could not load your venue',

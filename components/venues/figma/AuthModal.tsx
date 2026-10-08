@@ -6,7 +6,6 @@ import { ArrowRight, Check, Close, Phone, Search } from './icons'
 
 export type Profile = { name: string; phone: string; role: 'Organiser' | 'Host'; venue?: string; email?: string }
 
-const VENUES = ['Time Cafe']
 const RESEND_SECS = 60
 
 type Step = 'details' | 'otp' | 'verified'
@@ -39,6 +38,8 @@ export default function AuthModal({
   const [sendError, setSendError] = useState('')
   const [role, setRole] = useState<Profile['role']>('Organiser')
   const [venue, setVenue] = useState<string | undefined>()
+  const [hostVenues, setHostVenues] = useState<{ slug: string; name: string }[]>([])
+  const [venueError, setVenueError] = useState('')
   const [query, setQuery] = useState('')
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''))
   const [error, setError] = useState('')
@@ -64,7 +65,7 @@ export default function AuthModal({
     setSendError('')
     setBusy(false)
     setRole(initialRole ?? saved?.role ?? 'Organiser')
-    setVenue(initialRole === 'Host' ? 'Time Cafe' : saved?.venue)
+    setVenue(saved?.venue)
     setQuery('')
     setDigits(Array(6).fill(''))
     setError('')
@@ -74,6 +75,20 @@ export default function AuthModal({
       lastFocus.current?.focus()
     }
   }, [open, saved, initialRole])
+
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    fetch('/api/venue-auth/host-venues', { cache: 'no-store' }).then(async response => {
+      const data = await response.json()
+      if (!response.ok || !Array.isArray(data.venues)) throw new Error('Could not load venues. Reopen sign-in to retry.')
+      if (active) {
+        setHostVenues(data.venues)
+        setVenueError('')
+      }
+    }).catch(() => { if (active) { setHostVenues([]); setVenueError('Could not load venues. Reopen sign-in to retry.') } })
+    return () => { active = false }
+  }, [open])
 
   // Move focus into the dialog on each step
   useEffect(() => {
@@ -98,10 +113,11 @@ export default function AuthModal({
   const phoneDigits = phone.replace(/\D/g, '')
   // The booking API needs an email for organisers, so it is collected here too.
   const emailOk = /^\S+@\S+\.\S+$/.test(email.trim())
-  const valid = name.trim().length >= 2 && phoneDigits.length === 10 && (role === 'Organiser' ? emailOk : !!venue)
+  const selectedHostVenue = hostVenues.find(v => v.slug === venue) ?? hostVenues.find(v => v.name === venue)
+  const valid = name.trim().length >= 2 && phoneDigits.length === 10 && (role === 'Organiser' ? emailOk : !!selectedHostVenue)
   const code = digits.join('')
   const firstName = name.trim().split(/\s+/)[0]
-  const venues = useMemo(() => VENUES.filter((v) => v.toLowerCase().includes(query.toLowerCase())), [query])
+  const venues = useMemo(() => hostVenues.filter((v) => v.name.toLowerCase().includes(query.toLowerCase())), [hostVenues, query])
 
   if (!open) return null
 
@@ -127,7 +143,7 @@ export default function AuthModal({
     const res = await fetch('/api/whatsapp/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: `+91${phoneDigits}`, role, venue }),
+      body: JSON.stringify({ phone: `+91${phoneDigits}`, role, venue: role === 'Host' ? selectedHostVenue?.slug : undefined }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.ok) throw new Error(data.error ?? 'Could not send a code right now. Try again shortly.')
@@ -161,7 +177,7 @@ export default function AuthModal({
       const res = await fetch('/api/whatsapp/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${phoneDigits}`, code, name: name.trim(), email: email.trim(), role, venue }),
+        body: JSON.stringify({ phone: `+91${phoneDigits}`, code, name: name.trim(), email: email.trim(), role, venue: role === 'Host' ? selectedHostVenue?.slug : undefined }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.ok) {
@@ -215,10 +231,10 @@ export default function AuthModal({
         {step === 'details' && (
           <form onSubmit={sendOtp} noValidate className="px-5 pt-6">
             <h2 id={titleId} className="font-head text-2xl leading-[30px]">
-              {role === 'Host' ? 'Sign in to Time Cafe' : saved ? `Good to see you, ${saved.name.split(' ')[0]}` : 'Join to request a booking'}
+              {role === 'Host' ? 'Sign in to your venue' : saved ? `Good to see you, ${saved.name.split(' ')[0]}` : 'Join to request a booking'}
             </h2>
             <p id={descId} className="mt-2 text-sm leading-[22.75px] text-stone">
-              {role === 'Host' ? 'Your number must be approved by the Time Cafe admin. We’ll send a WhatsApp code to verify it.' : saved
+              {role === 'Host' ? 'Your number must be approved for your venue. We’ll send a WhatsApp code to verify it.' : saved
                 ? "We've filled in your details from last time. Confirm and we'll send a fresh code to your WhatsApp."
                 : "We'll send a one-time code to your WhatsApp to verify your number."}
             </p>
@@ -307,15 +323,15 @@ export default function AuthModal({
                     />
                   </label>
                   <div className="space-y-2 pt-4" role="radiogroup" aria-label="Venues">
-                    {venues.length === 0 && <p className="text-sm text-stone">No venues match “{query}”.</p>}
+                    {venueError ? <p role="alert" className="text-sm text-danger-ink">{venueError}</p> : venues.length === 0 && <p className="text-sm text-stone">No available venues match your search.</p>}
                     {venues.map((v) => (
-                      <label key={v} className="flex cursor-pointer items-center gap-2.5 font-body-m text-sm text-stone">
+                      <label key={v.slug} className="flex cursor-pointer items-center gap-2.5 font-body-m text-sm text-stone">
                         <input
                           type="radio"
                           name="venue"
-                          checked={venue === v}
+                          checked={selectedHostVenue?.slug === v.slug}
                           onChange={() => {
-                            setVenue(v)
+                            setVenue(v.slug)
                             setTimeout(() => panel.current?.scrollTo({ top: panel.current.scrollHeight, behavior: 'smooth' }), 120)
                           }}
                           className="peer sr-only"
@@ -326,7 +342,7 @@ export default function AuthModal({
                         >
                           <span className="size-2 scale-0 bg-flame transition-transform duration-200" />
                         </span>
-                        <span className="peer-checked:text-ink">{v}</span>
+                        <span className="peer-checked:text-ink">{v.name}</span>
                       </label>
                     ))}
                   </div>

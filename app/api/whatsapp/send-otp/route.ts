@@ -25,8 +25,8 @@ export async function POST(request: Request) {
   let result;
   try {
     if (body.role === 'Host') {
-      if (body.venue !== 'Time Cafe') return NextResponse.json({ error: 'Select Time Cafe.' }, { status: 400 });
-      if (!await isApprovedHostPhone(phone)) return NextResponse.json({ error: HOST_ACCESS_MESSAGE }, { status: 403 });
+      if (typeof body.venue !== 'string' || !body.venue.trim()) return NextResponse.json({ error: 'Select your venue.' }, { status: 400 });
+      if (!await isApprovedHostPhone(phone, body.venue)) return NextResponse.json({ error: HOST_ACCESS_MESSAGE }, { status: 403 });
     }
     result = await sendPhoneOtp(phone);
   } catch (err) {
