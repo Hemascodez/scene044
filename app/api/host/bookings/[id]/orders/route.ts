@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkCuratorAccess } from "@/lib/auth";
+import { checkHostAccess } from "@/lib/venueHostAccess";
 import { addBookingOrder, listBookingOrders } from "@/lib/venueBookings";
 import { addMenuOrder, UUID_PATTERN } from '@/lib/venueOperations';
 
@@ -12,10 +12,10 @@ interface OrderBody {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await checkCuratorAccess(request))) {
+  const { id } = await params;
+  if (!(await checkHostAccess(request, Number(id)))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const { id } = await params;
   const bookingId = Number(id);
   if (!Number.isSafeInteger(bookingId) || bookingId <= 0) {
     return NextResponse.json({ error: "invalid booking id" }, { status: 400 });
@@ -25,11 +25,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await checkCuratorAccess(request))) {
+  const { id } = await params;
+  if (!(await checkHostAccess(request, Number(id)))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
   const bookingId = Number(id);
   if (!Number.isSafeInteger(bookingId) || bookingId <= 0) {
     return NextResponse.json({ error: "invalid booking id" }, { status: 400 });

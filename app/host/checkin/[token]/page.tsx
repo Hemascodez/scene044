@@ -6,6 +6,8 @@ import { CheckinPanel } from "@/components/venues/CheckinPanel";
 import { CheckinSession } from '@/components/venues/CheckinSession';
 import { VenueKicker } from "@/components/venues/VenueUi";
 import { VenueShell } from "@/components/venues/VenueShell";
+import { requireHostPageAccess } from '@/lib/venueHostPageAuth';
+import { canAccessHostBooking } from '@/lib/venueHostAccess';
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +21,10 @@ interface CheckinPageProps {
 }
 
 export default async function HostCheckinPage({ params }: CheckinPageProps) {
+  const request = await requireHostPageAccess();
   const { token } = await params;
   const booking = await getBookingByCheckinToken(token);
-  if (!booking) notFound();
+  if (!booking || !await canAccessHostBooking(request, booking.venueSlug)) notFound();
 
   return (
     <VenueShell active="host">

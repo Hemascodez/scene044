@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkCuratorAccess } from "@/lib/auth";
+import { checkHostAccess, canAccessHostBooking } from "@/lib/venueHostAccess";
 import { checkInBooking, getBookingByCheckinToken, getBookingByCode } from "@/lib/venueBookings";
 
 interface CheckinBody {
@@ -8,7 +8,7 @@ interface CheckinBody {
 }
 
 export async function POST(request: Request) {
-  if (!(await checkCuratorAccess(request))) {
+  if (!(await checkHostAccess(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   // (camera unavailable, or faster than pulling one up) gives the code —
   // either identifies the same booking.
   const booking = token ? await getBookingByCheckinToken(token) : await getBookingByCode(code);
-  if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  if (!booking || !await canAccessHostBooking(request, booking.venueSlug)) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
   // checkInBooking only succeeds from `confirmed` (payment already verified);
   // anything else — including a second scan — is a no-op, not an error, so a

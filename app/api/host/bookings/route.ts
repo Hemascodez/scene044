@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { checkCuratorAccess } from "@/lib/auth";
+import { checkHostAccess } from "@/lib/venueHostAccess";
 import { listVenueBookings, orderTotalsByBooking } from "@/lib/venueBookings";
 
 /** proxy.ts already gates /api/host/:path*; this check stays here too so the
  *  route is still closed if the matcher is ever edited. */
 export async function GET(request: Request) {
-  if (!(await checkCuratorAccess(request))) {
+  if (!(await checkHostAccess(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -21,5 +21,5 @@ export async function GET(request: Request) {
       ...booking,
       orderTotal: orderTotals.get(booking.id) ?? 0,
     })),
-  });
+  }, { headers: { 'Cache-Control': 'no-store' } });
 }

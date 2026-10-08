@@ -5,6 +5,7 @@
  */
 
 import crypto from "node:crypto";
+import { HOST_ACCESS_MESSAGE, HOST_VENUE_SLUG } from '@/lib/venueHostAccess';
 import { pool, query } from "@/lib/db";
 import { sendWhatsappTemplate, type WhatsappTemplateSendResult } from "@/lib/whatsappSend";
 import {
@@ -23,7 +24,7 @@ export type SendOtpResult =
   | { ok: true }
   | { ok: false; kind: "cooldown" | "config" | "send_failed"; error: string; retryAfterSeconds?: number };
 
-export type VerifyOtpResult = { ok: true; user: VenueUser; sessionToken: string } | { ok: false; error: string };
+export type VerifyOtpResult = { ok: true; user: VenueUser; sessionToken: string } | { ok: false; error: string; forbidden?: boolean };
 
 export interface VenueSignupDetails {
   name?: string;
@@ -129,6 +130,16 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if (details.role === 'Host') {
+      const approval = await client.query(
+        `SELECT id FROM venue_host_access WHERE venue_slug = $1 AND phone_e164 = $2 AND revoked_at IS NULL FOR SHARE`,
+        [HOST_VENUE_SLUG, phone],
+      );
+      if (details.venue !== 'Time Cafe' || !approval.rows.length) {
+        await client.query('ROLLBACK');
+        return { ok: false, error: HOST_ACCESS_MESSAGE, forbidden: true };
+      }
+    }
     const { rows } = await client.query<{ id: number; code_hash: string; attempts: number; expired: boolean }>(
       `SELECT id, code_hash, attempts, (expires_at < now()) AS expired
          FROM phone_otp_verifications
@@ -153,7 +164,7 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
     const name = details.name?.trim().slice(0, 120) || "Organiser";
     const email = details.email?.trim().toLowerCase().slice(0, 300) || null;
     const role = details.role === "Host" ? "Host" : "Organiser";
-    const venue = details.venue?.trim().slice(0, 150) || null;
+    const venue = role === 'Host' ? 'Time Cafe' : null;
     const { rows: users } = await client.query<VenueUser>(
       `INSERT INTO venue_users (phone_e164, name, email, role, venue)
        VALUES ($1, $2, $3, $4, $5)
@@ -161,6 +172,7 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
          name = CASE WHEN venue_users.name = 'Organiser' AND EXCLUDED.name <> 'Organiser'
                      THEN EXCLUDED.name ELSE venue_users.name END,
          email = COALESCE(venue_users.email, EXCLUDED.email),
+         role = EXCLUDED.role, venue = EXCLUDED.venue,
          last_verified_at = now()
        RETURNING id, phone_e164 AS "phoneE164", name, email, role, venue`,
       [phone, name, email, role, venue],

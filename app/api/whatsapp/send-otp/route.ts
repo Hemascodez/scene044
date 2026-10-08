@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { sendPhoneOtp } from "@/lib/whatsappOtp";
+import { HOST_ACCESS_MESSAGE, isApprovedHostPhone } from '@/lib/venueHostAccess';
+import { normalizeIndianPhone } from '@/lib/venueUserAuth';
 
 interface SendOtpBody {
   phone?: unknown;
+  role?: unknown;
+  venue?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -13,13 +17,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
-  if (!phone) {
-    return NextResponse.json({ error: "phone is required" }, { status: 400 });
+  const phone = typeof body?.phone === "string" ? body.phone.trim() : "";
+  if (!normalizeIndianPhone(phone)) {
+    return NextResponse.json({ error: "Enter a valid Indian mobile number." }, { status: 400 });
   }
 
   let result;
   try {
+    if (body.role === 'Host') {
+      if (body.venue !== 'Time Cafe') return NextResponse.json({ error: 'Select Time Cafe.' }, { status: 400 });
+      if (!await isApprovedHostPhone(phone)) return NextResponse.json({ error: HOST_ACCESS_MESSAGE }, { status: 403 });
+    }
     result = await sendPhoneOtp(phone);
   } catch (err) {
     console.error("whatsapp send-otp: failed", err);

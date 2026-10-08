@@ -49,7 +49,15 @@ export async function getVenueUserFromRequest(request: Request): Promise<VenueUs
   const token = cookieValue(request);
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
   const { rows } = await query<VenueUser>(
-    `SELECT u.id, u.phone_e164 AS "phoneE164", u.name, u.email, u.role, u.venue
+    `SELECT u.id, u.phone_e164 AS "phoneE164", u.name, u.email,
+       CASE WHEN u.role = 'Host' AND EXISTS (
+         SELECT 1 FROM venue_host_access h WHERE h.phone_e164 = u.phone_e164
+           AND h.venue_slug = 'time-cafe' AND h.revoked_at IS NULL
+       ) THEN 'Host' ELSE 'Organiser' END AS role,
+       CASE WHEN u.role = 'Host' AND EXISTS (
+         SELECT 1 FROM venue_host_access h WHERE h.phone_e164 = u.phone_e164
+           AND h.venue_slug = 'time-cafe' AND h.revoked_at IS NULL
+       ) THEN 'Time Cafe' ELSE NULL END AS venue
        FROM venue_user_sessions s JOIN venue_users u ON u.id = s.user_id
       WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now()`,
     [hashVenueSession(token)],

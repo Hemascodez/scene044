@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { checkCuratorAccess } from '@/lib/auth';
+import { checkHostAccess } from '@/lib/venueHostAccess';
 import { listVenueReviews } from '@/lib/venueBookings';
 
 export async function GET(request: Request) {
-  if (!(await checkCuratorAccess(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!(await checkHostAccess(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
     const reviews = await listVenueReviews('time-cafe');
     return NextResponse.json({ ok: true, reviews }, { headers: { 'Cache-Control': 'no-store' } });

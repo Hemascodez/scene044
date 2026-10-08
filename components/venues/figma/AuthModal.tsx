@@ -21,6 +21,7 @@ export default function AuthModal({
   onClose,
   onVerified,
   submitting = false,
+  initialRole,
 }: {
   open: boolean
   saved: Profile | null
@@ -28,6 +29,7 @@ export default function AuthModal({
   onVerified: (p: Profile) => void
   /** True when auth was triggered mid-booking, so a request is sent after verifying. */
   submitting?: boolean
+  initialRole?: Profile['role']
 }) {
   const [step, setStep] = useState<Step>('details')
   const [name, setName] = useState('')
@@ -61,8 +63,8 @@ export default function AuthModal({
     setEmail(saved?.email ?? '')
     setSendError('')
     setBusy(false)
-    setRole(saved?.role ?? 'Organiser')
-    setVenue(saved?.venue)
+    setRole(initialRole ?? saved?.role ?? 'Organiser')
+    setVenue(initialRole === 'Host' ? 'Time Cafe' : saved?.venue)
     setQuery('')
     setDigits(Array(6).fill(''))
     setError('')
@@ -71,7 +73,7 @@ export default function AuthModal({
       document.body.style.overflow = ''
       lastFocus.current?.focus()
     }
-  }, [open, saved])
+  }, [open, saved, initialRole])
 
   // Move focus into the dialog on each step
   useEffect(() => {
@@ -125,7 +127,7 @@ export default function AuthModal({
     const res = await fetch('/api/whatsapp/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: `+91${phoneDigits}` }),
+      body: JSON.stringify({ phone: `+91${phoneDigits}`, role, venue }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.ok) throw new Error(data.error ?? 'Could not send a code right now. Try again shortly.')
@@ -179,7 +181,7 @@ export default function AuthModal({
     setTimeout(() => onVerified(verifiedProfile), 2000)
   }
 
-  const eyebrow = step === 'otp' ? 'Verify number' : step === 'verified' ? 'Verified' : saved ? 'Welcome back' : 'Create account'
+  const eyebrow = step === 'otp' ? 'Verify number' : step === 'verified' ? 'Verified' : role === 'Host' ? 'Host sign-in' : saved ? 'Welcome back' : 'Create account'
 
   return (
     <div
@@ -213,10 +215,10 @@ export default function AuthModal({
         {step === 'details' && (
           <form onSubmit={sendOtp} noValidate className="px-5 pt-6">
             <h2 id={titleId} className="font-head text-2xl leading-[30px]">
-              {saved ? `Good to see you, ${saved.name.split(' ')[0]}` : 'Join to request a booking'}
+              {role === 'Host' ? 'Sign in to Time Cafe' : saved ? `Good to see you, ${saved.name.split(' ')[0]}` : 'Join to request a booking'}
             </h2>
             <p id={descId} className="mt-2 text-sm leading-[22.75px] text-stone">
-              {saved
+              {role === 'Host' ? 'Your number must be approved by the Time Cafe admin. We’ll send a WhatsApp code to verify it.' : saved
                 ? "We've filled in your details from last time. Confirm and we'll send a fresh code to your WhatsApp."
                 : "We'll send a one-time code to your WhatsApp to verify your number."}
             </p>
@@ -293,7 +295,7 @@ export default function AuthModal({
 
               {role === 'Host' && (
                 <fieldset ref={venueBox} className="rise scroll-mb-28 p-3">
-                  <legend className={`${label} float-left mb-2 w-full`}>Chose your venue</legend>
+                  <legend className={`${label} float-left mb-2 w-full`}>Choose your venue</legend>
                   <label className="clear-left flex items-center gap-3 border-[1.5px] border-ink p-3 shadow-hard-sm focus-within:bg-paper-2">
                     <Search className="size-4 text-stone" />
                     <span className="sr-only">Search for venues</span>

@@ -19,7 +19,8 @@ export async function PATCH(request: Request) {
   }
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : user.email;
-  const venue = typeof body.venue === "string" ? body.venue.trim() : user.venue;
+  // Membership is managed by the curator; profile editing cannot change it.
+  const venue = user.venue;
   if (name.length < 2 || name.length > 120 || (email && !/^\S+@\S+\.\S+$/.test(email)) || (email && email.length > 300)) {
     return NextResponse.json({ error: "Enter a valid name and email address." }, { status: 400 });
   }
@@ -28,5 +29,5 @@ export async function PATCH(request: Request) {
      RETURNING id, phone_e164 AS "phoneE164", name, email, role, venue`,
     [name, email || null, venue?.slice(0, 150) || null, user.id],
   );
-  return NextResponse.json({ ok: true, profile: publicVenueProfile(rows[0]) });
+  return NextResponse.json({ ok: true, profile: publicVenueProfile({ ...rows[0], role: user.role, venue }) });
 }

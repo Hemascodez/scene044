@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { checkCuratorAccess } from '@/lib/auth';
+import { checkHostAccess } from '@/lib/venueHostAccess';
 import { detectImageMime, MAX_POSTER_BYTES } from '@/lib/imageBytes';
 import { extractVenueMenu } from '@/lib/venueMenuExtract';
 export const maxDuration = 120;
 export async function POST(request: Request) {
-  if (!await checkCuratorAccess(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!await checkHostAccess(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   if (Number(request.headers.get('content-length')) > MAX_POSTER_BYTES + 100000) return NextResponse.json({ error: 'Photo must be under 5 MB' }, { status: 413 });
   const form = await request.formData().catch(() => null);
   const photo = form?.get('photo');

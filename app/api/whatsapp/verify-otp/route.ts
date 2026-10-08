@@ -19,8 +19,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
-  const code = typeof body.code === "string" ? body.code.trim() : "";
+  const phone = typeof body?.phone === "string" ? body.phone.trim() : "";
+  const code = typeof body?.code === "string" ? body.code.trim() : "";
   if (!phone || !code) {
     return NextResponse.json({ error: "phone and code are required" }, { status: 400 });
   }
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    return NextResponse.json({ ok: false, error: result.error }, { status: result.forbidden ? 403 : 400 });
   }
 
   const response = NextResponse.json({ ok: true, profile: publicVenueProfile(result.user) }, { headers: { "Cache-Control": "no-store" } });
