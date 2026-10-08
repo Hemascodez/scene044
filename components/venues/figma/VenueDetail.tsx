@@ -15,6 +15,7 @@ import { amountDue, rateForSpace, VENUE_EVENT_TYPES, venueSearchHref } from '@/l
 import { matchingSpaces, type VenueSearchValues } from '@/lib/venueSearch'
 import { chandruReviews } from '@/lib/venueTestimonials'
 import { ChandruTestimonial } from './ChandruTestimonial'
+import { EventFit } from './EventFit'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
@@ -842,6 +843,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
               </p>
             </section>
 
+            <EventFit />
             <FitScore capacity={space.max} guests={guests} name={space.name} />
 
             <section aria-labelledby="offers-title" className="reveal border-b border-line py-10">

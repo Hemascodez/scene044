@@ -1,0 +1,27 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="119.662" height="102.854" viewBox="0 0 119.662 102.854" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="gauge-active" filter="url(#filter0_d_0_8)">
+<use xlink:href="#stroke0_0_8" fill="url(#paint0_linear_0_8)"/>
+<use xlink:href="#stroke0_0_8" fill="url(#paint1_linear_0_8)"/>
+</g>
+<defs>
+<filter id="filter0_d_0_8" x="2.05222e-09" y="4.68406e-07" width="119.662" height="102.854" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset/>
+<feGaussianBlur stdDeviation="6"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 0.583333 0 0 0 0 0 0 0 0 0.25098 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_8"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_8" result="shape"/>
+</filter>
+<linearGradient id="paint0_linear_0_8" x1="12" y1="108" x2="69.6" y2="136.8" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF432A"/>
+<stop offset="1" stop-color="#F9BC16"/>
+</linearGradient>
+<linearGradient id="paint1_linear_0_8" x1="60" y1="12" x2="12" y2="60" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF6B4A"/>
+<stop offset="1" stop-color="#F59E0B"/>
+</linearGradient>
+<path id="stroke0_0_8" d="M23.2299 90.8538C18.4245 85.127 15.0232 78.3569 13.2971 71.0832C11.5709 63.8094 11.5676 56.2329 13.2874 48.9576C15.0072 41.6823 18.4026 34.9093 23.203 29.1783C28.0033 23.4473 34.0759 18.9168 40.9369 15.9478C47.7979 12.9788 55.2575 11.6534 62.7213 12.0772C70.185 12.501 77.4467 14.6624 83.9274 18.389C90.4082 22.1156 95.9289 27.3044 100.05 33.542C104.17 39.7795 106.777 46.8934 107.662 54.3166L100.513 55.1691C99.7606 48.8594 97.5448 42.8126 94.0422 37.5107C90.5396 32.2087 85.8469 27.7982 80.3383 24.6306C74.8297 21.463 68.6573 19.6259 62.3131 19.2656C55.9689 18.9054 49.6282 20.032 43.7964 22.5556C37.9646 25.0793 32.8028 28.9302 28.7225 33.8016C24.6422 38.6729 21.7561 44.43 20.2943 50.614C18.8325 56.798 18.8353 63.238 20.3025 69.4207C21.7697 75.6034 24.6608 81.358 28.7454 86.2257L23.2299 90.8538Z"/>
+</defs>
+</svg>
