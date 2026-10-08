@@ -2,14 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  VenueAdminApiError,
-  fetchVenues,
-  saveVenueSpace,
-  updateVenueFields,
-  uploadVenuePhoto,
-  type AdminSpace,
-  type AdminVenue,
-} from '@/lib/client/venueAdminApi';
+  HostApiError,
+  fetchHostVenue,
+  updateHostSpacePhoto,
+  updateHostVenuePhotos,
+  uploadHostVenuePhoto,
+} from '@/lib/client/hostApi';
+import type { AdminSpace, AdminVenue } from '@/lib/client/venueAdminApi';
 
 const label = 'font-mono-b text-[10px] uppercase tracking-[0.1em] text-stone';
 const btn = 'press border-[1.5px] border-ink px-3 py-1.5 font-mono-b text-[11px] uppercase tracking-[0.06em] disabled:opacity-50';
@@ -32,8 +31,8 @@ function spaceRate(space: AdminSpace) {
  * Lets a host manage what organisers actually see: the venue's photo gallery and
  * the rooms that can be booked. Photo edits are held as a draft so a mis-click
  * is recoverable; each room's image saves on its own because it is one discrete
- * swap. Both write to the same `/api/admin/venues*` endpoints the curator tools
- * use, so changes land on the public venue page immediately.
+ * swap. Host-scoped endpoints select the owning venue on the server, so these
+ * changes work with an approved host sign-in as well as a curator preview.
  */
 export function HostVenuePanel({ slug }: { slug: string }) {
   const [venue, setVenue] = useState<AdminVenue | null>(null);
@@ -51,8 +50,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
     let active = true;
     (async () => {
       try {
-        const { venues } = await fetchVenues();
-        const mine = venues.find((v) => v.slug === slug) ?? null;
+        const { venue: mine } = await fetchHostVenue();
         if (!active) return;
         if (!mine) throw new Error(`No venue found for “${slug}”.`);
         setVenue(mine);
@@ -60,8 +58,8 @@ export function HostVenuePanel({ slug }: { slug: string }) {
       } catch (e) {
         if (!active) return;
         setError(
-          e instanceof VenueAdminApiError && (e.status === 401 || e.status === 403)
-            ? 'Editing photos is not switched on for your sign-in yet. Ask your SCENE curator to enable it.'
+          e instanceof HostApiError && (e.status === 401 || e.status === 403)
+            ? 'Contact your Time Cafe admin to add your number to sign in.'
             : e instanceof Error
               ? e.message
               : 'Could not load your venue',
@@ -92,7 +90,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
     setError('');
     setNotice('');
     try {
-      const urls = await Promise.all([...files].map(uploadVenuePhoto));
+      const urls = await Promise.all([...files].map(uploadHostVenuePhoto));
       setPhotos((list) => [...list, ...urls]);
       setNotice(`${urls.length} photo${urls.length > 1 ? 's' : ''} added — save to publish.`);
     } catch (e) {
@@ -108,7 +106,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
     setBusy(true);
     setError('');
     try {
-      const { venue: saved } = await updateVenueFields(venue.slug, { photos });
+      const { venue: saved } = await updateHostVenuePhotos(photos);
       setVenue(saved);
       setPhotos(saved.photos);
       setNotice('Gallery published. Organisers see it on your venue page now.');
@@ -126,23 +124,8 @@ export function HostVenuePanel({ slug }: { slug: string }) {
     setError('');
     setNotice('');
     try {
-      const image = await uploadVenuePhoto(files[0]);
-      // The spaces endpoint upserts the whole room, so send it back intact with
-      // only the image swapped.
-      await saveVenueSpace(venue.slug, {
-        spaceKey: space.id,
-        name: space.name,
-        eyebrow: space.eyebrow,
-        description: space.description,
-        capacity: space.capacity,
-        maxGuests: space.maxGuests,
-        image,
-        amenities: space.amenities,
-        communityRate: space.communityRate,
-        productionRate: space.productionRate,
-        minimumFoodSpend: space.minimumFoodSpend,
-        sortOrder: space.sortOrder,
-      });
+      const image = await uploadHostVenuePhoto(files[0]);
+      await updateHostSpacePhoto(space.rowId, image);
       setVenue((v) =>
         v ? { ...v, spaces: v.spaces.map((s) => (s.rowId === space.rowId ? { ...s, image } : s)) } : v,
       );

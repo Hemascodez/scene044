@@ -1,13 +1,13 @@
 "use client";
 
 import type { VenueBooking, VenueBookingOrder, VenueReview } from "@/lib/venueBookings";
+import type { AdminSpace, AdminVenue } from '@/lib/client/venueAdminApi';
 
 /**
  * Thin client over /api/host/*.
  *
- * Same trust boundary as lib/client/venueAdminApi.ts: `/api/host/*` sits
- * behind proxy.ts's curator-session gate, so nothing here handles
- * credentials directly.
+ * `/api/host/*` requires a verified, currently approved host session (or a
+ * curator session). The server selects the owning venue.
  */
 
 export class HostApiError extends Error {
@@ -39,6 +39,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type HostBooking = VenueBooking & { orderTotal: number };
+
+export function fetchHostVenue() {
+  return request<{ ok: true; venue: AdminVenue }>('/api/host/venue');
+}
+
+export function updateHostVenuePhotos(photos: string[]) {
+  return request<{ ok: true; venue: AdminVenue }>('/api/host/venue', {
+    method: 'PATCH', body: JSON.stringify({ photos }),
+  });
+}
+
+export function updateHostSpacePhoto(rowId: number, image: string) {
+  return request<{ ok: true; space: AdminSpace }>(`/api/host/venue/spaces/${rowId}`, {
+    method: 'PATCH', body: JSON.stringify({ image }),
+  });
+}
+
+export async function uploadHostVenuePhoto(file: File): Promise<string> {
+  const form = new FormData();
+  form.set('file', file);
+  const res = await fetch('/api/host/venue/photos', { method: 'POST', body: form });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.url) throw new HostApiError(data?.error ?? 'Upload failed. Please retry.', res.status);
+  return data.url as string;
+}
 
 export function listHostReviews(): Promise<{ ok: true; reviews: VenueReview[] }> {
   return request('/api/host/reviews');

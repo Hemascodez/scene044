@@ -33,7 +33,7 @@ export async function proxy(req: NextRequest) {
       if (await checkHostAccess(req)) return NextResponse.next();
     } catch {
       // Database unavailable must fail closed, never fall back to role alone.
-      return new NextResponse('Host sign-in is temporarily unavailable. Please retry.', { status: 503 });
+      return NextResponse.json({ error: 'Host sign-in is temporarily unavailable. Please retry.' }, { status: 503 });
     }
     if (pathname.startsWith('/api/')) return NextResponse.json({ error: HOST_ACCESS_MESSAGE }, { status: 403 });
     const loginUrl = new URL('/host/login', req.url);

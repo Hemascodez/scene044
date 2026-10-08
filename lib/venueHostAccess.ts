@@ -59,6 +59,12 @@ export async function canAccessHostBooking(request: Request, venueSlug: string):
   return await checkCuratorAccess(request) || venueSlug === HOST_VENUE_SLUG;
 }
 
+/** The owning venue comes from the server's approved host scope, never a
+ * slug supplied by the browser. Curators preview the same Time Cafe workspace. */
+export async function getHostVenueSlug(request: Request): Promise<string | null> {
+  return await checkHostAccess(request) ? HOST_VENUE_SLUG : null;
+}
+
 export async function listApprovedHosts(): Promise<ApprovedHost[]> {
   const { rows } = await query<ApprovedHost>(
     `SELECT id, phone_e164 AS phone, label, approved_at AS "approvedAt", revoked_at AS "revokedAt"

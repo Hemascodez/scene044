@@ -21,6 +21,14 @@ import { POST as status } from '../app/api/host/bookings/[id]/status/route';
 import { GET as orders, POST as addOrder } from '../app/api/host/bookings/[id]/orders/route';
 import { POST as complete } from '../app/api/host/bookings/[id]/complete/route';
 import { POST as checkin } from '../app/api/host/checkin/route';
+import { GET as hostVenue, PATCH as savePhotos } from '../app/api/host/venue/route';
+import { POST as uploadPhoto } from '../app/api/host/venue/photos/route';
+import { PATCH as roomPhoto } from '../app/api/host/venue/spaces/[rowId]/route';
+import { GET as poster } from '../app/api/poster/[id]/route';
+import { GET as adminVenues } from '../app/api/admin/venues/route';
+import { POST as adminPoster } from '../app/api/admin/curator/poster/route';
+import { MAX_POSTER_BYTES } from '../lib/imageBytes';
+import { formatRemaining } from '../components/venues/BookingCountdown';
 
 interface LocalPg {
   exec(sql: string): Promise<unknown>;
@@ -57,10 +65,13 @@ async function main() {
   const details = { phone: hostPhone, code: '123456', name: 'Fixture host', role: 'Host', venue: 'Time Cafe' };
   try {
     const schema = readFileSync(new URL('../db/schema.sql', import.meta.url), 'utf8');
+    await db.exec(schema.slice(schema.indexOf('CREATE TABLE IF NOT EXISTS poster_uploads'), schema.indexOf('CREATE TABLE IF NOT EXISTS clicks')));
     await db.exec(schema.slice(schema.indexOf('CREATE TABLE IF NOT EXISTS venue_users')));
     await db.exec(readFileSync(new URL('../db/migrations/2026-10-08-venue-host-access.sql', import.meta.url), 'utf8'));
     await sql("INSERT INTO venue_users(id,phone_e164,name,email,role,venue) VALUES(1,'919876543210','Fixture organiser','fixture@example.invalid','Organiser',NULL),(2,'919876543211','Forged host',NULL,'Host','Time Cafe')");
     for (const [id, token] of [[1, organiserToken], [2, forgedHostToken]] as const) await sql("INSERT INTO venue_user_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 day')", [id, hashVenueSession(token)]);
+    await sql("INSERT INTO venues(id,slug,name,area,status,photos) VALUES(1,'time-cafe','Time Cafe','Nungambakkam','live',ARRAY['/venues/original.jpg']),(2,'other-fixture','Other fixture','Test','live',ARRAY['/venues/other.jpg'])");
+    await sql("INSERT INTO venue_spaces(id,venue_id,space_key,name,max_guests,community_rate,production_rate,image) VALUES(1,1,'first-floor','First floor',30,2000,2500,'/venues/room.jpg'),(2,2,'other-room','Other room',50,4000,5000,'/venues/other-room.jpg')");
     for (const [id, venue] of [[1, 'time-cafe'], [2, 'other-fixture']] as const) await sql(`INSERT INTO venue_bookings
       (id,code,checkin_token,venue_slug,venue_name,space_id,space_name,event_date,start_time,duration_hours,people,event_type,description,organizer_name,organizer_email,organizer_phone,organizer_user_id,hourly_rate,total)
       VALUES($1,$2,$3,$4,'Fixture venue','first-floor','First floor','2026-10-24','11:00',3,10,'Tech meetup','Isolated fixture','Fixture organiser','fixture@example.invalid',$5,1,2000,6000)`, [id, `SCN-FX${id}`, `token-${id}`, venue, hostPhone]);
@@ -102,6 +113,69 @@ async function main() {
     assert.equal(list.headers.get('cache-control'), 'no-store');
     const memberId = (await list.json()).hosts[0].id;
 
+    // The real approved-host session reaches the photo APIs, never admin APIs.
+    for (const path of ['/api/host/venue', '/api/host/bookings']) {
+      assert.equal((await proxy(new NextRequest(req(path, 'GET', undefined, hostToken)))).headers.get('x-middleware-next'), '1');
+    }
+    assert.equal((await adminVenues(req('/api/admin/venues', 'GET', undefined, hostToken))).status, 401);
+    assert.equal((await adminPoster(req('/api/admin/curator/poster', 'POST', undefined, hostToken))).status, 401);
+    const venueRead = await hostVenue(req('/api/host/venue', 'GET', undefined, hostToken));
+    assert.equal(venueRead.status, 200);
+    assert.equal(venueRead.headers.get('cache-control'), 'no-store');
+    const venueData = (await venueRead.json()).venue;
+    assert.equal(venueData.slug, 'time-cafe');
+    assert.equal(venueData.spaces[0].communityRate, 2000, 'room rates remain whole rupees');
+    assert.equal((await hostVenue(req('/api/host/venue?venueSlug=other-fixture', 'GET', undefined, hostToken))).status, 403);
+    assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: [], slug: 'other-fixture' }, hostToken))).status, 400);
+    assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: [], communityRate: 1 }, hostToken))).status, 400);
+    assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: ['/venues/original.jpg'] }, hostToken, false, true))).status, 403);
+    assert.equal((await savePhotos(new Request(req('/api/host/venue', 'PATCH', undefined, hostToken), { body: 'null' }))).status, 400);
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3ioAAAAASUVORK5CYII=', 'base64');
+    const upload = (bytes: Uint8Array, token = hostToken) => {
+      const form = new FormData();
+      form.set('file', new File([new Uint8Array(bytes)], 'photo.jpg', { type: 'image/jpeg' }));
+      return uploadPhoto(new Request('http://localhost:3000/api/host/venue/photos', {
+        method: 'POST', headers: { cookie: `${VENUE_SESSION_COOKIE}=${token}` }, body: form,
+      }));
+    };
+    assert.equal((await upload(png, forgedHostToken)).status, 403);
+    assert.equal((await upload(Buffer.from('<svg><script>alert(1)</script></svg>'))).status, 400, 'declared JPEG cannot hide SVG');
+    assert.equal((await upload(new Uint8Array(MAX_POSTER_BYTES + 1))).status, 413);
+    const uploaded = await upload(png);
+    assert.equal(uploaded.status, 200);
+    const image = await uploaded.json();
+    assert.equal(image.mime, 'image/png', 'magic bytes override the filename and declared MIME');
+    const served = await poster(req(image.url), context(image.id));
+    assert.equal(served.status, 200);
+    assert.equal(served.headers.get('content-type'), 'image/png');
+    assert.deepEqual(Buffer.from(await served.arrayBuffer()), png);
+    const second = await (await upload(png)).json();
+    const gallery = [second.url, '/venues/original.jpg', image.url];
+    const savedPhotos = await savePhotos(req('/api/host/venue', 'PATCH', { photos: gallery }, hostToken));
+    assert.equal(savedPhotos.status, 200);
+    assert.deepEqual((await savedPhotos.json()).venue.photos, gallery, 'cover order persists');
+    assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: [image.url, image.url] }, hostToken))).status, 400);
+    assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: ['https://attacker.invalid/image.png'] }, hostToken))).status, 400);
+    await sql("INSERT INTO poster_uploads(mime,bytes,byte_size,origin,origin_url) VALUES('image/png',$1,$2,'upload','host-venue:other-fixture')", [png, png.length]);
+    assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: ['/api/poster/3'] }, hostToken))).status, 400, 'another venue owns that photo');
+    const roomContext = (id: number) => ({ params: Promise.resolve({ rowId: String(id) }) });
+    assert.equal((await roomPhoto(req('/api/host/venue/spaces/2', 'PATCH', { image: image.url }, hostToken), roomContext(2))).status, 404);
+    assert.equal((await roomPhoto(req('/api/host/venue/spaces/1', 'PATCH', { image: image.url, communityRate: 1 }, hostToken), roomContext(1))).status, 400);
+    const roomSaved = await roomPhoto(req('/api/host/venue/spaces/1', 'PATCH', { image: image.url }, hostToken), roomContext(1));
+    assert.equal(roomSaved.status, 200);
+    const spaceData = (await roomSaved.json()).space;
+    assert.equal(spaceData.image, image.url);
+    assert.equal(spaceData.communityRate, 2000);
+    assert.equal(spaceData.productionRate, 2500);
+    assert.equal(spaceData.maxGuests, 30);
+    assert.equal((await sql('SELECT image FROM venue_spaces WHERE id=2')).rows[0].image, '/venues/other-room.jpg');
+    const removedPhotos = await savePhotos(req('/api/host/venue', 'PATCH', { photos: [image.url] }, hostToken));
+    assert.equal(removedPhotos.status, 200);
+    assert.deepEqual((await (await hostVenue(req('/api/host/venue', 'GET', undefined, hostToken))).json()).venue.photos, [image.url]);
+    assert.equal((await hostVenue(req('/api/host/venue', 'GET', undefined, undefined, true))).status, 200, 'curator preview still works');
+    assert.equal(formatRemaining(8655), '2h 24m left');
+    assert.equal(formatRemaining(3599), '59m 59s left');
+
     assert.equal((await bookings(req('/api/host/bookings', 'GET', undefined, hostToken))).status, 200);
     assert.equal((await bookings(req('/api/host/bookings?venueSlug=other-fixture', 'GET', undefined, hostToken))).status, 401);
     assert.equal((await reviews(req('/api/host/reviews', 'GET', undefined, hostToken))).status, 200);
@@ -119,14 +193,33 @@ async function main() {
     await sql("UPDATE venue_bookings SET status='confirmed' WHERE id=1"); // Stubbed captured payment only, never a real charge.
     const scanned = await checkin(req('/api/host/checkin', 'POST', { token: 'token-1' }, hostToken));
     assert.equal(scanned.status, 200);
-    assert.equal((await scanned.json()).booking.status, 'checked_in');
+    const running = (await scanned.json()).booking;
+    assert.equal(running.status, 'checked_in');
+    assert.equal(new Date(running.endsAt).getTime() - new Date(running.checkedInAt).getTime(), 3 * 3600000);
+    assert.equal((await (await checkin(req('/api/host/checkin', 'POST', { token: 'token-1' }, hostToken))).json()).booking.endsAt, running.endsAt, 'repeat scan preserves the clock');
+    const itemId = '00000000-0000-4000-8000-000000000001';
+    const requestKey = '00000000-0000-4000-8000-000000000002';
+    assert.equal((await saveMenu(req('/api/host/menu', 'PUT', { items: [{ id: itemId, name: 'Coffee', category: 'Drinks', pricePaise: 12345, available: true }] }, hostToken))).status, 200);
+    const line = await addOrder(req('/api/host/bookings/1/orders', 'POST', { menuItemId: itemId, quantity: 2, requestKey }, hostToken), context(1));
+    assert.equal(line.status, 200);
+    const orderData = (await line.json()).order;
+    assert.equal(orderData.unitPricePaise, 12345, 'menu prices stay in paise');
+    assert.equal(orderData.quantity, 2);
+    assert.equal((await (await addOrder(req('/api/host/bookings/1/orders', 'POST', { menuItemId: itemId, quantity: 2, requestKey }, hostToken), context(1))).json()).order.id, orderData.id, 'retry does not double-add an order');
+    assert.equal((await (await orders(req('/api/host/bookings/1/orders', 'GET', undefined, hostToken), context(1))).json()).orders.length, 1);
     assert.equal((await complete(req('/api/host/bookings/1/complete', 'POST', undefined, hostToken), context(1))).status, 200);
+    assert.equal((await complete(req('/api/host/bookings/1/complete', 'POST', undefined, hostToken), context(1))).status, 409);
+    assert.equal((await addOrder(req('/api/host/bookings/1/orders', 'POST', { menuItemId: itemId, quantity: 1, requestKey: '00000000-0000-4000-8000-000000000003' }, hostToken), context(1))).status, 409, 'finished session cannot add menu orders');
 
     await otp(hostPhone);
     assert.equal((await revoke(req(`/api/admin/venue-hosts/${memberId}`, 'DELETE', undefined, hostToken), context(memberId))).status, 401);
     assert.equal((await revoke(req(`/api/admin/venue-hosts/${memberId}`, 'DELETE', undefined, undefined, true), context(memberId))).status, 200);
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, hostToken)), false, 'issued host sessions lose access immediately');
     assert.equal((await getVenueUserFromRequest(req('/host', 'GET', undefined, hostToken)))?.role, 'Organiser');
+    assert.equal((await hostVenue(req('/api/host/venue', 'GET', undefined, hostToken))).status, 403);
+    assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: [] }, hostToken))).status, 403);
+    assert.equal((await upload(png)).status, 403);
+    assert.equal((await roomPhoto(req('/api/host/venue/spaces/1', 'PATCH', { image: image.url }, hostToken), roomContext(1))).status, 403);
     assert.equal((await verifyOtp(req('/api/whatsapp/verify-otp', 'POST', details))).status, 403, 'revoked approval cannot finish an outstanding OTP');
     assert.equal((await sql('SELECT count(*)::int AS n FROM venue_bookings')).rows[0].n, 2, 'access removal never deletes bookings');
     assert.equal((await sql('SELECT count(*)::int AS n FROM venue_users')).rows[0].n, 2, 'accounts stay saved');
@@ -145,7 +238,7 @@ async function main() {
     await sql("UPDATE venue_user_sessions SET expires_at=now()-interval '1 minute'");
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, hostToken)), false);
     assert.equal(await checkHostAccess(req('/host', 'GET', undefined, undefined, true)), true, 'curator access remains independent');
-    console.log('PASS: curator-only approval/revocation, validation/CSRF, role forgery denied, OTP grant + transactional recheck, real host API access, venue/booking scope, profile tampering denied, QR/completion, immediate session revocation, account/history preservation, expiry, proxy and admin separation. No cloud writes, OTP messages or payments.');
+    console.log('PASS: approved-host OTP/session, host/admin separation, gallery upload/serve/save/reorder/remove, magic-byte validation and size limits, photo ownership, scoped room edit with intact rates/capacity, QR clock + repeat scan, menu-order snapshots + retry, completion, revocation, expiry and countdown format. No cloud writes, OTP messages or payments.');
   } finally {
     globalThis.__pgPool = oldPool; globalThis.fetch = oldFetch;
     if (oldCurator === undefined) delete process.env.CURATOR_PASSWORD; else process.env.CURATOR_PASSWORD = oldCurator;

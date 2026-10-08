@@ -307,6 +307,18 @@ export async function deleteVenueSpace(rowId: number): Promise<boolean> {
   return (rowCount ?? 0) > 0;
 }
 
+/** A host changes only a room's photo; rates and capacity stay untouched.
+ * Scope the UPDATE itself so a row ID from another venue cannot be edited. */
+export async function updateVenueSpaceImage(slug: string, rowId: number, image: string): Promise<CatalogSpace | null> {
+  const { rows } = await query<SpaceRow>(
+    `UPDATE venue_spaces SET image = $3, updated_at = now()
+      WHERE id = $2 AND venue_id = (SELECT id FROM venues WHERE slug = $1)
+      RETURNING ${SPACE_COLUMNS}`,
+    [slug, rowId, image],
+  );
+  return rows[0] ? toSpace(rows[0]) : null;
+}
+
 // ------------------------------------------------------- partner requests
 
 export type PartnerRequestStatus = "new" | "contacted" | "onboarding" | "listed" | "declined";
