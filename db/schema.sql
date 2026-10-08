@@ -653,6 +653,9 @@ CREATE TABLE IF NOT EXISTS venue_spaces (
 
 CREATE INDEX IF NOT EXISTS idx_venue_spaces_venue ON venue_spaces (venue_id, sort_order, id);
 
+-- Retiring a catalog option must not erase its historical booking snapshots.
+ALTER TABLE venue_spaces ADD COLUMN IF NOT EXISTS retired_at TIMESTAMPTZ;
+
 
 -- ---------------------------------------------------------- Open venue reviews
 --

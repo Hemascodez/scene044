@@ -103,7 +103,7 @@ async function attachSpaces(rows: VenueRow[]): Promise<CatalogVenue[]> {
   if (rows.length === 0) return [];
   const { rows: spaceRows } = await query<SpaceRow>(
     `SELECT ${SPACE_COLUMNS} FROM venue_spaces
-      WHERE venue_id = ANY($1::int[])
+      WHERE venue_id = ANY($1::int[]) AND retired_at IS NULL
       ORDER BY sort_order, id`,
     [rows.map((row) => row.id)],
   );

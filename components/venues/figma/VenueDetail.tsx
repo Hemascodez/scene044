@@ -17,6 +17,7 @@ import { chandruReviews } from '@/lib/venueTestimonials'
 import { ChandruTestimonial } from './ChandruTestimonial'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
+import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
 import type { VenueReview } from '@/lib/venueBookings'
 import {
   ArrowLeft,
@@ -55,7 +56,7 @@ const spaceDesigns = [
     cap: '25–30 people',
     max: 30,
     price: 2000,
-    desc: 'A flexible indoor floor for talks, workshops, recordings, and professional gatherings with full seating and projector setup.',
+    desc: 'A flexible indoor floor for talks, workshops, recordings, and professional gatherings.',
     img: '/venues/figma/spaces-f33c5.jpg',
     photos: [
       { src: '/venues/figma/spaces-f33c5.jpg', alt: 'First-floor event space wide view with presentation screen and projector setup' },
@@ -73,7 +74,7 @@ const spaceDesigns = [
     cap: 'Up to 8 people',
     max: 8,
     price: 1000,
-    desc: 'A relaxed spot for focused work and quick team catch-ups with traditional low seating and warm wood craft.',
+    desc: 'A low, communal Korean-style table for shared meals, tastings, and relaxed evening sessions.',
     img: '/venues/figma/spaces-86081.jpg',
     photos: [
       { src: '/venues/figma/spaces-86081.jpg', alt: 'Korean table with floor chairs and white marble dining tabletop' },
@@ -91,7 +92,7 @@ const spaceDesigns = [
     cap: 'Up to 4 people',
     max: 4,
     price: 400,
-    desc: 'A dedicated table for mentoring, interviews, and focused small-group conversations with library bookshelf backdrop.',
+    desc: 'A dedicated table for mentoring, interviews, and focused small-group conversations.',
     img: '/venues/figma/spaces-d5006.jpg',
     photos: [
       { src: '/venues/figma/spaces-d5006.jpg', alt: 'Conversation table set for four with wooden bookcase and artwork' },
@@ -105,17 +106,15 @@ const spaceDesigns = [
   {
     id: 'terrace',
     dbId: 'terrace',
-    tag: 'Social gatherings',
+    tag: 'Under the sky',
     name: 'Open terrace · BBQ table',
     cap: 'Up to 16 people',
     max: 16,
     price: 1500,
     desc: 'A rooftop terrace with a built-in BBQ grill, string lights, and Chennai skyline views — best for sundowners and casual evening cookouts.',
-    img: '/venues/figma/spaces-terrace_1.jpg',
+    img: '/venues/time-cafe/terrace.jpeg',
     photos: [
-      { src: '/venues/figma/spaces-terrace_1.jpg', alt: 'Rooftop terrace dining table with overhead warm string bulbs at dusk' },
-      { src: '/venues/figma/spaces-terrace_2.jpg', alt: 'Long terrace dining table with ambient lighting and potted greenery' },
-      { src: '/venues/figma/spaces-terrace_3.jpg', alt: 'Open-air rooftop terrace BBQ dining setup under evening lights' },
+      { src: '/venues/time-cafe/terrace.jpeg', alt: 'Time Cafe open-air terrace with tables and chairs' },
     ],
     alt: 'Open-air terrace with potted plants and communal tables.',
   },
@@ -502,7 +501,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
     const design = spaceDesigns.find(d => d.dbId === s.id)
     return { ...spaceDesigns[0], ...design, id: s.id, dbId: s.id,
       name: s.name, tag: s.eyebrow, desc: s.description, cap: s.capacity, max: s.maxGuests,
-      img: s.image, alt: s.name, photos: design?.photos ?? [{ src: s.image, alt: s.name }],
+      img: s.image, alt: s.name, photos: venueRoomPhotos(s.image, s.name, design?.photos),
       price: rateForSpace(s, '') }
   })
   const reviews = chandruReviews(publishedReviews).map(r => ({ id: r.id, n: r.organizerName || 'Organiser', q: r.comment || '',
