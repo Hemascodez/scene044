@@ -262,17 +262,6 @@ function Lightbox({ index, onIndex, onClose, gallery }: { index: number | null; 
   )
 }
 
-function FitScore({ capacity, guests, name }: { capacity: number; guests: string; name: string }) {
-  const count = Number(guests)
-  const fits = Number.isInteger(count) && count > 0 && count <= capacity
-  return <section aria-labelledby="fit-title" className="reveal relative mt-10 overflow-hidden border-[1.5px] border-ink bg-[#0a0812] p-6 text-white shadow-hard md:p-10">
-    <p className="font-mono-b text-xs uppercase tracking-wider text-white/80">Does this space fit your group?</p>
-    <h2 id="fit-title" className="mt-3 font-head text-2xl">{name} · up to {capacity} guests</h2>
-    <p className="mt-4 text-base leading-7">{guests ? fits ? `Your ${count} attendees fit the published capacity.` : `This space cannot fit ${guests} attendees. Choose a larger space or change your group size.` : 'Enter your attendee count to check the capacity.'}</p>
-    <p className="mt-3 text-sm leading-6 text-white/80">Capacity does not confirm availability. Time Cafe checks your date, setup and requirements before approving a request.</p>
-  </section>
-}
-
 function SpaceCardCarousel({
   space,
   isSelected,
@@ -844,7 +833,6 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
             </section>
 
             <EventFit />
-            <FitScore capacity={space.max} guests={guests} name={space.name} />
 
             <section aria-labelledby="offers-title" className="reveal border-b border-line py-10">
               <div className="flex flex-wrap items-end justify-between gap-2">
