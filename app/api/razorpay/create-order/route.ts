@@ -5,6 +5,7 @@ import { getCatalogVenue } from "@/lib/venueCatalog";
 import { rateForSpace } from "@/lib/venues";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { bookingChargePaise, recordPaymentOrder, latestPaymentOrder, confirmCapturedPayment } from '@/lib/venueOperations';
+import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
 
 /**
  * Creates a Razorpay order for a venue booking's "Pay & confirm" step.
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
       if (payment) {
         const captured = await fetchCapturedPayment(payment.id, existing);
         if (captured.status !== 'captured' || !await confirmCapturedPayment(booking.id, existing.orderId, captured.id)) throw new Error('Payment needs reconciliation');
+        scheduleVenueNotifications();
         return NextResponse.json({ ok: true, alreadyPaid: true });
       }
       return NextResponse.json({ ok: true, orderId: existing.orderId, amount: existing.amountPaise, currency: existing.currency, keyId: razorpayCheckoutKey() });

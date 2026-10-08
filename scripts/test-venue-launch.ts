@@ -69,7 +69,7 @@ async function main() {
     assert.ok(start > 0 && end > start);
     await db.exec(schema.slice(start, end));
     for (let repeat = 0; repeat < 2; repeat++) {
-      for (const migration of ['2026-10-07-venue-booking-archive.sql', '2026-10-07-venue-profile-photos.sql', '2026-10-08-venue-host-access.sql']) {
+      for (const migration of ['2026-10-07-venue-booking-archive.sql', '2026-10-07-venue-profile-photos.sql', '2026-10-08-venue-host-access.sql', '2026-10-08-venue-notifications.sql']) {
         await db.exec(readFileSync(new URL(`../db/migrations/${migration}`, import.meta.url), 'utf8'));
       }
     }

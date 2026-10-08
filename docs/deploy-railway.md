@@ -96,25 +96,19 @@ ledger prevents a second invocation in the same IST week from sending to the
 same subscriber again. A request that may have reached Meta but returned no
 definitive response is recorded as `unknown` and is not retried.
 
-## 4a. Venue booking overrun notices
+## 4a. Venue booking and application notifications
 
-Add a **fifth service from the same repo**:
+The website runs the durable notification worker itself, every 60 seconds.
+No additional service is needed. Set `WHATSAPP_VENUE_NOTIFICATIONS_ENABLED=true`
+on the **website service only**, reusing its existing Meta API credentials.
+All ten approved Utility templates use `en`; no headers or URL buttons.
+`npm run migrate` applies their transactional event-queue migration on startup.
 
-- **Start command**: `npm run venue-overrun-notify`
-- **Cron schedule**: `*/10 * * * *` — every 10 minutes; Railway's minimum
-  interval is 5 minutes, and a booking's timer needs to be caught reasonably
-  soon after `ends_at` passes, not once a day like the other jobs here
-- **Required variables**: `DATABASE_URL`, `WHATSAPP_ACCESS_TOKEN`,
-  `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_GRAPH_API_VERSION`,
-  `WHATSAPP_OVERRUN_TEMPLATE_NAME`, `WHATSAPP_OVERRUN_TEMPLATE_LANGUAGE`
-
-Each run claims (`overrun_notified_at`) every `checked_in` booking whose
-`ends_at` has passed and that hasn't been notified yet, so overlapping runs
-can never double-send. A booking whose organizer didn't opt into WhatsApp
-updates — or one whose send fails in a way that will never succeed on retry
-(bad template, bad auth) — is still claimed, so misconfiguration doesn't turn
-into an infinite retry loop; a rate-limited or transient Meta failure is left
-unclaimed and picked up again by the next run.
+See [venue-notifications.md](venue-notifications.md) for exact event mappings,
+opt-in/host permissions, duplicate protection, delivery monitoring and limits.
+The old `venue-overrun-notify` command now drains the same queue, so an existing
+overrun cron can be retained without duplicates; it is optional. Old
+`WHATSAPP_OVERRUN_TEMPLATE_*` variables are no longer used.
 
 Roll out in this order:
 

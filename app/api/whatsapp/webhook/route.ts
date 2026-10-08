@@ -11,6 +11,7 @@ import {
   type DeliveryStatus,
 } from "@/lib/whatsappDigest";
 import { sendWhatsappText } from "@/lib/whatsappSend";
+import { recordVenueNotificationReceipt } from '@/lib/venueNotifications';
 import {
   categoriesFromMessage,
   isWhatsappStop,
@@ -137,6 +138,8 @@ export async function POST(request: NextRequest) {
             occurredAt,
             error: deliveryError(status),
           });
+          await recordVenueNotificationReceipt(providerMessageId, providerStatus,
+            typeof status.biz_opaque_callback_data === 'string' ? status.biz_opaque_callback_data : undefined, deliveryError(status));
         }
 
         const messages = (value?.messages ?? []) as Record<string, unknown>[];

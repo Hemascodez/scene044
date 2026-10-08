@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBookingByCheckinToken, withdrawRequestedBooking } from "@/lib/venueBookings";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
+import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
 
 /**
  * The organizer's own "what's the live status of my booking" read.
@@ -38,5 +39,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ t
       { status: 409 },
     );
   }
+  scheduleVenueNotifications();
   return NextResponse.json({ ok: true, booking: withdrawn });
 }

@@ -272,7 +272,7 @@ export async function setBookingStatus(
 ): Promise<VenueBooking | null> {
   const { rows } = await query<VenueBooking>(
     `UPDATE venue_bookings
-        SET status = $2, updated_at = now()
+        SET status = $2, cancellation_actor = CASE WHEN $2 = 'cancelled' THEN 'the venue' ELSE cancellation_actor END, updated_at = now()
       WHERE id = $1 AND status = ANY($3::text[]) AND archived_at IS NULL
       RETURNING ${BOOKING_COLUMNS}`,
     [
@@ -299,7 +299,7 @@ export async function setBookingStatus(
 export async function withdrawRequestedBooking(id: number): Promise<VenueBooking | null> {
   const { rows } = await query<VenueBooking>(
     `UPDATE venue_bookings
-        SET status = 'cancelled', updated_at = now()
+        SET status = 'cancelled', cancellation_actor = 'you', updated_at = now()
       WHERE id = $1 AND status = 'requested' AND archived_at IS NULL
       RETURNING ${BOOKING_COLUMNS}`,
     [id],

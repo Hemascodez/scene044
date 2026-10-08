@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkHostAccess } from "@/lib/venueHostAccess";
 import { setBookingStatus, type VenueBookingStatus } from "@/lib/venueBookings";
+import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
 
 const HOST_SETTABLE: readonly VenueBookingStatus[] = ["approved", "declined", "cancelled"];
 
@@ -43,5 +44,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
+  scheduleVenueNotifications();
   return NextResponse.json({ ok: true, booking: updated });
 }

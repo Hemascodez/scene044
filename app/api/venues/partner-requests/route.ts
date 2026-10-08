@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createPartnerRequest } from "@/lib/venueCatalog";
+import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
+import { normalizeIndianPhone } from '@/lib/venueUserAuth';
 
 /**
  * The "list your venue" form's actual submit target.
@@ -34,8 +36,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Invalid submission details' }, { status: 400 });
+  }
   const contactName = cleanString(body.name);
-  const phone = cleanString(body.phone, 40);
+  const phone = typeof body.phone === 'string' ? normalizeIndianPhone(body.phone) : null;
   const venueName = cleanString(body.venue);
   const area = cleanString(body.area);
   const details = cleanString(body.details, MAX_LEN);
@@ -53,6 +58,7 @@ export async function POST(request: Request) {
 
   try {
     const created = await createPartnerRequest({ contactName, phone, venueName, area, link, details });
+    scheduleVenueNotifications();
     return NextResponse.json({ ok: true, id: created.id });
   } catch (err) {
     console.error("venue partner-requests: failed to store submission", err);

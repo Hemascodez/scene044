@@ -7,6 +7,7 @@ import { absoluteUrl } from "@/lib/seo";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { deleteVenueBookingDraft } from "@/lib/venueBookingDrafts";
 import { validateVenueBookingWindow } from "@/lib/venueBookingValidation";
+import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
 
 /**
  * Creates a real, server-side booking request (replaces the old
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
   }
 
   const checkinUrl = absoluteUrl(`/host/checkin/${booking.checkinToken}`);
+  scheduleVenueNotifications();
   const qrSvg = await QRCode.toString(checkinUrl, { type: "svg", margin: 1, width: 256 });
 
   return NextResponse.json({

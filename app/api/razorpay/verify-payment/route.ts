@@ -3,6 +3,7 @@ import { verifyRazorpayPaymentSignature, fetchCapturedPayment } from "@/lib/razo
 import { getBookingByCheckinToken } from "@/lib/venueBookings";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { bookingChargePaise, confirmCapturedPayment, getPaymentOrder } from '@/lib/venueOperations';
+import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
 
 /**
  * Verifies the signature Razorpay Checkout hands back after a payment, then
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
     if (!await confirmCapturedPayment(booking.id, orderId, paymentId)) {
       return NextResponse.json({ error: 'Payment received, but the booking needs curator attention.' }, { status: 409 });
     }
+    scheduleVenueNotifications();
     return NextResponse.json({ ok: true, booking: await getBookingByCheckinToken(token) });
   } catch (error) {
     console.error('Razorpay payment reconciliation failed', error);

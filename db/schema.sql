@@ -771,6 +771,7 @@ UPDATE venues SET status = 'hidden' WHERE slug <> 'time-cafe' AND status <> 'hid
 
 ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS archive_reason TEXT;
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS cancellation_actor TEXT;
 CREATE INDEX IF NOT EXISTS idx_venue_bookings_active ON venue_bookings (venue_slug, event_date DESC, id DESC) WHERE archived_at IS NULL;
 
 -- Private, account-owned profile photos; no prototype avatar defaults.
