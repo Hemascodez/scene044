@@ -9,6 +9,8 @@ import {
   uploadHostVenuePhoto,
 } from '@/lib/client/hostApi';
 import type { AdminSpace, AdminVenue } from '@/lib/client/venueAdminApi';
+import { HostSpaceEditor } from './HostSpaceEditor';
+import { VenueShare } from './VenueShare';
 
 const label = 'font-mono-b text-[10px] uppercase tracking-[0.1em] text-stone';
 const btn = 'press border-[1.5px] border-ink px-3 py-1.5 font-mono-b text-[11px] uppercase tracking-[0.06em] disabled:opacity-50';
@@ -23,7 +25,7 @@ function spaceRate(space: AdminSpace) {
   const community = rupees(space.communityRate);
   const production = rupees(space.productionRate);
   if (!community && !production) return 'Rate on request';
-  if (community === production) return `${community} per event`;
+  if (community === production) return `${community} per hour`;
   return [community && `${community} community`, production && `${production} production`].filter(Boolean).join(' · ');
 }
 
@@ -42,6 +44,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [spaceBusyId, setSpaceBusyId] = useState<number | null>(null);
+  const [editing, setEditing] = useState<AdminSpace | 'new' | null>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
   const spaceInput = useRef<HTMLInputElement>(null);
   const spaceTarget = useRef<AdminSpace | null>(null);
@@ -125,9 +128,9 @@ export function HostVenuePanel({ slug }: { slug: string }) {
     setNotice('');
     try {
       const image = await uploadHostVenuePhoto(files[0]);
-      await updateHostSpacePhoto(space.rowId, image);
+      const { space: saved } = await updateHostSpacePhoto(space.rowId, image);
       setVenue((v) =>
-        v ? { ...v, spaces: v.spaces.map((s) => (s.rowId === space.rowId ? { ...s, image } : s)) } : v,
+        v ? { ...v, spaces: v.spaces.map((s) => (s.rowId === space.rowId ? saved : s)) } : v,
       );
       setNotice(`${space.name} photo updated.`);
     } catch (e) {
@@ -150,6 +153,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
 
   return (
     <div className="space-y-8">
+      <VenueShare path={`/venues/${venue.slug}`} name={venue.name} />
       {error && (
         <p role="alert" className="border-[1.5px] border-primary-ink bg-flame/10 px-3 py-2 text-sm font-semibold text-primary-ink">
           {error}
@@ -266,7 +270,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
         <div className="p-5">
           {venue.spaces.length === 0 ? (
             <p className="border-[1.5px] border-dashed border-ink/40 bg-paper px-4 py-8 text-center text-sm text-stone">
-              No rooms listed yet. SCENE sets these up with you — message your curator to add one.
+              No spaces listed yet. Add your first bookable space below.
             </p>
           ) : (
             <ul className="space-y-4">
@@ -289,6 +293,12 @@ export function HostVenuePanel({ slug }: { slug: string }) {
                   </div>
                   <button
                     type="button"
+                    disabled={spaceBusyId !== null || editing !== null}
+                    onClick={() => { setEditing(space); setNotice(''); }}
+                    className={`${btn} min-h-11 bg-white text-ink`}
+                  >Edit space</button>
+                  <button
+                    type="button"
                     disabled={spaceBusyId !== null}
                     onClick={() => { spaceTarget.current = space; spaceInput.current?.click(); }}
                     className={`${btn} bg-white text-ink`}
@@ -299,6 +309,13 @@ export function HostVenuePanel({ slug }: { slug: string }) {
               ))}
             </ul>
           )}
+        </div>
+        <div className="space-y-4 p-5">
+          {!editing && <button type="button" onClick={() => { setEditing('new'); setNotice(''); }} className={`${btn} min-h-11 bg-flame text-white`}>Add a space</button>}
+          {editing && <HostSpaceEditor key={editing === 'new' ? 'new' : editing.rowId} space={editing === 'new' ? undefined : editing} onCancel={() => setEditing(null)} onSaved={saved => {
+            setVenue(v => v ? { ...v, spaces: v.spaces.some(s => s.rowId === saved.rowId) ? v.spaces.map(s => s.rowId === saved.rowId ? saved : s) : [...v.spaces, saved] } : v);
+            setEditing(null); setNotice(`${saved.name} published. Your venue page is updated and SCENE has been notified.`);
+          }} />}
         </div>
       </section>
     </div>

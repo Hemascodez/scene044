@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { checkInBooking, listHostBookings, listHostReviews, setHostBookingStatus, type HostBooking } from '@/lib/client/hostApi'
 import type { VenueReview } from '@/lib/venueBookings'
 import { chandruReviews } from '@/lib/venueTestimonials'
 import { HostQrScanner } from '../HostQrScanner'
 import { HostBookingSession } from '../HostBookingSession'
 import { HostVenuePanel } from '../HostVenuePanel'
+import { VenueShare } from '../VenueShare'
 import { formatRemaining } from '../BookingCountdown'
 import { HostMenuPanel } from '../HostMenuPanel'
 import { createManualVenueBlock, readManualVenueBlocks, type ManualVenueBlock } from '@/lib/client/venueBookingStore'
@@ -37,36 +38,7 @@ import type { Profile } from './AuthModal'
 
 const VENUE_PATH = '/venues/time-cafe'
 
-const copyText = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.setAttribute('readonly', '')
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand('copy')
-    ta.remove()
-    return ok
-  }
-}
-
 function ShareVenueEmpty({ venuePath }: { venuePath: string }) {
-  const [copied, setCopied] = useState(false)
-  const timer = useRef<number>(undefined)
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-
-  const share = async () => {
-    const ok = await copyText(`${window.location.origin}${venuePath}`)
-    if (!ok) return
-    setCopied(true)
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setCopied(false), 2000)
-  }
 
   return (
     <section
@@ -84,25 +56,7 @@ function ShareVenueEmpty({ venuePath }: { venuePath: string }) {
           Share your venue link with organisers. Their booking requests will show up here for you to review.
         </p>
       </div>
-      <div className="relative mt-1">
-        <span
-          role="status"
-          aria-live="polite"
-          className={`pointer-events-none absolute bottom-full left-1/2 mb-3 -translate-x-1/2 whitespace-nowrap rounded-md border-2 border-[#111] bg-[#141414] px-3 py-1.5 font-mono-b text-[11px] leading-4 tracking-[0.6px] text-white uppercase transition-all duration-200 motion-reduce:transition-none ${
-            copied ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
-          }`}
-        >
-          {copied ? 'Link copied' : ''}
-          <span aria-hidden="true" className="absolute left-1/2 top-full size-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b-2 border-r-2 border-[#111] bg-[#141414]" />
-        </span>
-        <button
-          type="button"
-          onClick={share}
-          className="press inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border-2 border-[#111] bg-[#eb442c] px-6 py-3.5 font-mono-b text-xs leading-4 tracking-[0.6px] text-white uppercase shadow-hard"
-        >
-          <Link2 className="size-4" /> Share venue
-        </button>
-      </div>
+      <VenueShare path={venuePath} name="Time Cafe" />
     </section>
   )
 }
@@ -1357,7 +1311,7 @@ export default function HostWorkspace({
                   className="mt-1 w-full border-[1.5px] border-ink bg-paper p-2 text-ink focus:outline-none"
                 >
                   <option>First-floor event space</option>
-                  <option>Open terrace · BBQ table</option>
+                  <option>BBQ table</option>
                   <option>Korean table</option>
                   <option>Conversation table</option>
                 </select>

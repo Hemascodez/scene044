@@ -2,6 +2,7 @@
 
 import type { VenueBooking, VenueBookingOrder, VenueReview } from "@/lib/venueBookings";
 import type { AdminSpace, AdminVenue } from '@/lib/client/venueAdminApi';
+import type { HostSpaceDetails } from '@/lib/venueHostSpaceValidation';
 
 /**
  * Thin client over /api/host/*.
@@ -53,6 +54,13 @@ export function updateHostVenuePhotos(photos: string[]) {
 export function updateHostSpacePhoto(rowId: number, image: string) {
   return request<{ ok: true; space: AdminSpace }>(`/api/host/venue/spaces/${rowId}`, {
     method: 'PATCH', body: JSON.stringify({ image }),
+  });
+}
+
+export function publishHostSpace(details: HostSpaceDetails, target: number | string) {
+  return request<{ ok: true; space: AdminSpace }>(typeof target === 'number' ? `/api/host/venue/spaces/${target}` : '/api/host/venue/spaces', {
+    method: typeof target === 'number' ? 'PATCH' : 'POST',
+    body: JSON.stringify({ ...details, ...(typeof target === 'string' ? { requestId: target } : {}) }),
   });
 }
 

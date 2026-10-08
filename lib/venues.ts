@@ -14,7 +14,7 @@ export const VENUE_EVENT_TYPES = [
 
 export type VenueEventType = (typeof VENUE_EVENT_TYPES)[number];
 
-export type VenueSpaceId = "first-floor" | "terrace" | "standard-table" | "small-table" | "korean-table";
+export type VenueSpaceId = string;
 
 export interface VenueSpace {
   id: VenueSpaceId;
@@ -24,6 +24,7 @@ export interface VenueSpace {
   capacity: string;
   maxGuests: number;
   image: string;
+  photos?: readonly string[];
   amenities: readonly string[];
   communityRate: number | null;
   productionRate: number | null;
@@ -114,12 +115,13 @@ export const TIME_CAFE = {
     },
     {
       id: "terrace",
-      name: "Open terrace · BBQ table",
+      name: "BBQ table",
       eyebrow: "Under the sky",
       description: "A rooftop terrace with a built-in BBQ grill, string lights, and Chennai skyline views — best for sundowners and casual evening cookouts.",
       capacity: "Up to 16 people",
       maxGuests: 16,
-      image: "/venues/time-cafe/terrace.jpeg",
+      image: "/venues/time-cafe/bbq-table.png",
+      photos: ["/venues/time-cafe/bbq-table.png", "/venues/time-cafe/bbq-table-views.png"],
       amenities: ["Open air", "BBQ grill", "String lights"],
       communityRate: 1500,
       productionRate: 1500,
@@ -127,7 +129,7 @@ export const TIME_CAFE = {
     },
   ] satisfies VenueSpace[],
   policies: [
-    "3-hour minimum booking.",
+    "1-hour minimum booking.",
     "No open flame or fog machines indoors.",
     "Amplified music until 9:30 PM.",
     "Outside catering welcome (kitchen not included).",

@@ -167,11 +167,11 @@ async function main() {
     await sql("UPDATE venue_users SET email='fixture@example.invalid' WHERE id=1");
     await sql("SELECT setval(pg_get_serial_sequence('venue_bookings','id'),100)");
     const futureDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0,10);
-    const body = { venueSlug: 'time-cafe', spaceId: 'first-floor', eventType: 'Tech meetup', date: futureDate, time: '11:00', duration: 3,
+    const body = { venueSlug: 'time-cafe', spaceId: 'first-floor', eventType: 'Tech meetup', date: futureDate, time: '11:00', duration: 1,
       people: 10, description: 'Local isolated booking flow check', name: 'Tampered name', phone: '999', total: 1, hourlyRate: 1 };
     assert.equal((await submitBooking(new Request('http://localhost:3000/api/venue-bookings', { method: 'POST', body: JSON.stringify(body) }))).status,401);
-    for (const invalid of [{ date: '2026-02-30' }, { date: '2020-01-01' }, { time: '25:00' }, { time: '22:00' },
-      { duration: 2 }, { duration: 3.5 }, { people: 1.5 }, { people: 31 }, { venueSlug: 'other-fixture' }, { spaceId: 'missing' }]) {
+    for (const invalid of [{ date: '2026-02-30' }, { date: '2020-01-01' }, { time: '25:00' }, { time: '23:30' },
+      { duration: 0 }, { duration: 3.5 }, { people: 1.5 }, { people: 31 }, { venueSlug: 'other-fixture' }, { spaceId: 'missing' }]) {
       assert.equal((await submitBooking(request('/api/venue-bookings', { ...body, ...invalid }))).status,400,JSON.stringify(invalid));
     }
     assert.equal(validateVenueBookingWindow('2026-10-08','08:00',3,new Date('2026-10-08T03:00:00Z'))?.field,'date', 'IST start already passed');
@@ -187,7 +187,7 @@ async function main() {
     const submitted = await submitBooking(request('/api/venue-bookings', body));
     assert.equal(submitted.status,200);
     const result = await submitted.json();
-    assert.equal(result.total,3600);
+    assert.equal(result.total,1200);
     assert.equal(result.status,'requested');
     assert.equal((await (await readDraft(draftRequest)).json()).draft,null,'submitted drafts cannot reappear on another device');
     const persisted = await getBookingByCheckinToken(result.token);
@@ -203,11 +203,11 @@ async function main() {
     const orderResponse = await createOrder(request('/api/razorpay/create-order', { token: result.token }));
     assert.equal(orderResponse.status,200);
     const newOrder = await orderResponse.json();
-    assert.equal(newOrder.amount,360000);
+    assert.equal(newOrder.amount,120000);
     const orderStub = globalThis.fetch;
     globalThis.fetch = async input => {
       assert.equal(String(input),'https://api.razorpay.com/v1/payments/pay_bookingFixture');
-      return Response.json({ id:'pay_bookingFixture',order_id:newOrder.orderId,amount:360000,currency:'INR',status:'captured' });
+      return Response.json({ id:'pay_bookingFixture',order_id:newOrder.orderId,amount:120000,currency:'INR',status:'captured' });
     };
     const newSignature = createHmac('sha256',process.env.RAZORPAY_KEY_SECRET!).update(`${newOrder.orderId}|pay_bookingFixture`).digest('hex');
     const verifiedPayment = await verifyPayment(request('/api/razorpay/verify-payment',{ token: result.token,razorpay_order_id:newOrder.orderId,razorpay_payment_id:'pay_bookingFixture',razorpay_signature:newSignature }));
@@ -219,7 +219,7 @@ async function main() {
     assert.equal(scanned.status,200);
     const checkedBooking = (await scanned.json()).booking;
     assert.equal(checkedBooking.status,'checked_in');
-    assert.equal(new Date(checkedBooking.endsAt).getTime()-new Date(checkedBooking.checkedInAt).getTime(),3*3600000,'normal booking timer is not the five-minute trial');
+    assert.equal(new Date(checkedBooking.endsAt).getTime()-new Date(checkedBooking.checkedInAt).getTime(),3600000,'normal booking timer is one hour, not the five-minute trial');
     assert.equal((await finishBooking(request('/api/host/bookings/complete',{},true),bookingContext)).status,200);
     assert.equal((await getBookingByCheckinToken(result.token))?.status,'completed');
     assert.equal((await hostReviews(new Request('http://localhost:3000/api/host/reviews'))).status,401);
@@ -227,7 +227,7 @@ async function main() {
     const received = await hostReviews(new Request('http://localhost:3000/api/host/reviews', { headers: { authorization: `Basic ${Buffer.from(`curator:${process.env.CURATOR_PASSWORD}`).toString('base64')}` } }));
     assert.equal(received.headers.get('Cache-Control'),'no-store');
     assert.deepEqual((await received.json()).reviews.map((r: { organizerName: string }) => r.organizerName), ['Fixture received review']);
-    console.log('PASS: authenticated request → account/host visibility → guarded host approval → exact-price checkout → server payment verification (stubbed gateway) → protected QR check-in → normal three-hour timer → completion; invalid dates/times/guest counts and protected published-only reviews.');
+    console.log('PASS: authenticated 1-hour request → account/host visibility → guarded host approval → exact-price checkout → server payment verification (stubbed gateway) → protected QR check-in → normal one-hour timer → completion; invalid dates/times/guest counts and protected published-only reviews.');
     console.log('PASS: real local PostgreSQL migrations, Time Cafe only, ₹6000 checkout/₹600 commission, curator-only ₹10 trial, 5-minute QR, exact nine-row archive, new requests retained, payment/order/review history preserved, blocked archived actions, overdue suppression, guarded restore and old-price capture rejection. No cloud writes or gateway calls.');
   } finally {
     globalThis.fetch = previousFetch;

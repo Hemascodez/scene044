@@ -19,7 +19,7 @@ export function parseHostPhotos(value: unknown): string[] | null {
 /** Existing curator-selected photos may be retained/reordered. New photos
  * must have been uploaded through this venue's verified host endpoint. */
 export async function canUseHostPhotos(venue: CatalogVenue, photos: string[]): Promise<boolean> {
-  const existing = new Set([...venue.photos, ...venue.spaces.map(space => space.image)]);
+  const existing = new Set([...venue.photos, ...venue.spaces.flatMap(space => [space.image, ...(space.photos ?? [])])]);
   const added = photos.filter(url => !existing.has(url));
   if (!added.length) return true;
   const ids = added.map(url => {

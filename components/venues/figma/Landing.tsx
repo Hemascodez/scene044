@@ -244,7 +244,7 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
                   <p className="font-p-display text-[28px] leading-none">
                     {venueFromRate(venue) === null ? 'Host quote' : formatRupees(venueFromRate(venue)!)} <span className="font-body text-sm text-stone">per hour</span>
                   </p>
-                  <p className="mt-1 text-xs text-stone">minimum 3 hours</p>
+                  <p className="mt-1 text-xs text-stone">minimum 1 hour</p>
                 </div>
                 <div className="flex flex-col items-start gap-2">
                   <button

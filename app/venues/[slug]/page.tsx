@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: VenuePageProps): Promise<Meta
   const title = `${venue.name}, ${venue.area} — SCENE/044`;
   const description = venue.summary || `Book ${venue.name} in ${venue.area}, Chennai for your next event.`;
   const path = venuePath(venue);
-  const image = venue.photos[0];
+  const image = venue.photos[0] || venue.spaces.find(space => space.image)?.image;
 
   return {
     title,

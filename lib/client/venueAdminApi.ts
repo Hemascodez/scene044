@@ -47,6 +47,7 @@ export interface AdminSpace {
   capacity: string;
   maxGuests: number;
   image: string;
+  photos?: string[];
   amenities: string[];
   communityRate: number | null;
   productionRate: number | null;

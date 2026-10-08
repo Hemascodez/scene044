@@ -37,6 +37,9 @@ async function main() {
     await sql("INSERT INTO venue_spaces(venue_id,space_key,name,max_guests,image) VALUES(2,'other-room','Other room',100,'/api/poster/88')");
     const migration = readFileSync(new URL('../db/migrations/2026-10-08-time-cafe-rooms.sql', import.meta.url), 'utf8');
     await db.exec(migration);
+    const editorMigration = readFileSync(new URL('../db/migrations/2026-10-08-host-space-editor.sql', import.meta.url), 'utf8');
+    await db.exec(editorMigration);
+    await db.exec(editorMigration);
     const venue = (await getCatalogVenue('time-cafe'))!;
     assert.deepEqual(venue.spaces.map(s => s.id), ['first-floor','korean-table','standard-table','terrace']);
     for (const room of venue.spaces) {
@@ -52,7 +55,7 @@ async function main() {
     assert.deepEqual(matchingSpaces(venue.spaces,'25').map(s => s.id),['first-floor']);
     assert.deepEqual(matchingSpaces(venue.spaces,'8').map(s => s.id),['first-floor','korean-table','terrace']);
     assert.equal((await sql('SELECT * FROM fixture_bookings')).rows[0].total,1200);
-    assert.equal((await sql("SELECT jsonb_array_length(previous_spaces) AS count FROM venue_catalog_content_updates")).rows[0].count,4);
+    assert.equal((await sql("SELECT jsonb_array_length(previous_spaces) AS count FROM venue_catalog_content_updates WHERE key='time-cafe-approved-rooms-2026-10-08'")).rows[0].count,4);
     assert.equal((await getCatalogVenue('other'))!.spaces[0].image,'/api/poster/88');
 
     // Later edits must survive every deploy, including a host's replacement.
@@ -72,6 +75,7 @@ async function main() {
     assert.deepEqual(venueRoomPhotos('/venues/second.jpg','Room',album).map(p => p.src),['/venues/second.jpg','/venues/first.jpg']);
     assert.deepEqual(venueRoomPhotos('','Room',album),album);
     assert.deepEqual(venueRoomPhotos('','New room'),[]);
+    assert.deepEqual(venueRoomPhotos('/a','New room',album,['/a','/b']).map(p=>p.src),['/a','/b']);
     console.log('PASS: approved four-room catalog, real prices/capacities, photo files, search, history backup, retirement, idempotency and host-photo precedence.');
   } finally {
     globalThis.__pgPool = originalPool;

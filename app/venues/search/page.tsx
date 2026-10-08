@@ -59,7 +59,7 @@ export default async function VenueSearchPage({ searchParams }: {
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{space.description}</p>
                 <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm underline underline-offset-4"><VenueIcon name="map" className="size-4" /> View location on Google Maps<span className="sr-only"> (opens in a new tab)</span></a>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-venue-line pt-4">
-                  <p className="text-sm"><strong className="text-xl">{rate === null ? "Host quote" : formatRupees(rate)}</strong>{rate !== null && " / hour"}<span className="mt-1 block text-xs text-muted-foreground">3-hour minimum · No added service fee</span></p>
+                  <p className="text-sm"><strong className="text-xl">{rate === null ? "Host quote" : formatRupees(rate)}</strong>{rate !== null && " / hour"}<span className="mt-1 block text-xs text-muted-foreground">1-hour minimum · No added service fee</span></p>
                   <Link href={href} className={venueButton.primary}>View space details <VenueIcon name="arrow" className="size-4" /></Link>
                 </div>
               </div>

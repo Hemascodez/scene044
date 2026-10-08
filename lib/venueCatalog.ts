@@ -56,6 +56,7 @@ interface SpaceRow {
   capacity: string;
   maxGuests: number;
   image: string | null;
+  photos: string[];
   amenities: string[];
   communityRate: number | null;
   productionRate: number | null;
@@ -65,7 +66,7 @@ interface SpaceRow {
 
 const SPACE_COLUMNS = `
   id AS "rowId", venue_id AS "venueId", space_key AS "spaceKey", name, eyebrow, description,
-  capacity, max_guests AS "maxGuests", image, amenities,
+  capacity, max_guests AS "maxGuests", image, photos, amenities,
   community_rate AS "communityRate", production_rate AS "productionRate",
   minimum_food_spend AS "minimumFoodSpend", sort_order AS "sortOrder"
 `;
@@ -82,6 +83,7 @@ function toSpace(row: SpaceRow): CatalogSpace {
     capacity: row.capacity,
     maxGuests: row.maxGuests,
     image: row.image ?? "",
+    photos: row.photos ?? [],
     amenities: row.amenities,
     communityRate: row.communityRate,
     productionRate: row.productionRate,

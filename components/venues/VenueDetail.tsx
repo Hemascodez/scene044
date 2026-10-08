@@ -40,7 +40,7 @@ export function VenueDetail({ venue, reviews, reviewSummary, aspects, initial }:
   const reduceMotion = useReducedMotion();
   const initialSpace = venue.spaces.find((space) => space.maxGuests >= initial.people) ?? venue.spaces[0];
   const [spaceId, setSpaceId] = useState<string>(initialSpace.id);
-  const [duration, setDuration] = useState(2);
+  const [duration, setDuration] = useState(1);
   const [eventType, setEventType] = useState<VenueEventType>(
     (VENUE_EVENT_TYPES.includes(initial.eventType as VenueEventType) ? initial.eventType : "Tech meetup") as VenueEventType,
   );

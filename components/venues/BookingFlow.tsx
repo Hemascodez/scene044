@@ -50,7 +50,7 @@ function parseGenericDraft(data: unknown, spaceId: string): FormState | null {
     spaceId,
     step: typeof saved.step === "number" && saved.step >= 1 && saved.step <= 3 ? saved.step : 1,
     date: string("date"), time: string("time") || "18:00",
-    duration: typeof saved.duration === "number" && saved.duration >= 1 && saved.duration <= 6 ? saved.duration : 2,
+    duration: typeof saved.duration === "number" && saved.duration >= 1 && saved.duration <= 6 ? saved.duration : 1,
     people: typeof saved.people === "number" && saved.people >= 0 ? saved.people : 25,
     eventType: VENUE_EVENT_TYPES.includes(eventType as VenueEventType) ? eventType as VenueEventType : "Tech meetup",
     description: string("description"), name: string("name"), email: string("email"), phone: string("phone"),

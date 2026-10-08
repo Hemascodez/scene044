@@ -18,6 +18,8 @@ import { ChandruTestimonial } from './ChandruTestimonial'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
+import Dialog from './Dialog'
+import { SelfReviewForm } from '@/components/venues/SelfReviewForm'
 import type { VenueReview } from '@/lib/venueBookings'
 import {
   ArrowLeft,
@@ -107,14 +109,15 @@ const spaceDesigns = [
     id: 'terrace',
     dbId: 'terrace',
     tag: 'Under the sky',
-    name: 'Open terrace · BBQ table',
+    name: 'BBQ table',
     cap: 'Up to 16 people',
     max: 16,
     price: 1500,
     desc: 'A rooftop terrace with a built-in BBQ grill, string lights, and Chennai skyline views — best for sundowners and casual evening cookouts.',
-    img: '/venues/time-cafe/terrace.jpeg',
+    img: '/venues/time-cafe/bbq-table.png',
     photos: [
-      { src: '/venues/time-cafe/terrace.jpeg', alt: 'Time Cafe open-air terrace with tables and chairs' },
+      { src: '/venues/time-cafe/bbq-table.png', alt: 'Time Cafe BBQ table under warm terrace string lights' },
+      { src: '/venues/time-cafe/bbq-table-views.png', alt: 'Two views of the Time Cafe BBQ table and terrace' },
     ],
     alt: 'Open-air terrace with potted plants and communal tables.',
   },
@@ -151,7 +154,7 @@ const amenities = [
 ]
 
 const eventTypes: string[] = [...VENUE_EVENT_TYPES]
-const hourOptions = [3, 4, 5, 6, 7, 8]
+const hourOptions = [1, 2, 3, 4, 5, 6, 7, 8]
 
 type TimeCafeDraft = {
   spaceId: string
@@ -165,7 +168,7 @@ type TimeCafeDraft = {
 }
 
 const initialBookingDraft: TimeCafeDraft = {
-  spaceId: 'first-floor', eventType: '', date: '', start: '11:00', hours: 3,
+  spaceId: 'first-floor', eventType: '', date: '', start: '11:00', hours: 1,
   guests: '25', social: '', message: '',
 }
 
@@ -179,7 +182,7 @@ function parseTimeCafeDraft(data: unknown, spaceId: string): TimeCafeDraft | nul
     eventType: typeof saved.eventType === 'string' && eventTypes.includes(saved.eventType) ? saved.eventType : '',
     date: typeof saved.date === 'string' ? saved.date : '',
     start: typeof saved.start === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(saved.start) ? saved.start : '11:00',
-    hours: typeof saved.hours === 'number' && hourOptions.includes(saved.hours) ? saved.hours : 3,
+    hours: typeof saved.hours === 'number' && hourOptions.includes(saved.hours) ? saved.hours : 1,
     guests: typeof saved.guests === 'string' ? saved.guests : '25',
     social: typeof saved.social === 'string' ? saved.social : '',
     message: typeof saved.message === 'string' ? saved.message : '',
@@ -501,7 +504,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
     const design = spaceDesigns.find(d => d.dbId === s.id)
     return { ...spaceDesigns[0], ...design, id: s.id, dbId: s.id,
       name: s.name, tag: s.eyebrow, desc: s.description, cap: s.capacity, max: s.maxGuests,
-      img: s.image, alt: s.name, photos: venueRoomPhotos(s.image, s.name, design?.photos),
+      img: s.image, alt: s.name, photos: venueRoomPhotos(s.image, s.name, design?.photos, s.photos),
       price: rateForSpace(s, '') }
   })
   const reviews = chandruReviews(publishedReviews).map(r => ({ id: r.id, n: r.organizerName || 'Organiser', q: r.comment || '',
@@ -534,6 +537,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const [saved, setSaved] = useState(false)
   const [photo, setPhoto] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'form' | 'sending' | 'sent'>('form')
@@ -892,7 +896,9 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                     <Star className="size-4 text-flame" /> <span className="text-ink">{reviewAverage ?? "No reviews yet"}</span> · {reviews.length} published review{reviews.length === 1 ? "" : "s"}
                   </p>}
                 </div>
-
+                <button type="button" onClick={() => setReviewOpen(true)} className="press min-h-11 border-[1.5px] border-ink bg-white px-4 py-3 font-mono-b text-xs uppercase shadow-hard-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink">
+                  Add review
+                </button>
               </div>
               {!reviews.length && <div className="mt-6"><ChandruTestimonial /></div>}
               <ul className="mt-6 grid gap-5 md:grid-cols-2">
@@ -957,7 +963,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div>
                   <h3 className="font-mono-b text-xs tracking-[0.96px] uppercase">House rules</h3>
                   <ul className="mt-3 space-y-2">
-                    {['3-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'].map((r) => (
+                    {['1-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'].map((r) => (
                       <li key={r} className="flex items-start gap-2 text-sm text-stone">
                         <Check className="mt-0.5 size-4 shrink-0 text-moss" strokeWidth={2.25} /> {r}
                       </li>
@@ -994,7 +1000,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div className="mt-3 border-y border-line py-3" aria-live="polite">
                   <h2 className="mb-2 font-head text-lg">Send a booking request</h2>
                   <p key={space.id} className="anim-fade font-head text-sm">{space.name}</p>
-                  <p className="mt-0.5 text-xs text-stone">3-hour minimum · Pay only after host approval</p>
+                  <p className="mt-0.5 text-xs text-stone">1-hour minimum · Pay only after host approval</p>
                 </div>
                 {profile && (
                   <p className="rise mt-3 flex items-center gap-2 bg-moss/10 px-3 py-2 text-xs text-moss">
@@ -1055,7 +1061,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                       <span className={monoLabel}>Hours</span>
                       <select data-field="hours" aria-invalid={!!errors.hours} aria-describedby={err('hours')} value={hours} onChange={(e) => { updateDraft((current) => ({ ...current, hours: Number(e.target.value) })); setErrors(x => ({ ...x, hours: '' })) }} className={`${inputCls} cursor-pointer`}>
                         {hourOptions.map((h) => (
-                          <option key={h} value={h}>{h} hours</option>
+                          <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}</option>
                         ))}
                       </select>
                     </label>
@@ -1155,7 +1161,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
 
                 <dl className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
                   <div className="flex justify-between text-stone">
-                    <dt>{hourlyRate === null ? 'Price confirmed by host' : `${money(hourlyRate)} × ${hours} hours`}</dt>
+                    <dt>{hourlyRate === null ? 'Price confirmed by host' : `${money(hourlyRate)} × ${hours} ${hours === 1 ? 'hour' : 'hours'}`}</dt>
                     <dd key={subtotal} className="anim-fade">{subtotal === null ? 'Host quote' : money(subtotal)}</dd>
                   </div>
                   <div className="flex justify-between border-t border-line pt-3 font-head">
@@ -1233,6 +1239,9 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
         />
       )}
 
+      {reviewOpen && <Dialog title={`Review ${venue.name}`} onClose={() => setReviewOpen(false)}>
+        <SelfReviewForm venueSlug={venue.slug} venueName={venue.name} onDone={() => setReviewOpen(false)} />
+      </Dialog>}
       <SiteFooter wide />
     </div>
   )
