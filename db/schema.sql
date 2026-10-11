@@ -770,8 +770,7 @@ DO $$ BEGIN
     REVOKE ALL ON venue_booking_payments, venue_menu_items, venue_booking_orders FROM authenticated;
   END IF;
 END $$;
--- Preserve historical rows, but only our onboarded partner is public.
-UPDATE venues SET status = 'hidden' WHERE slug <> 'time-cafe' AND status <> 'hidden';
+-- Publication is curator-owned. Startup migrations must never unpublish venues.
 
 ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS archive_reason TEXT;

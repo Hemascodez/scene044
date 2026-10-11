@@ -79,6 +79,10 @@ async function main() {
     await sql("INSERT INTO venue_spaces(venue_id,space_key,name,max_guests,community_rate,production_rate) VALUES(1,'first-floor','First floor',30,2000,2000)");
     await sql("INSERT INTO venue_spaces(venue_id,space_key,name,max_guests,community_rate,production_rate) VALUES(2,'whole-space','Whole space',20,1000,1000),(3,'whole-space','Draft space',20,1000,1000)");
     assert.deepEqual((await listPublicVenues()).map(v => v.slug), ['other-fixture', 'time-cafe'], 'every live venue is public; drafts stay private');
+    // Startup replays schema.sql on every deploy. Published partners must survive.
+    await db.exec(schema.slice(start, end));
+    await db.exec(readFileSync(new URL('../db/migrations/2026-10-06-venue-operations.sql', import.meta.url), 'utf8'));
+    assert.deepEqual((await listPublicVenues()).map(v => v.slug), ['other-fixture', 'time-cafe'], 'restart preserves curator publication decisions');
     // Synthetic selection, not the private production-booking snapshot.
     const manifest = {
       capturedAt: '2026-10-07T06:46:00Z', venueSlug: 'time-cafe', reason: 'Local regression fixture',

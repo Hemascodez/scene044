@@ -40,6 +40,5 @@ DO $$ BEGIN
     REVOKE ALL ON venue_booking_payments, venue_menu_items, venue_booking_orders FROM authenticated;
   END IF;
 END $$;
--- Preserve historical rows, but only our onboarded partner is public.
-UPDATE venues SET status = 'hidden' WHERE slug <> 'time-cafe' AND status <> 'hidden';
+-- Publication is curator-owned. Reapplying this migration preserves status.
 COMMIT;
