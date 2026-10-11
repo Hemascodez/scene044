@@ -2,6 +2,7 @@
 
 import type { PartnerRequestStatus, VenueEarnings } from "@/lib/venueCatalog";
 import type { VenueStatus } from "@/lib/venues";
+import { MAX_VENUE_PHOTO_BYTES } from '@/lib/venuePhotoLimits';
 
 /**
  * Thin client over /api/admin/venues* and /api/admin/venue-partners*.
@@ -135,17 +136,14 @@ export function updatePartnerRequest(id: number, status: PartnerRequestStatus, n
 }
 
 /**
- * Uploads a venue photo through the existing curator poster pipeline
- * (app/api/admin/curator/poster) — it's already a generic "verify magic bytes,
- * store in poster_uploads, hand back /api/poster/{id}" endpoint with no
- * dependency on events, so venue photos reuse it rather than a second upload
- * path and a second storage table.
+ * Venue-only upload endpoint shares verified poster storage, but permits
+ * 10 MB without changing the 5 MB event-poster limit.
  */
 export async function uploadVenuePhoto(file: File): Promise<string> {
   const prepared = await prepareVenuePhoto(file);
   const form = new FormData();
   form.set("file", prepared);
-  const res = await fetch("/api/admin/curator/poster", { method: "POST", body: form });
+  const res = await fetch("/api/admin/venues/photos", { method: "POST", body: form });
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.url) {
     throw new VenueAdminApiError(data?.error ?? "Upload failed", res.status);
@@ -153,13 +151,13 @@ export async function uploadVenuePhoto(file: File): Promise<string> {
   return data.url as string;
 }
 
-/** Keep camera originals within the server's 5 MB limit before the proxy
+/** Keep camera originals within the server's 10 MB limit before the proxy
  * buffers the multipart request. The browser keeps the original file intact. */
 async function prepareVenuePhoto(file: File): Promise<File> {
-  const maxBytes = 5_000_000; // MAX_POSTER_BYTES on the server
+  const maxBytes = MAX_VENUE_PHOTO_BYTES;
   if (file.size <= maxBytes) return file;
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-    throw new VenueAdminApiError("Use a JPG, PNG or WebP photo. Maximum upload size is 5 MB.", 415);
+    throw new VenueAdminApiError("Use a JPG, PNG or WebP photo. Maximum upload size is 10 MB.", 415);
   }
 
   let image: ImageBitmap;
@@ -180,14 +178,14 @@ async function prepareVenuePhoto(file: File): Promise<File> {
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/webp", 0.84));
       if (!blob || blob.type !== "image/webp") {
-        throw new VenueAdminApiError("Photo processing is unavailable in this browser. Please use a photo under 5 MB.", 400);
+        throw new VenueAdminApiError("Photo processing is unavailable in this browser. Please use a photo under 10 MB.", 400);
       }
       if (blob.size <= maxBytes) {
         return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, { type: "image/webp" });
       }
       longestSide = Math.round(longestSide * 0.8);
     }
-    throw new VenueAdminApiError("This photo is still too large. Please choose one under 5 MB.", 413);
+    throw new VenueAdminApiError("This photo is still too large. Please choose one under 10 MB.", 413);
   } finally {
     image.close();
   }

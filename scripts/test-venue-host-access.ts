@@ -31,7 +31,9 @@ import { GET as poster } from '../app/api/poster/[id]/route';
 import { GET as adminVenues } from '../app/api/admin/venues/route';
 import { GET as changes, PATCH as readChanges } from '../app/api/admin/venue-changes/route';
 import { POST as adminPoster } from '../app/api/admin/curator/poster/route';
+import { POST as adminVenuePhoto } from '../app/api/admin/venues/photos/route';
 import { MAX_POSTER_BYTES } from '../lib/imageBytes';
+import { MAX_VENUE_PHOTO_BYTES } from '../lib/venuePhotoLimits';
 import { formatRemaining } from '../components/venues/BookingCountdown';
 
 interface LocalPg {
@@ -180,7 +182,7 @@ async function main() {
     };
     assert.equal((await upload(png, forgedHostToken)).status, 403);
     assert.equal((await upload(Buffer.from('<svg><script>alert(1)</script></svg>'))).status, 400, 'declared JPEG cannot hide SVG');
-    assert.equal((await upload(new Uint8Array(MAX_POSTER_BYTES + 1))).status, 413);
+    assert.equal((await upload(new Uint8Array(MAX_VENUE_PHOTO_BYTES + 1))).status, 413);
     const uploaded = await upload(png);
     assert.equal(uploaded.status, 200);
     const image = await uploaded.json();
@@ -208,6 +210,23 @@ async function main() {
     assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: ['https://attacker.invalid/image.png'] }, hostToken))).status, 400);
     await sql("INSERT INTO poster_uploads(mime,bytes,byte_size,origin,origin_url) VALUES('image/png',$1,$2,'upload','host-venue:other-fixture')", [png, png.length]);
     assert.equal((await savePhotos(req('/api/host/venue', 'PATCH', { photos: ['/api/poster/3'] }, hostToken))).status, 400, 'another venue owns that photo');
+    const largerVenuePhoto = Buffer.concat([png, Buffer.alloc(MAX_POSTER_BYTES + 1 - png.length)]);
+    const largeHostUpload = await upload(largerVenuePhoto);
+    assert.equal(largeHostUpload.status, 200, 'host venue photos above the event-poster limit are accepted');
+    assert.equal((await largeHostUpload.json()).byteSize, largerVenuePhoto.length);
+    const curatorForm = new FormData();
+    curatorForm.set('file', new File([new Uint8Array(largerVenuePhoto)], 'venue.png', { type: 'image/png' }));
+    const curatorUpload = await adminVenuePhoto(new Request('http://localhost:3000/api/admin/venues/photos', {
+      method: 'POST', headers: { authorization: `Basic ${Buffer.from('curator:fixture-curator').toString('base64')}` }, body: curatorForm,
+    }));
+    assert.equal(curatorUpload.status, 200, 'curator venue photos above 5 MB are accepted');
+    assert.equal((await curatorUpload.json()).byteSize, largerVenuePhoto.length);
+    assert.equal((await adminVenuePhoto(new Request('http://localhost:3000/api/admin/venues/photos', { method: 'POST', body: curatorForm }))).status, 401);
+    const tooLargeCuratorForm = new FormData();
+    tooLargeCuratorForm.set('file', new File([new Uint8Array(MAX_VENUE_PHOTO_BYTES + 1)], 'oversize.png', { type: 'image/png' }));
+    assert.equal((await adminVenuePhoto(new Request('http://localhost:3000/api/admin/venues/photos', {
+      method: 'POST', headers: { authorization: `Basic ${Buffer.from('curator:fixture-curator').toString('base64')}` }, body: tooLargeCuratorForm,
+    }))).status, 413);
     const roomContext = (id: number) => ({ params: Promise.resolve({ rowId: String(id) }) });
     assert.equal((await roomPhoto(req('/api/host/venue/spaces/2', 'PATCH', { image: image.url }, hostToken), roomContext(2))).status, 404);
     assert.equal((await roomPhoto(req('/api/host/venue/spaces/1', 'PATCH', { image: image.url, communityRate: 1 }, hostToken), roomContext(1))).status, 400);

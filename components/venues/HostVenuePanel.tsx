@@ -222,6 +222,13 @@ export function HostVenuePanel({ slug }: { slug: string }) {
                       </span>
                     )}
                   </div>
+                  {i === 0 ? (
+                    <span className="block border-t-[1.5px] border-ink px-3 py-2 font-mono-b text-xs uppercase text-moss">Current cover</span>
+                  ) : (
+                    <button type="button" disabled={busy} onClick={() => move(i, 0)} aria-label={`Set venue photo ${i + 1} as cover`} className="min-h-11 w-full border-t-[1.5px] border-ink bg-white px-3 py-2 text-left font-mono-b text-xs uppercase text-ink hover:bg-sand focus-visible:outline focus-visible:outline-2 focus-visible:outline-flame disabled:opacity-50">
+                      Set as cover
+                    </button>
+                  )}
                   <div className="flex items-center justify-between gap-2 border-t-[1.5px] border-ink px-2 py-1.5">
                     <div className="flex gap-1">
                       <button type="button" disabled={busy || i === 0} onClick={() => move(i, i - 1)} aria-label={`Move photo ${i + 1} earlier`} className={`${btn} bg-white text-ink px-2`}>

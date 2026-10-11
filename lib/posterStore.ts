@@ -23,12 +23,13 @@ export async function storePosterBytes(
   bytes: Buffer,
   origin: "upload" | "import" | "auto",
   originUrl: string | null,
+  maxBytes = MAX_POSTER_BYTES,
 ): Promise<StoreResult> {
   if (bytes.byteLength === 0) return { ok: false, error: "That file is empty." };
-  if (bytes.byteLength > MAX_POSTER_BYTES) {
+  if (bytes.byteLength > maxBytes) {
     return {
       ok: false,
-      error: `Too large (${(bytes.byteLength / 1_000_000).toFixed(1)} MB). Maximum is ${MAX_POSTER_BYTES / 1_000_000} MB.`,
+      error: `Too large (${(bytes.byteLength / 1_000_000).toFixed(1)} MB). Maximum is ${maxBytes / 1_000_000} MB.`,
     };
   }
 

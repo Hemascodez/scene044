@@ -627,6 +627,11 @@ function PhotoPicker({
     onChange(next);
   }
 
+  function setCover(index: number) {
+    onChange([photos[index], ...photos.filter((_, i) => i !== index)]);
+    announce(`${label === "Room photos" ? "Room" : "Venue"} cover selected — save to publish it`);
+  }
+
   return (
     <div>
       <AdminLabel>{label}</AdminLabel>
@@ -635,7 +640,8 @@ function PhotoPicker({
       </p>
       <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {photos.map((src, index) => (
-          <div key={`${src}-${index}`} className="group relative aspect-video overflow-hidden border border-[#2c4236] bg-[#0b1611]">
+          <div key={`${src}-${index}`} className="group overflow-hidden border border-[#2c4236] bg-[#0b1611]">
+            <div className="relative aspect-video">
             {/* eslint-disable-next-line @next/next/no-img-element -- curator-uploaded venue photos, not a Next-optimized public asset path */}
             <img src={src} alt={`Venue photo ${index + 1}`} className="size-full object-cover" />
             {index === 0 && (
@@ -643,7 +649,7 @@ function PhotoPicker({
                 Cover
               </span>
             )}
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/70 p-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/70 p-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <div className="flex gap-1">
                 <button
                   type="button"
@@ -674,6 +680,14 @@ function PhotoPicker({
                 ✕ remove
               </button>
             </div>
+            </div>
+            {index === 0 ? (
+              <span className="block px-2 py-2 font-mono text-[10px] uppercase tracking-wide text-[#39ff9b]">Current cover</span>
+            ) : (
+              <button type="button" disabled={uploading} onClick={() => setCover(index)} aria-label={`Set ${label.toLowerCase()} photo ${index + 1} as cover`} className="min-h-11 w-full border-t border-[#2c4236] px-2 text-left font-mono text-[10px] uppercase tracking-wide text-[#e9efe7] hover:bg-[#163326] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#39ff9b] disabled:opacity-50">
+                Set as cover
+              </button>
+            )}
           </div>
         ))}
 

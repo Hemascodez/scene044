@@ -22,7 +22,8 @@ for this venue. Room-photo updates change only `image`, with the owning venue
 checked in the database UPDATE. They cannot overwrite room prices or capacity.
 
 Uploads reuse `storePosterBytes` and `poster_uploads`. JPG/PNG/WebP magic bytes
-and the existing 5 MB size limit are enforced. Images retain stable public
+and a venue-only 10 MB size limit are enforced. Event posters, menu scans, and
+review photos retain their existing 5 MB limits. Images retain stable public
 `/api/poster/<id>` URLs. The existing `origin_url` field records
 `host-venue:<venue-slug>` for ownership; no second photo storage path is added.
 Existing cleanup retains photos referenced by venue galleries and rooms.

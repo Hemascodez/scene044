@@ -3,6 +3,7 @@
 import type { VenueBooking, VenueBookingOrder, VenueReview } from "@/lib/venueBookings";
 import type { AdminSpace, AdminVenue } from '@/lib/client/venueAdminApi';
 import type { HostSpaceDetails } from '@/lib/venueHostSpaceValidation';
+import { MAX_VENUE_PHOTO_BYTES } from '@/lib/venuePhotoLimits';
 
 /**
  * Thin client over /api/host/*.
@@ -65,6 +66,9 @@ export function publishHostSpace(details: HostSpaceDetails, target: number | str
 }
 
 export async function uploadHostVenuePhoto(file: File): Promise<string> {
+  if (file.size > MAX_VENUE_PHOTO_BYTES) {
+    throw new HostApiError('Photo is too large. Maximum is 10 MB.', 413);
+  }
   const form = new FormData();
   form.set('file', file);
   const res = await fetch('/api/host/venue/photos', { method: 'POST', body: form });

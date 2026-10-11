@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getHostVenueSlug, HOST_ACCESS_MESSAGE } from '@/lib/venueHostAccess';
 import { getCatalogVenue } from '@/lib/venueCatalog';
-import { MAX_POSTER_BYTES } from '@/lib/imageBytes';
+import { MAX_VENUE_PHOTO_BYTES, MAX_VENUE_UPLOAD_BODY_BYTES } from '@/lib/venuePhotoLimits';
 import { storePosterBytes } from '@/lib/posterStore';
 import { hostPhotoOrigin } from '@/lib/venueHostPhotos';
 
@@ -13,16 +13,16 @@ export async function POST(request: Request) {
     if (!request.headers.get('content-type')?.includes('multipart/form-data')) {
       return NextResponse.json({ error: 'Upload a JPG, PNG or WebP file.' }, { status: 415 });
     }
-    if (Number(request.headers.get('content-length')) > MAX_POSTER_BYTES + 65536) {
-      return NextResponse.json({ error: 'Photo is too large. Maximum is 5 MB.' }, { status: 413 });
+    if (Number(request.headers.get('content-length')) > MAX_VENUE_UPLOAD_BODY_BYTES) {
+      return NextResponse.json({ error: 'Photo is too large. Maximum is 10 MB.' }, { status: 413 });
     }
     let form: FormData;
     try { form = await request.formData(); }
     catch { return NextResponse.json({ error: 'Could not read the uploaded file.' }, { status: 400 }); }
     const file = form.get('file');
     if (!(file instanceof File)) return NextResponse.json({ error: 'No file was included.' }, { status: 400 });
-    if (file.size > MAX_POSTER_BYTES) return NextResponse.json({ error: 'Photo is too large. Maximum is 5 MB.' }, { status: 413 });
-    const result = await storePosterBytes(Buffer.from(await file.arrayBuffer()), 'upload', hostPhotoOrigin(slug));
+    if (file.size > MAX_VENUE_PHOTO_BYTES) return NextResponse.json({ error: 'Photo is too large. Maximum is 10 MB.' }, { status: 413 });
+    const result = await storePosterBytes(Buffer.from(await file.arrayBuffer()), 'upload', hostPhotoOrigin(slug), MAX_VENUE_PHOTO_BYTES);
     return result.ok ? NextResponse.json(result)
       : NextResponse.json({ error: result.error }, { status: 400 });
   } catch (error) {

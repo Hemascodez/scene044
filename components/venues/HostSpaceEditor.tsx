@@ -47,6 +47,10 @@ export function HostSpaceEditor({ space, onSaved, onCancel }: { space?: AdminSpa
     [photos[index], photos[to]] = [photos[to], photos[index]];
     update('photos', photos); setPreviewIndex(0);
   }
+  function setCover(index: number) {
+    update('photos', [draft.photos[index], ...draft.photos.filter((_, i) => i !== index)]);
+    setPreviewIndex(0);
+  }
   const photo = draft.photos[previewIndex] ?? draft.photos[0];
   return (
     <form onSubmit={publish} className="min-w-0 border-[1.5px] border-ink bg-paper p-4 sm:p-6">
@@ -70,6 +74,7 @@ export function HostSpaceEditor({ space, onSaved, onCancel }: { space?: AdminSpa
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt={`Space photo ${index + 1}`} className="size-12 object-cover" />
             <span className="text-sm">{index === 0 ? 'Cover' : `Photo ${index + 1}`}</span>
+            {index > 0 && <button type="button" className={`${button} bg-white`} aria-label={`Set space photo ${index + 1} as cover`} onClick={() => setCover(index)}>Set as cover</button>}
             <button type="button" className={button} disabled={index === 0} aria-label={`Move space photo ${index + 1} earlier`} onClick={() => move(index, -1)}>←</button>
             <button type="button" className={button} disabled={index === draft.photos.length - 1} aria-label={`Move space photo ${index + 1} later`} onClick={() => move(index, 1)}>→</button>
             <button type="button" className={`${button} text-primary-ink`} onClick={() => { update('photos', draft.photos.filter((_, i) => i !== index)); setPreviewIndex(0); }}>Remove</button>
