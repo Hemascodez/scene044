@@ -20,7 +20,18 @@ export async function POST(request: Request) {
 
   try {
     if (contentType.includes("multipart/form-data")) {
-      const form = await request.formData();
+      // Proxy buffers at most 10 MB by default. Reject oversized photos before
+      // parsing, otherwise it forwards a truncated multipart body and the user
+      // sees the unhelpful "Failed to parse body as FormData" exception.
+      if (Number(request.headers.get("content-length")) > MAX_POSTER_BYTES + 65_536) {
+        return NextResponse.json({ error: "Photo is too large. Maximum is 5 MB." }, { status: 413 });
+      }
+      let form: FormData;
+      try {
+        form = await request.formData();
+      } catch {
+        return NextResponse.json({ error: "Could not read this photo. Use a JPG, PNG or WebP image under 5 MB and retry." }, { status: 400 });
+      }
       const file = form.get("file");
       if (!(file instanceof File)) {
         return NextResponse.json({ error: "No file was included." }, { status: 400 });
@@ -49,6 +60,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(result)
       : NextResponse.json({ error: result.error }, { status: 400 });
   } catch (err) {
-    return NextResponse.json({ error: String(err).slice(0, 300) }, { status: 500 });
+    console.error("Curator poster upload failed", err instanceof Error ? err.name : "unknown");
+    return NextResponse.json({ error: "Photo upload failed. Please retry." }, { status: 503 });
   }
 }

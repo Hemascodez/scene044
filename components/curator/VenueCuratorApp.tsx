@@ -452,12 +452,14 @@ function VenueEditor({
   });
   const [photos, setPhotos] = useState<string[]>(venue.photos);
   const [saving, setSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   async function save() {
+    if (photoUploading) return;
     setSaving(true);
     try {
       await updateVenueFields(venue.slug, {
@@ -535,7 +537,7 @@ function VenueEditor({
         </Field>
       </div>
       <div className="mt-3">
-        <PhotoPicker photos={photos} onChange={setPhotos} announce={announce} />
+        <PhotoPicker photos={photos} onChange={setPhotos} onUploadingChange={setPhotoUploading} announce={announce} />
       </div>
       <Field label="Amenities" hint="Comma-separated — organizer-facing promises, confirm with the owner first" className="mt-3">
         <TextArea rows={2} value={form.amenities} onChange={(e) => set("amenities", e.target.value)} />
@@ -545,8 +547,8 @@ function VenueEditor({
       </Field>
 
       <div className="mt-4 flex justify-end">
-        <AdminBtn variant="primary" onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save venue"}
+        <AdminBtn variant="primary" onClick={save} disabled={saving || photoUploading}>
+          {saving ? "Saving…" : photoUploading ? "Uploading…" : "Save venue"}
         </AdminBtn>
       </div>
 
@@ -572,28 +574,43 @@ function PhotoPicker({
   photos,
   onChange,
   announce,
+  label = "Photos",
+  emptyHint = "No photos yet — this venue can't go live without at least one.",
+  onUploadingChange,
 }: {
   photos: string[];
   onChange: (next: string[]) => void;
   announce: (msg: string) => void;
+  label?: string;
+  emptyHint?: string;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
+    if (photos.length + files.length > 30) {
+      setUploadError("A venue or room can have up to 30 photos.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setUploading(true);
+    onUploadingChange?.(true);
+    setUploadError(null);
+    const uploaded: string[] = [];
     try {
-      const uploaded: string[] = [];
       for (const file of Array.from(files)) {
         uploaded.push(await uploadVenuePhoto(file));
       }
-      onChange([...photos, ...uploaded]);
-      announce(`${uploaded.length} photo${uploaded.length === 1 ? "" : "s"} uploaded`);
+      announce(`${uploaded.length} photo${uploaded.length === 1 ? "" : "s"} ready — save to keep them`);
     } catch (err) {
-      announce(err instanceof VenueAdminApiError ? err.message : "Photo upload failed");
+      setUploadError(err instanceof VenueAdminApiError ? err.message : "Photo upload failed");
     } finally {
+      if (uploaded.length) onChange([...photos, ...uploaded]);
       setUploading(false);
+      onUploadingChange?.(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -612,9 +629,9 @@ function PhotoPicker({
 
   return (
     <div>
-      <AdminLabel>Photos</AdminLabel>
+      <AdminLabel>{label}</AdminLabel>
       <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[#5f7568]">
-        First photo is the cover shown on the listing card
+        {label === "Room photos" ? "First photo is the room card cover" : "First photo is the cover shown on the listing card"}
       </p>
       <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {photos.map((src, index) => (
@@ -631,7 +648,7 @@ function PhotoPicker({
                 <button
                   type="button"
                   title="Move earlier"
-                  disabled={index === 0}
+                  disabled={uploading || index === 0}
                   onClick={() => move(index, -1)}
                   className="px-1.5 py-0.5 font-mono text-[10px] text-[#e9efe7] disabled:opacity-30"
                 >
@@ -640,7 +657,7 @@ function PhotoPicker({
                 <button
                   type="button"
                   title="Move later"
-                  disabled={index === photos.length - 1}
+                  disabled={uploading || index === photos.length - 1}
                   onClick={() => move(index, 1)}
                   className="px-1.5 py-0.5 font-mono text-[10px] text-[#e9efe7] disabled:opacity-30"
                 >
@@ -650,6 +667,7 @@ function PhotoPicker({
               <button
                 type="button"
                 title="Remove photo"
+                disabled={uploading}
                 onClick={() => remove(index)}
                 className="px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#ff8a7a]"
               >
@@ -679,9 +697,10 @@ function PhotoPicker({
           />
         </label>
       </div>
+      {uploadError && <p role="alert" className="mt-2 text-sm text-[#ff8a7a]">{uploadError}</p>}
       {photos.length === 0 && (
         <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#5f7568]">
-          No photos yet — this venue can&apos;t go live without at least one.
+          {emptyHint}
         </p>
       )}
     </div>
@@ -815,7 +834,10 @@ function SpaceForm({
   const [description, setDescription] = useState(existing?.description ?? "");
   const [capacity, setCapacity] = useState(existing?.capacity ?? "");
   const [maxGuests, setMaxGuests] = useState(existing?.maxGuests?.toString() ?? "");
-  const [image, setImage] = useState(existing?.image ?? "");
+  const [photos, setPhotos] = useState(() =>
+    [...new Set([existing?.image, ...(existing?.photos ?? [])].filter((src): src is string => Boolean(src)))],
+  );
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [amenities, setAmenities] = useState(existing?.amenities.join(", ") ?? "");
   const [communityRate, setCommunityRate] = useState(existing?.communityRate?.toString() ?? "");
   const [productionRate, setProductionRate] = useState(existing?.productionRate?.toString() ?? "");
@@ -823,7 +845,7 @@ function SpaceForm({
   const [busy, setBusy] = useState(false);
 
   async function save() {
-    if (!name.trim() || !maxGuests) return;
+    if (!name.trim() || !maxGuests || photoUploading) return;
     setBusy(true);
     try {
       await saveVenueSpace(venueSlug, {
@@ -833,7 +855,8 @@ function SpaceForm({
         description,
         capacity,
         maxGuests: Number(maxGuests),
-        image: image || null,
+        image: photos[0] ?? null,
+        photos,
         amenities: amenities.split(",").map((s) => s.trim()).filter(Boolean),
         communityRate: communityRate === "" ? null : Number(communityRate),
         productionRate: productionRate === "" ? null : Number(productionRate),
@@ -870,9 +893,16 @@ function SpaceForm({
           <TextInput inputMode="numeric" value={maxGuests} onChange={(e) => setMaxGuests(e.target.value)} />
         </Field>
       </div>
-      <Field label="Image path" className="mt-3">
-        <TextInput value={image} onChange={(e) => setImage(e.target.value)} />
-      </Field>
+      <div className="mt-3">
+        <PhotoPicker
+          label="Room photos"
+          emptyHint="Add at least one room photo to show it on the venue page."
+          photos={photos}
+          onChange={setPhotos}
+          onUploadingChange={setPhotoUploading}
+          announce={announce}
+        />
+      </div>
       <Field label="Amenities" hint="Comma-separated" className="mt-3">
         <TextInput value={amenities} onChange={(e) => setAmenities(e.target.value)} />
       </Field>
@@ -891,8 +921,8 @@ function SpaceForm({
         <AdminBtn variant="ghost" onClick={onCancel}>
           Cancel
         </AdminBtn>
-        <AdminBtn variant="primary" onClick={save} disabled={busy || !name.trim() || !maxGuests}>
-          {busy ? "Saving…" : "Save room"}
+        <AdminBtn variant="primary" onClick={save} disabled={busy || photoUploading || !name.trim() || !maxGuests}>
+          {busy ? "Saving…" : photoUploading ? "Uploading…" : "Save room"}
         </AdminBtn>
       </div>
     </div>

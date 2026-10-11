@@ -142,14 +142,55 @@ export function updatePartnerRequest(id: number, status: PartnerRequestStatus, n
  * path and a second storage table.
  */
 export async function uploadVenuePhoto(file: File): Promise<string> {
+  const prepared = await prepareVenuePhoto(file);
   const form = new FormData();
-  form.set("file", file);
+  form.set("file", prepared);
   const res = await fetch("/api/admin/curator/poster", { method: "POST", body: form });
   const data = await res.json().catch(() => null);
   if (!res.ok || !data?.url) {
     throw new VenueAdminApiError(data?.error ?? "Upload failed", res.status);
   }
   return data.url as string;
+}
+
+/** Keep camera originals within the server's 5 MB limit before the proxy
+ * buffers the multipart request. The browser keeps the original file intact. */
+async function prepareVenuePhoto(file: File): Promise<File> {
+  const maxBytes = 5_000_000; // MAX_POSTER_BYTES on the server
+  if (file.size <= maxBytes) return file;
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new VenueAdminApiError("Use a JPG, PNG or WebP photo. Maximum upload size is 5 MB.", 415);
+  }
+
+  let image: ImageBitmap;
+  try {
+    image = await createImageBitmap(file);
+  } catch {
+    throw new VenueAdminApiError("This photo could not be opened. Try exporting it as JPG or PNG.", 400);
+  }
+  try {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) throw new VenueAdminApiError("Photo processing is unavailable in this browser.", 400);
+    let longestSide = Math.min(2560, Math.max(image.width, image.height));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const scale = longestSide / Math.max(image.width, image.height);
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/webp", 0.84));
+      if (!blob || blob.type !== "image/webp") {
+        throw new VenueAdminApiError("Photo processing is unavailable in this browser. Please use a photo under 5 MB.", 400);
+      }
+      if (blob.size <= maxBytes) {
+        return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, { type: "image/webp" });
+      }
+      longestSide = Math.round(longestSide * 0.8);
+    }
+    throw new VenueAdminApiError("This photo is still too large. Please choose one under 5 MB.", 413);
+  } finally {
+    image.close();
+  }
 }
 
 export function fetchVenueEarnings(venueSlug?: string) {

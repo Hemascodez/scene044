@@ -93,11 +93,20 @@ async function main() {
   check("both rooms saved", withSpaces?.spaces.length, 2);
   check("rooms come back in sort order", withSpaces?.spaces.map((s) => s.id), ["main-hall", "quiet-corner"]);
 
+  await upsertVenueSpace(venueId, {
+    spaceKey: "main-hall", name: "Main hall", maxGuests: 40,
+    image: "/api/poster/11", photos: ["/api/poster/11", "/api/poster/12"],
+  });
+  check("curator room album survives database round trip", (await getCatalogVenue(SLUG))?.spaces[0]?.photos,
+    ["/api/poster/11", "/api/poster/12"]);
+
   await upsertVenueSpace(venueId, { spaceKey: "main-hall", name: "Main hall (updated)", maxGuests: 45, communityRate: 2600, sortOrder: 0 });
   withSpaces = await getCatalogVenue(SLUG);
   check("re-saving a room updates rather than duplicating it", withSpaces?.spaces.length, 2);
   check("the update took effect", withSpaces?.spaces[0]?.name, "Main hall (updated)");
   check("capacity update took effect", withSpaces?.spaces[0]?.maxGuests, 45);
+  check("later upserts without photos preserve the room album", withSpaces?.spaces[0]?.photos,
+    ["/api/poster/11", "/api/poster/12"]);
 
   console.log("\n--- the pricing helpers work on catalog data too ---");
   check("cheapest published rate across DB rooms", venueFromRate(withSpaces!), 600);

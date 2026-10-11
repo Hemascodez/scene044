@@ -256,6 +256,7 @@ export interface SpaceInput {
   capacity?: string;
   maxGuests: number;
   image?: string | null;
+  photos?: string[];
   amenities?: string[];
   communityRate?: number | null;
   productionRate?: number | null;
@@ -269,8 +270,8 @@ export async function upsertVenueSpace(venueId: number, input: SpaceInput): Prom
   const { rows } = await query<SpaceRow>(
     `INSERT INTO venue_spaces
        (venue_id, space_key, name, eyebrow, description, capacity, max_guests, image,
-        amenities, community_rate, production_rate, minimum_food_spend, sort_order)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        amenities, community_rate, production_rate, minimum_food_spend, sort_order, photos)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      ON CONFLICT (venue_id, space_key) DO UPDATE SET
        name = EXCLUDED.name,
        eyebrow = EXCLUDED.eyebrow,
@@ -278,6 +279,7 @@ export async function upsertVenueSpace(venueId: number, input: SpaceInput): Prom
        capacity = EXCLUDED.capacity,
        max_guests = EXCLUDED.max_guests,
        image = EXCLUDED.image,
+       photos = CASE WHEN $15::boolean THEN EXCLUDED.photos ELSE venue_spaces.photos END,
        amenities = EXCLUDED.amenities,
        community_rate = EXCLUDED.community_rate,
        production_rate = EXCLUDED.production_rate,
@@ -299,6 +301,8 @@ export async function upsertVenueSpace(venueId: number, input: SpaceInput): Prom
       input.productionRate ?? null,
       input.minimumFoodSpend ?? null,
       input.sortOrder ?? 0,
+      input.photos ?? [],
+      input.photos !== undefined,
     ],
   );
   return toSpace(rows[0]);

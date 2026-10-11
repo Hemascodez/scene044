@@ -10,6 +10,7 @@ interface SpaceBody {
   capacity?: unknown;
   maxGuests?: unknown;
   image?: unknown;
+  photos?: unknown;
   amenities?: unknown;
   communityRate?: unknown;
   productionRate?: unknown;
@@ -60,6 +61,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const amenities = Array.isArray(body.amenities)
     ? body.amenities.filter((item): item is string => typeof item === "string")
     : [];
+  if (body.photos !== undefined && (!Array.isArray(body.photos) || body.photos.length > 30 ||
+    body.photos.some((item) => typeof item !== "string" || item.length > 2000 || !item.trim()))) {
+    return NextResponse.json({ error: "photos must be a list of up to 30 image paths" }, { status: 400 });
+  }
 
   const input: SpaceInput = {
     spaceKey,
@@ -69,6 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     capacity: typeof body.capacity === "string" ? body.capacity.trim() : "",
     maxGuests,
     image: typeof body.image === "string" && body.image.trim() ? body.image.trim() : null,
+    photos: body.photos === undefined ? undefined : (body.photos as string[]).map((photo) => photo.trim()),
     amenities,
     communityRate: optionalNumber(body.communityRate),
     productionRate: optionalNumber(body.productionRate),
