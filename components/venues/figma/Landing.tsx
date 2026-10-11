@@ -81,10 +81,14 @@ const Eyebrow = ({ children, className = '' }: { children: React.ReactNode; clas
   <p className={`font-mono-b text-[11px] leading-4 tracking-[1.32px] uppercase text-flame ${className}`}>{children}</p>
 )
 
-function venueSlides(venue: CatalogVenue) {
-  const photos = venue.photos.length ? venue.photos : venue.spaces.map(space => space.image).filter(Boolean)
-  return photos.length ? photos.map((src, i) => ({ src, alt: `${venue.name} — photo ${i + 1}` }))
-    : venue.slug === 'time-cafe' ? slides : []
+function heroPhoto(venue: CatalogVenue) {
+  // Time Cafe's original seeded gallery predates its current room photography.
+  // Prefer a curator-uploaded cover; otherwise use the current catalog room cover.
+  const photos = venue.slug === 'time-cafe'
+    ? venue.photos.filter(src => !/^\/venues\/time-cafe\/(?:first-floor-wide|terrace|projector-event|first-floor|small-table)\.jpeg$/.test(src))
+    : venue.photos
+  return photos[0] || venue.spaces.find(space => space.image || space.photos?.length)?.image
+    || venue.spaces.flatMap(space => space.photos ?? [])[0]
 }
 
 /**
@@ -93,7 +97,9 @@ function venueSlides(venue: CatalogVenue) {
  */
 export default function Landing({ venues }: { venues: CatalogVenue[] }) {
   const router = useRouter()
-  const featured = venues.find(venue => venue.slug === 'time-cafe') ?? venues[0]
+  const heroVenues = venues.filter(venue => venue.status === 'live' && heroPhoto(venue))
+  const [heroIndex, setHeroIndex] = useState(0)
+  const featured = heroVenues[heroIndex % Math.max(heroVenues.length, 1)]
   const onOpenVenue = (slug: string) => router.push(venueDetailSearchHref(slug, readVenueSearchPreferences()))
   const onListVenue = () => router.push('/venues/partner')
   useReveal()
@@ -139,14 +145,17 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
 
             <div className="rise relative" style={{ '--d': '200ms' } as React.CSSProperties}>
               <Carousel
-                slides={featured ? venueSlides(featured) : []}
-                label={featured ? `${featured.name} photos` : 'Venue photos'}
-                autoplay={!!featured}
+                slides={heroVenues.map(venue => ({ src: heroPhoto(venue)!, alt: `${venue.name} — ${venue.area}, ${venue.city}` }))}
+                label="Featured Chennai venues"
+                autoplay
+                activeIndex={heroIndex}
+                onSlideChange={setHeroIndex}
+                showPlaybackControl
                 className="aspect-[4/4.1] w-full border-[1.5px] border-ink shadow-hard lg:aspect-auto lg:h-[544px]"
               />
-              {featured && <figure className="absolute -bottom-8 left-3 w-[220px] border-[1.5px] border-ink bg-paper-2 p-4 shadow-hard sm:w-[240px] lg:-left-6 lg:bottom-auto lg:top-[444px]">
+              {featured && <figure className="pointer-events-none absolute -bottom-8 left-3 w-[220px] border-[1.5px] border-ink bg-paper-2 p-4 shadow-hard sm:w-[240px] lg:-left-6 lg:bottom-auto lg:top-[444px]">
                 <figcaption className="flex items-center gap-1.5 font-body-m text-xs leading-4 text-moss">
-                  <ShieldCheck className="size-[15px] shrink-0" /> Visited &amp; verified by SCENE/044
+                  <ShieldCheck className="size-[15px] shrink-0" /> {featured.slug === 'time-cafe' ? 'Visited & verified by SCENE/044' : 'Venue partner · SCENE/044'}
                 </figcaption>
                 <p className="mt-2 font-body-b text-lg leading-[22.5px] font-bold">{featured.name}</p>
                 <p className="mt-0.5 flex items-center gap-1 text-sm leading-5 text-stone">

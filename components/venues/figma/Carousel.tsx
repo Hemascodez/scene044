@@ -11,6 +11,9 @@ export default function Carousel({
   className = '',
   autoplay = false,
   arrowClassName = 'size-10',
+  activeIndex,
+  onSlideChange,
+  showPlaybackControl = false,
 }: {
   slides: Slide[]
   label: string
@@ -19,27 +22,57 @@ export default function Carousel({
   /** Arrow button size. Venue cards pass 'size-11' for the 44px touch target
    *  their Figma frame specifies; the hero keeps its approved 40px. */
   arrowClassName?: string
+  /** Optional controlled selection keeps the hero venue caption in sync. */
+  activeIndex?: number
+  onSlideChange?: (index: number) => void
+  showPlaybackControl?: boolean
 }) {
-  const [i, setI] = useState(0)
-  const [paused, setPaused] = useState(false)
+  const [internalIndex, setInternalIndex] = useState(0)
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const [stopped, setStopped] = useState(false)
   const n = slides.length
-  const go = (d: number) => { if (n > 1) setI((v) => (v + d + n) % n) }
+  const i = (activeIndex ?? internalIndex) % Math.max(n, 1)
+  const paused = hovered || focused || stopped
+  const select = (index: number) => {
+    if (onSlideChange) onSlideChange(index)
+    else setInternalIndex(index)
+  }
+  const go = (d: number) => { if (n > 1) select((i + d + n) % n) }
 
   useEffect(() => {
-    if (n < 2 || !autoplay || paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const t = setInterval(() => setI((v) => (v + 1) % n), 5500)
-    return () => clearInterval(t)
-  }, [autoplay, paused, n])
+    if (n < 2 || !autoplay || paused) return
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let timer: ReturnType<typeof setInterval> | undefined
+    const update = () => {
+      clearInterval(timer)
+      if (!motion.matches && !document.hidden) {
+        timer = setInterval(() => {
+          const next = (i + 1) % n
+          if (onSlideChange) onSlideChange(next)
+          else setInternalIndex(next)
+        }, 5500)
+      }
+    }
+    update()
+    motion.addEventListener('change', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearInterval(timer)
+      motion.removeEventListener('change', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [autoplay, paused, n, i, onSlideChange])
 
   return (
     <section
       aria-roledescription="carousel"
       aria-label={label}
       className={`group relative overflow-hidden bg-sand ${className}`}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false) }}
       onKeyDown={(e) => {
         if (e.key === 'ArrowLeft') go(-1)
         if (e.key === 'ArrowRight') go(1)
@@ -88,14 +121,24 @@ export default function Carousel({
               type="button"
               aria-label={`Show image ${k + 1} of ${n}`}
               aria-current={k === i}
-              onClick={() => setI(k)}
+              onClick={() => select(k)}
               className={`h-1.5 transition-all duration-300 ${k === i ? 'w-7 bg-white' : 'w-3 bg-white/55 hover:bg-white/80'}`}
             />
           ))}
         </div>
-        <p className="font-mono-b text-[10px] leading-[15px] tracking-[0.8px] text-white" aria-hidden="true">
-          {i + 1} / {n}
-        </p>
+        <div className="flex items-center gap-3">
+          {showPlaybackControl && autoplay && n > 1 && <button
+            type="button"
+            aria-label={stopped ? 'Resume venue slideshow' : 'Pause venue slideshow'}
+            onClick={() => setStopped(value => !value)}
+            className="min-h-10 font-mono-b text-[10px] leading-[15px] tracking-[0.8px] text-white motion-reduce:hidden"
+          >
+            {stopped ? 'PLAY' : 'PAUSE'}
+          </button>}
+          <p className="font-mono-b text-[10px] leading-[15px] tracking-[0.8px] text-white" aria-hidden="true">
+            {i + 1} / {n}
+          </p>
+        </div>
       </div>}
     </section>
   )
