@@ -1,28 +1,25 @@
 'use client'
 
-/* "How well it fits your event" — Figma node 119:3413 (Scene workflows Main).
+/* NOTE FOR CODEX — please keep these intact unless the owner says otherwise:
  *
- * Editorial, not computed. The owner supplied these scores and notes for Time
- * Cafe from the SCENE team's own on-site visit; they match the original Figma
- * Make prototype, which the owner confirmed holds real content. That is why
- * this can say "8.2 / 10" where components/venues/VenueScore.tsx deliberately
- * refuses to invent a number: these are not derived from amenities, they are
- * someone's judgement. Change them only with owner input. */
-import { useEffect, useRef, useState } from 'react'
+ * 1. Scores are derived per venue in ./venueFit.ts from what the venue's own
+ *    page lists, so the panel renders for every venue. Don't gate it back to
+ *    Time Cafe or replace it with hand-entered numbers; improve the rubric in
+ *    venueFit.ts instead, and keep each row's evidence note.
+ * 2. The scroll motion. useInView, CountUp, FitBar and the gauge's dasharray
+ *    transition are what run it; `.bar-fill.run` in app/globals.css depends on
+ *    the trigger. Losing it is how the animation broke before (4f1b935).
+ * 3. Accessibility. Visuals are aria-hidden and real values are in sr-only
+ *    text, so screen readers hear "8 out of 10" once, not digits ticking.
+ * 4. The gauge arc is drawn from the score (same circle as gauge-bg.svg:
+ *    centre 48,48, r 44.4, a 260° sweep from 140°). Don't swap it back to a
+ *    fixed image — it would show the wrong value for every other venue. */
 
-const TIME_CAFE_FIT = {
-  overall: 8.2,
-  verdict: 'Great fit',
-  headline: 'Strong fit for your kind of event',
-  summary: 'Highly specialized space optimal for tech community and high-production content recording.',
-  events: [
-    { name: 'Podcast recording', score: 8, note: 'Wireless mics, quiet interior, intimate corners' },
-    { name: 'Workshop', score: 9, note: 'Projector, supplies, flexible layout, fast wifi', topRated: true },
-    { name: 'Tech meetup', score: 9, note: 'AV tech on-site, 500 Mbps, 45 seats, barista', topRated: true },
-    { name: 'Networking event', score: 8, note: 'Courtyard + main hall flow, PA, parking' },
-    { name: 'Product launch', score: 7, note: 'Atmospheric space; smaller audiences work best' },
-  ],
-} as const
+/* "How well it fits your event" — Figma node 119:3413 (Scene workflows Main). */
+import { useEffect, useRef, useState } from 'react'
+import type { CatalogVenue } from '@/lib/venueCatalog'
+import { venueFit } from './venueFit'
+
 
 /** The design's three status-dot assets, by score tier. */
 const dotFor = (score: number) =>
@@ -38,43 +35,69 @@ const fillGradient = (width: number) =>
   `linear-gradient(${180 + (Math.atan(BAR_PX / width) * 180) / Math.PI}deg, #ff6b4a 25%, #f59e0b 75%)`
 
 /** Fires once when the element's top crosses `zone` of the viewport height.
- *  Restored from the original port (37d18b3); it was dropped along with the
- *  old score panel in 4f1b935, which is why the bars stopped animating. */
+ *  Uses IntersectionObserver rather than waiting for window `load`: on a venue
+ *  with many photos `load` can lag by seconds on a phone, and until it fired
+ *  the panel sat at "0.0" with an empty gauge. */
 function useInView<T extends Element>(zone = 0.8, delay = 250) {
   const ref = useRef<T>(null)
   const [seen, setSeen] = useState(false)
   useEffect(() => {
-    let done = false
+    const el = ref.current
+    if (!el) return
     let timer: ReturnType<typeof setTimeout>
-    const check = () => {
-      const el = ref.current
-      if (done || !el) return
-      const r = el.getBoundingClientRect()
-      if (r.top < window.innerHeight * zone && r.bottom > 0) {
-        done = true
-        detach()
+    if (!('IntersectionObserver' in window)) {
+      timer = setTimeout(() => setSeen(true), delay)
+      return () => clearTimeout(timer)
+    }
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (!e.isIntersecting) return
+        io.disconnect()
         timer = setTimeout(() => setSeen(true), delay)
-      }
-    }
-    const attach = () => {
-      window.addEventListener('scroll', check, { passive: true })
-      window.addEventListener('resize', check)
-      check()
-    }
-    const detach = () => {
-      window.removeEventListener('scroll', check)
-      window.removeEventListener('resize', check)
-      window.removeEventListener('load', attach)
-    }
-    if (document.readyState === 'complete') requestAnimationFrame(attach)
-    else window.addEventListener('load', attach)
+      },
+      { rootMargin: `0px 0px -${Math.round((1 - zone) * 100)}% 0px` },
+    )
+    io.observe(el)
     return () => {
-      done = true
-      detach()
+      io.disconnect()
       clearTimeout(timer)
     }
   }, [zone, delay])
   return [ref, seen] as const
+}
+
+/** The track asset is an arc of r 44.4 around (48, 48), sweeping 260° from 140°
+ *  (bottom-left) over the top. The active arc reuses that path and shows
+ *  `score / 10` of it, so it is right for any venue. */
+const R = 44.4
+const at = (deg: number) => {
+  const a = (deg * Math.PI) / 180
+  return `${(48 + R * Math.cos(a)).toFixed(3)} ${(48 + R * Math.sin(a)).toFixed(3)}`
+}
+const ARC = `M ${at(140)} A ${R} ${R} 0 1 1 ${at(400)}`
+
+function GaugeArc({ score, run }: { score: number; run: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 96 96" overflow="visible" className="absolute inset-0 size-[96px]"
+      style={{ filter: 'drop-shadow(0 0 12px rgba(255,149,0,0.25))' }}>
+      <defs>
+        <linearGradient id="event-fit-arc" x1="48" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FF6B4A" />
+          <stop offset="1" stopColor="#F59E0B" />
+        </linearGradient>
+      </defs>
+      <path
+        d={ARC}
+        pathLength={100}
+        fill="none"
+        stroke="url(#event-fit-arc)"
+        strokeWidth={7.2}
+        strokeLinecap="butt"
+        strokeDasharray={`${run ? score * 10 : 0} 100`}
+        className="transition-[stroke-dasharray] duration-[1100ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-reduce:transition-none"
+      />
+    </svg>
+  )
 }
 
 function CountUp({ to, run, decimals = 1 }: { to: number; run: boolean; decimals?: number }) {
@@ -109,9 +132,16 @@ function FitBar({ score }: { score: number }) {
   )
 }
 
-export function EventFit() {
-  const fit = TIME_CAFE_FIT
+export function EventFit({ venue, verifiedOnSite = false }: {
+  venue: CatalogVenue
+  /** Only claim a visit where one happened — VenueDetail limits its
+   *  "Verified on-site" copy to venues the team has actually visited. */
+  verifiedOnSite?: boolean
+}) {
+  const fit = venueFit(venue)
   const [ref, seen] = useInView<HTMLElement>(0.75, 350)
+  if (!fit) return null
+  const strong = fit.verdict === 'Great fit' || fit.verdict === 'Good fit'
   return (
     <section
       ref={ref}
@@ -133,7 +163,7 @@ export function EventFit() {
       <header className="relative flex flex-col gap-2">
         <p className="font-body text-[11px] font-bold uppercase text-[#f97316]">How well it fits your event</p>
         <h2 id="event-fit-title" className="font-head text-[26px] leading-[34px] text-white md:text-[32px] md:leading-[40px]">
-          We made an on-site visit for you.
+          {verifiedOnSite ? 'We made an on-site visit for you.' : 'Here’s how it matches your event.'}
         </h2>
       </header>
 
@@ -145,12 +175,7 @@ export function EventFit() {
               <img alt="" src="/venues/figma/fit/gauge-bg.svg" className="block size-full max-w-none" />
             </div>
           </div>
-          {/* The active arc asset is drawn for the 8.2 score above. */}
-          <div aria-hidden="true" className="absolute left-1/2 top-1/2 size-[96px] -translate-x-1/2 -translate-y-1/2">
-            <div className="absolute inset-[-12.5%_-12.15%_5.36%_-12.5%]">
-              <img alt="" src="/venues/figma/fit/gauge-active.svg" className="block size-full max-w-none" />
-            </div>
-          </div>
+          <GaugeArc score={fit.overall} run={seen} />
           <p className="sr-only">Overall fit: {fit.overall} out of 10</p>
           <div aria-hidden="true" className="absolute left-1/2 top-[calc(50%-2px)] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center whitespace-nowrap">
             <span className="font-head text-[28px] font-extrabold leading-none text-white tabular-nums"><CountUp to={fit.overall} run={seen} /></span>
@@ -158,7 +183,7 @@ export function EventFit() {
           </div>
         </div>
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-          <span className="rounded-full bg-[rgba(0,240,255,0.08)] px-2.5 py-1 font-body text-[10px] font-bold uppercase text-[#22c55e]">
+          <span className={`rounded-full px-2.5 py-1 font-body text-[10px] font-bold uppercase ${strong ? 'bg-[rgba(0,240,255,0.08)] text-[#22c55e]' : 'bg-[rgba(245,158,11,0.12)] text-[#f59e0b]'}`}>
             {fit.verdict}
           </span>
           <p className="font-head text-[18px] text-white">{fit.headline}</p>
@@ -168,19 +193,19 @@ export function EventFit() {
 
       {/* Per-event scores */}
       <ul className="relative flex flex-col gap-3">
-        {fit.events.map((e) => {
+        {fit.rows.map((e) => {
           return (
             <li
               key={e.name}
               className="flex flex-col gap-2.5 rounded-[12px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] p-4 backdrop-blur-[8px]"
             >
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
-                <div className="flex items-center gap-2.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
                   <img alt="" aria-hidden="true" src={dotFor(e.score)} className="size-2 shrink-0" />
-                  <h3 className="whitespace-nowrap font-head text-base font-semibold text-white">{e.name}</h3>
-                  {'topRated' in e && e.topRated && (
+                  <h3 className="font-head text-base font-semibold text-white">{e.name}</h3>
+                  {e.bestMatch && (
                     <span className="whitespace-nowrap rounded-[4px] border border-[#10b981] px-2 py-[3px] font-body text-[9px] font-bold text-[#10b981]">
-                      TOP RATED
+                      BEST MATCH
                     </span>
                   )}
                 </div>
@@ -197,6 +222,9 @@ export function EventFit() {
           )
         })}
       </ul>
+      <p className="relative -mt-4 font-body text-[13px] leading-[18px] text-[#9b97b1]">
+        Scored from the rooms, capacity and amenities listed on this page. A missing item means it isn&apos;t listed yet — ask the host.
+      </p>
     </section>
   )
 }

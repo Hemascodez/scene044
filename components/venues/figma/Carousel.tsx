@@ -10,11 +10,15 @@ export default function Carousel({
   label,
   className = '',
   autoplay = false,
+  arrowClassName = 'size-10',
 }: {
   slides: Slide[]
   label: string
   className?: string
   autoplay?: boolean
+  /** Arrow button size. Venue cards pass 'size-11' for the 44px touch target
+   *  their Figma frame specifies; the hero keeps its approved 40px. */
+  arrowClassName?: string
 }) {
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -69,7 +73,7 @@ export default function Carousel({
             type="button"
             aria-label={l}
             onClick={() => go(d)}
-            className="press grid size-10 place-items-center border-[1.5px] border-ink bg-paper text-ink shadow-hard-sm"
+            className={`press grid ${arrowClassName} place-items-center border-[1.5px] border-ink bg-paper text-ink shadow-hard-sm`}
           >
             <I className="size-5" />
           </button>

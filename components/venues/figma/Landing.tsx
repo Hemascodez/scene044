@@ -3,15 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SiteFooter, SiteHeader } from './SiteChrome'
-import { VenueSearchBar } from '@/components/venues/VenueSearchBar'
+import { LandingSearch } from './LandingSearch'
 import { readVenueSearchPreferences, venueDetailSearchHref } from '@/lib/venueSearch'
-import { formatRupees, venueFromRate, venueMaxGuests } from '@/lib/venues'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { LANDING_TESTIMONIALS, LANDING_TESTIMONIAL_SUMMARY } from '@/lib/venueTestimonials'
 import Carousel from './Carousel'
+import { VenueIndex } from './VenueIndex'
 import useReveal from './useReveal'
 import HowItWorks from './HowItWorks'
-import { ArrowRight, Check, Clock, Heart, MapPin, ShieldCheck, Star, VerifiedSeal } from './icons'
+import { ArrowRight, Check, Clock, MapPin, ShieldCheck, Star, VerifiedSeal } from './icons'
 const exterior = '/venues/figma/1f1a5.jpg'
 const hall = '/venues/figma/237e9.jpg'
 const crowd = '/venues/figma/27065.jpg'
@@ -158,7 +158,7 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
 
           {/* Venue search */}
           <div className="rise mt-20 lg:mt-16" style={{ '--d': '360ms' } as React.CSSProperties}>
-            <VenueSearchBar />
+            <LandingSearch areas={[...new Set(venues.map((v) => v.area))].sort()} />
           </div>
         </section>
 
@@ -185,91 +185,14 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
           </div>
         </section>
 
-        {/* Spaces */}
-        <section id="spaces" className="mx-auto max-w-[1280px] scroll-mt-20 px-5 py-20 md:px-8 md:py-24">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <Eyebrow className="reveal">Curated architecture index</Eyebrow>
-              <h2 className="reveal mt-3 font-head text-3xl leading-tight tracking-[-0.6px] md:text-[40px]">
-                Available for reservation
-              </h2>
-            </div>
-            <p className="reveal font-mono-b text-[11px] tracking-[1px] uppercase text-stone">
-              {venues.length} {venues.length === 1 ? 'venue partner' : 'venue partners'} · Chennai
-            </p>
-          </div>
-
-          {venues.map(venue => <article key={venue.slug} className="reveal mt-10 grid overflow-hidden border-[1.5px] border-ink bg-white shadow-hard lg:grid-cols-[594fr_425fr]">
-            <div className="relative">
-              <Carousel
-                slides={venueSlides(venue)}
-                label={`${venue.name} spaces`}
-                className="aspect-[4/3] lg:aspect-auto lg:h-full lg:min-h-[512px]"
-              />
-              <p className="absolute left-4 top-4 bg-paper/95 px-2.5 py-1 font-mono-b text-[10px] tracking-[0.8px] uppercase">
-                Venue partner · {venue.area}
-              </p>
-            </div>
-            <div className="flex flex-col border-t-[1.5px] border-ink p-6 md:p-8 lg:border-t-0 lg:border-l-[1.5px]">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1.5 text-sm text-stone">
-                  <p className="flex items-center gap-1.5">
-                    <Star className="size-4 text-flame" />
-                    <span className="text-ink">{venue.name}</span> · Venue partner
-                  </p>
-                  <p className="flex items-center gap-1.5">
-                    <MapPin className="size-4 shrink-0" />
-                    <a href={venue.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address || `${venue.name}, ${venue.area}, ${venue.city}`)}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{venue.address || `${venue.area}, ${venue.city}`}<span className="sr-only"> (Google Maps, opens in a new tab)</span></a>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  aria-pressed={!!saved[venue.slug]}
-                  aria-label={saved[venue.slug] ? `Remove ${venue.name} from saved spaces` : `Save ${venue.name} to spaces`}
-                  onClick={() => setSaved((v) => ({ ...v, [venue.slug]: !v[venue.slug] }))}
-                  className={`press grid size-10 shrink-0 place-items-center border-[1.5px] border-ink shadow-hard-sm ${saved[venue.slug] ? 'bg-flame text-white' : 'bg-paper'}`}
-                >
-                  <Heart className={`size-5 ${saved[venue.slug] ? 'anim-stamp fill-current' : ''}`} />
-                </button>
-              </div>
-              <h3 className="mt-6 font-head text-[32px] leading-tight">{venue.name}</h3>
-              <p className="mt-3 text-sm leading-[22.75px] text-stone">
-                Largest space: up to {venueMaxGuests(venue)} people. {venue.summary}
-              </p>
-              <ul className="mt-5 flex flex-wrap gap-2" aria-label="Amenities">
-                {venue.amenities.map(
-                  (a) => (
-                    <li key={a} className="border border-line bg-paper px-2.5 py-1 text-xs text-ink">
-                      {a}
-                    </li>
-                  ),
-                )}
-              </ul>
-              <div className="mt-auto flex flex-wrap items-end justify-between gap-4 pt-8">
-                <div className="border-[1.5px] border-ink bg-paper-2 px-4 py-3">
-                  <p className="font-mono-b text-[10px] tracking-[0.8px] uppercase text-stone">Starting from</p>
-                  <p className="font-p-display text-[28px] leading-none">
-                    {venueFromRate(venue) === null ? 'Host quote' : formatRupees(venueFromRate(venue)!)} <span className="font-body text-sm text-stone">per hour</span>
-                  </p>
-                  <p className="mt-1 text-xs text-stone">minimum 1 hour</p>
-                </div>
-                <div className="flex flex-col items-start gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onOpenVenue(venue.slug)}
-                    className="press inline-flex items-center gap-2 rounded-md border-[1.5px] border-ink bg-flame px-5 py-3 font-body-sb text-sm text-white shadow-hard-md"
-                  >
-                    View venue &amp; spaces <ArrowRight />
-                  </button>
-                  <p className="flex items-center gap-1.5 text-xs text-moss">
-                    <ShieldCheck className="size-3.5" /> Browse first. No booking or charge.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </article>)}
-          {venues.length === 0 && <p className="mt-8 border border-line bg-white p-5">No venues are currently open for booking. Please check back shortly.</p>}
-        </section>
+        {/* Spaces — Figma node 503:1855. Mobile swipe rail, grid from md up. */}
+        <VenueIndex
+          venues={venues}
+          fallbackSlides={slides}
+          saved={saved}
+          onToggleSave={(slug) => setSaved((v) => ({ ...v, [slug]: !v[slug] }))}
+          onOpenVenue={onOpenVenue}
+        />
 
         {/* "What changed when they found SCENE/044" — the approved Figma frame
             (Scene workflows Main, node 230:1286). Copy, photos and ratings are

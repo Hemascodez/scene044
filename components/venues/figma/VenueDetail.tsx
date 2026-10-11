@@ -550,6 +550,25 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const [confirmOpen, setConfirmOpen] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
   const bookingRef = useRef<HTMLElement>(null)
+  // Phones stack the booking panel under every section, so a sticky bar keeps
+  // the chosen space and a way to the form in reach. It steps aside while the
+  // form is on screen, so it never covers a field (WCAG 2.2 · 2.4.11).
+  const [formInView, setFormInView] = useState(false)
+  useEffect(() => {
+    const el = bookingRef.current
+    if (!el || !('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(([e]) => setFormInView(e.isIntersecting), { threshold: 0.1 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  const goToForm = () => {
+    const el = bookingRef.current
+    if (!el) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+    // Move focus too, so keyboard and screen-reader users land in the form.
+    el.focus({ preventScroll: true })
+  }
   const idBase = useId()
   const hostName = `${venue.name} team`
 
@@ -709,7 +728,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
           {copied ? 'Link copied to clipboard' : ''}
         </p>
         {copied && (
-          <p aria-hidden="true" className="anim-pop fixed bottom-6 left-1/2 z-40 -translate-x-1/2 border-[1.5px] border-ink bg-paper px-4 py-2 font-mono-b text-xs uppercase shadow-hard-sm">
+          <p aria-hidden="true" className="anim-pop fixed bottom-24 left-1/2 z-40 lg:bottom-6 -translate-x-1/2 border-[1.5px] border-ink bg-paper px-4 py-2 font-mono-b text-xs uppercase shadow-hard-sm">
             Link copied
           </p>
         )}
@@ -842,7 +861,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
               </p>}
             </section>
 
-            {isTimeCafe && <EventFit />}
+            <EventFit venue={venue} verifiedOnSite={isTimeCafe} />
 
             <section aria-labelledby="offers-title" className="reveal border-b border-line py-10">
               <div className="flex flex-wrap items-end justify-between gap-2">
@@ -1239,6 +1258,37 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
         moderationPending onClose={() => setReviewOpen(false)}
         onSubmit={result => submitVenueReviewWithPhotos(venue.slug, result)} />}
       <SiteFooter wide />
+      <div aria-hidden="true" className="h-24 lg:hidden" />
+
+      {(() => {
+        const showBar = status === 'form' && !confirmOpen && !formInView
+        return (
+          <div
+            // Hidden means hidden for everyone: off-screen and not tabbable.
+            inert={!showBar}
+            aria-hidden={!showBar}
+            className={`fixed inset-x-0 bottom-0 z-30 border-t-[1.5px] border-ink bg-paper/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur transition-transform duration-300 ease-[cubic-bezier(.2,.7,.2,1)] motion-reduce:transition-none lg:hidden ${showBar ? 'translate-y-0' : 'translate-y-full'}`}
+          >
+            <div className="mx-auto flex max-w-[640px] items-center gap-3">
+              {/* Announces the change when a space is picked further up the page. */}
+              <div className="min-w-0 flex-1" aria-live="polite">
+                <p key={space.id} className="anim-fade truncate font-head text-sm">{space.name}</p>
+                <p className="text-xs text-stone">
+                  {hourlyRate === null ? 'Host quote' : `${money(hourlyRate)} / hour`} · 1-hour minimum
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={goToForm}
+                aria-controls="booking-request"
+                className="press inline-flex min-h-11 shrink-0 items-center gap-2 border-[1.5px] border-ink bg-primary-ink px-4 font-mono-b text-xs tracking-[0.72px] uppercase text-white shadow-hard-sm"
+              >
+                Request to book <ArrowRight className="size-4" />
+              </button>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

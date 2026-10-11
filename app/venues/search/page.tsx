@@ -20,7 +20,12 @@ export default async function VenueSearchPage({ searchParams }: {
   const query = venueSearchValues(await searchParams);
   const capacity = requestedCapacity(query.people);
   const invalidCapacity = capacity !== null && !Number.isFinite(capacity);
-  const live = (await listPublicVenues()).filter(venue => venue.status === "live");
+  const allLive = (await listPublicVenues()).filter(venue => venue.status === "live");
+  // The landing search offers real neighbourhoods; honour one when it names a
+  // venue area. "Chennai" or anything else keeps the full list, so free-text
+  // locations from older links never empty the page.
+  const area = allLive.find(venue => venue.area.toLowerCase() === query.location.trim().toLowerCase())?.area;
+  const live = area ? allLive.filter(venue => venue.area === area) : allLive;
   const matches = live.flatMap(venue => matchingSpaces(venue.spaces, query.people).map(space => ({ venue, space })));
   const largest = Math.max(0, ...live.map(venue => venueMaxGuests(venue) ?? 0));
   const mapVenue = matches[0]?.venue;
