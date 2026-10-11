@@ -18,7 +18,7 @@ interface VenueDetailProps {
   reviews: VenueReview[];
   reviewSummary: ReviewSummary;
   aspects: AspectScore[];
-  initial: { spaceId?: string; date: string; time: string; people: number; eventType: string };
+  initial: { date: string; time: string; people: number; eventType: string };
 }
 
 /** Pick a glyph from the amenity's own wording rather than its list position. */
@@ -38,8 +38,7 @@ const selectClass =
 
 export function VenueDetail({ venue, reviews, reviewSummary, aspects, initial }: VenueDetailProps) {
   const reduceMotion = useReducedMotion();
-  const initialSpace = venue.spaces.find((space) => space.id === initial.spaceId)
-    ?? venue.spaces.find((space) => space.maxGuests >= initial.people) ?? venue.spaces[0];
+  const initialSpace = venue.spaces.find((space) => space.maxGuests >= initial.people) ?? venue.spaces[0];
   const [spaceId, setSpaceId] = useState<string>(initialSpace.id);
   const [duration, setDuration] = useState(1);
   const [eventType, setEventType] = useState<VenueEventType>(
@@ -126,7 +125,7 @@ export function VenueDetail({ venue, reviews, reviewSummary, aspects, initial }:
             <VenueKicker className="text-primary">Pick your space</VenueKicker>
             <h2 className="mt-2 max-w-2xl font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.03em] sm:text-4xl">Make the space work for your event</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-background/75 sm:text-base">
-              Each space is booked separately. Compare the options below and choose the one that fits your group.
+              Each option is booked separately. Pick a full floor, the terrace, or a table for a smaller conversation.
             </p>
             <div className="mt-8 grid gap-6 sm:grid-cols-2">
               {venue.spaces.map((item) => {
@@ -145,7 +144,7 @@ export function VenueDetail({ venue, reviews, reviewSummary, aspects, initial }:
                     }`}
                   >
                     <div className="relative aspect-[16/10] overflow-hidden">
-                      {item.image && <Image src={item.image} alt="" fill sizes="(max-width: 640px) 100vw, 40vw" className="object-cover transition-transform duration-500 hover:scale-[1.03] motion-reduce:transition-none" />}
+                      <Image src={item.image} alt="" fill sizes="(max-width: 640px) 100vw, 40vw" className="object-cover transition-transform duration-500 hover:scale-[1.03] motion-reduce:transition-none" />
                       <span className="absolute left-3 top-3 bg-foreground/85 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-background">{item.eyebrow}</span>
                     </div>
                     <div className="p-5">
@@ -173,15 +172,16 @@ export function VenueDetail({ venue, reviews, reviewSummary, aspects, initial }:
           <div className="min-w-0">
             <motion.section {...reveal} className="border-b border-foreground/15 pb-10">
               <VenueKicker>Why it works</VenueKicker>
-              <h2 className="mt-2 max-w-2xl font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.03em] sm:text-4xl">A space for your kind of gathering.</h2>
+              <h2 className="mt-2 max-w-2xl font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.03em] sm:text-4xl">Bring the room together without taking over the whole cafe.</h2>
               <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                {venue.summary}
+                A light-filled first floor for talks and workshops, a terrace for relaxed evening sessions, and smaller tables when you only need a focused conversation.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 {([
-                  { icon: "people" as const, label: maxGuests ? `Up to ${maxGuests} guests` : "Group-friendly" },
-                  ...venue.amenities.slice(0, 2).map(label => ({ icon: amenityIcon(label), label })),
-                ]).map(({ icon, label }) => (
+                  ["people", maxGuests ? `Up to ${maxGuests} guests` : "Group-friendly"],
+                  ["projector", "Projector available"],
+                  ["coffee", "Food & drinks downstairs"],
+                ] as const).map(([icon, label]) => (
                   <div key={label} className={`${venueCard} flex items-center gap-3 !shadow-hard-sm p-4 text-sm font-bold`}>
                     <VenueIcon name={icon} className="size-5 text-primary-ink" />
                     <span>{label}</span>

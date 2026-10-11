@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 export const dynamic = 'force-dynamic';
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { VenueDetail } from "@/components/venues/VenueDetail";
 import FigmaVenueDetail from "@/components/venues/figma/VenueDetail";
 import { VenueChrome } from "@/components/venues/figma/VenueChrome";
 import { getCatalogVenue } from "@/lib/venueCatalog";
-import { aspectScores, listVenueReviews, summariseReviews } from "@/lib/venueBookings";
+import { listVenueReviews } from "@/lib/venueBookings";
 import { venueSearchValues } from "@/lib/venueSearch";
 import {
   absoluteUrl,
@@ -79,21 +78,6 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
     );
   }
 
-  const jsonLdTimeCafe = [venueBreadcrumbStructuredData(venue), venueStructuredData(venue)];
-  if (venue.slug === "time-cafe") {
-    // The approved Figma Make design is specific to Time Cafe's photos, spaces
-    // and content; other venues fall through to the generic venue page below.
-    return (
-      <>
-        {jsonLdTimeCafe.map((data, index) => (
-          <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }} />
-        ))}
-        <FigmaVenueDetail key={JSON.stringify(query)} venue={venue} publishedReviews={await listVenueReviews(venue.slug)}
-          search={Object.keys(query).length ? venueSearchValues(query) : undefined} initialSpaceId={first(query.spaceId)} />
-      </>
-    );
-  }
-
   const reviews = await listVenueReviews(venue.slug);
   const jsonLd = [venueBreadcrumbStructuredData(venue), venueStructuredData(venue)];
 
@@ -106,22 +90,8 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
         />
       ))}
-      <VenueChrome>
-      <VenueDetail
-        key={JSON.stringify(query)}
-        venue={venue}
-        reviews={reviews}
-        reviewSummary={summariseReviews(reviews)}
-        aspects={aspectScores(reviews)}
-        initial={{
-          spaceId: first(query.spaceId),
-          date: first(query.date) ?? "",
-          time: first(query.time) ?? "18:00",
-          people: Math.max(1, Number(first(query.people) ?? Math.min(25, Math.max(1, ...venue.spaces.map(space => space.maxGuests)))) || 1),
-          eventType: first(query.eventType) ?? "Tech meetup",
-        }}
-      />
-      </VenueChrome>
+      <FigmaVenueDetail key={`${venue.slug}:${JSON.stringify(query)}`} venue={venue} publishedReviews={reviews}
+        search={Object.keys(query).length ? venueSearchValues(query) : undefined} initialSpaceId={first(query.spaceId)} />
     </>
   );
 }

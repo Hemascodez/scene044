@@ -483,20 +483,31 @@ function SpaceCardCarousel({
 export default function VenueDetail({ venue, publishedReviews = [], search, initialSpaceId }: {
   venue: CatalogVenue; publishedReviews?: VenueReview[]; search?: VenueSearchValues; initialSpaceId?: string
 }) {
+  const isTimeCafe = venue.slug === 'time-cafe'
   // Photos the host manages in their workspace replace the design art once they
   // add any; venues with an empty gallery still render the approved design.
   const photos = venue.photos.length
     ? venue.photos.map((src, i) => ({ src, alt: `${venue.name} photo ${i + 1}` }))
-    : gallery
+    : isTimeCafe ? gallery : venue.spaces.flatMap(s => venueRoomPhotos(s.image, s.name, [], s.photos))
   // Keep the approved design, but booking facts come from the same
   // catalog record used by the POST and Razorpay handlers.
   const spaces = venue.spaces.map(s => {
-    const design = spaceDesigns.find(d => d.dbId === s.id)
-    return { ...spaceDesigns[0], ...design, id: s.id, dbId: s.id,
+    const design = isTimeCafe ? spaceDesigns.find(d => d.dbId === s.id) : undefined
+    return { id: s.id, dbId: s.id,
       name: s.name, tag: s.eyebrow, desc: s.description, cap: s.capacity, max: s.maxGuests,
       img: s.image, alt: s.name, photos: venueRoomPhotos(s.image, s.name, design?.photos, s.photos),
       price: rateForSpace(s, '') }
   })
+  const venueAmenities = isTimeCafe ? amenities : venue.amenities.map(t => ({
+    I: /wifi|internet/i.test(t) ? Wifi : /mic/i.test(t) ? Mic : /speaker|sound/i.test(t) ? Volume
+      : /power|charg/i.test(t) ? Zap : /coffee|food|barista/i.test(t) ? Coffee : Check,
+    t, d: '',
+  }))
+  const amenityGroups = isTimeCafe ? [
+    { g: 'Present & perform', n: 'Screen, sound and stage', cols: 'sm:grid-cols-3', items: venueAmenities.slice(0, 3) },
+    { g: 'Stay connected & fed', n: 'Power, network and refreshments', cols: 'sm:grid-cols-3', items: venueAmenities.slice(3, 6) },
+    { g: 'Support on the day', n: 'People and practicalities', cols: 'sm:grid-cols-2', items: venueAmenities.slice(6) },
+  ] : [{ g: 'At this venue', n: 'Amenities provided by the host', cols: 'sm:grid-cols-3', items: venueAmenities }]
   const reviews = publishedVenueReviews(publishedReviews).map(r => ({ id: r.id, n: r.organizerName || 'Organiser', q: r.comment || '',
     imgs: r.photoConsent ? r.photoIds.map(id => `/api/poster/${id}`) : [], rating: r.rating,
     date: new Date(r.createdAt).toLocaleDateString('en-IN'), event: r.eventType || '', source: r.source }));
@@ -516,8 +527,8 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
     ...(initialSpaceId || search?.people.trim() ? { spaceId: searchedSpace?.id } : {}),
   }
   const { value: draft, update: updateDraft, saveStatus, clear: clearDraft } = useVenueBookingDraft({
-    venueSlug: 'time-cafe', initial: { ...initialBookingDraft,
-      spaceId: searchedSpace?.id ?? 'first-floor', guests: String(Math.min(25, searchedSpace?.maxGuests ?? 25)), ...selection }, profilePhone: profile?.phone ?? null,
+    venueSlug: venue.slug, initial: { ...initialBookingDraft,
+      spaceId: searchedSpace?.id ?? '', guests: String(Math.min(25, searchedSpace?.maxGuests ?? 25)), ...selection }, profilePhone: profile?.phone ?? null,
     authReady, parse: parseTimeCafeDraft, serialize: serializeTimeCafeDraft, selection,
   })
   const { spaceId, eventType, date, start, hours, guests, social, message } = draft
@@ -540,15 +551,15 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const formRef = useRef<HTMLFormElement>(null)
   const bookingRef = useRef<HTMLElement>(null)
   const idBase = useId()
-  const hostName = 'Time Cafe team'
+  const hostName = `${venue.name} team`
 
   useEffect(() => {
-    document.title = 'Time Cafe · SCENE/044'
+    document.title = `${venue.name} · SCENE/044`
     title.current?.focus({ preventScroll: true })
     return () => {
       document.title = 'SCENE/044'
     }
-  }, [])
+  }, [venue.name])
 
   const subtotal = hourlyRate === null ? null : hourlyRate * hours
   const total = subtotal === null ? null : amountDue(subtotal)
@@ -585,7 +596,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          venueSlug: 'time-cafe',
+          venueSlug: venue.slug,
           spaceId: space.dbId,
           date,
           time: start,
@@ -629,7 +640,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const share = async () => {
     const url = window.location.href
     try {
-      if (navigator.share) await navigator.share({ title: 'Time Cafe · SCENE/044', url })
+      if (navigator.share) await navigator.share({ title: `${venue.name} · SCENE/044`, url })
       else {
         await navigator.clipboard.writeText(url)
         setCopied(true)
@@ -661,7 +672,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
 
   const dateNice = date ? new Date(`${date}T00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
-  if (!space) return <div className="min-h-screen bg-paper"><SiteHeader wide /><main className="mx-auto max-w-3xl px-5 py-20"><h1 className="font-head text-3xl">Time Cafe</h1><p className="mt-4">No spaces are currently available for booking. Please check back shortly.</p></main><SiteFooter wide /></div>
+  if (!space) return <div className="min-h-screen bg-paper"><SiteHeader wide /><main className="mx-auto max-w-3xl px-5 py-20"><h1 className="font-head text-3xl">{venue.name}</h1><p className="mt-4">No spaces are currently available for booking. Please check back shortly.</p></main><SiteFooter wide /></div>
 
   return (
     <div className="page-in min-h-screen bg-paper text-ink">
@@ -704,9 +715,9 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
         )}
 
         <header className="rise mt-4">
-          <p className="font-mono-b text-[11px] tracking-[1.32px] uppercase text-flame">A Place we love · Nungambakkam</p>
+          <p className="font-mono-b text-[11px] tracking-[1.32px] uppercase text-flame">A Place we love · {venue.area}</p>
           <h1 ref={title} tabIndex={-1} className="mt-2 font-p-display text-[40px] leading-[1.05] tracking-[-1.2px] focus:outline-none md:text-[56px]">
-            Time Cafe
+            {venue.name}
           </h1>
           <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-stone">
             <span className="flex items-center gap-1.5">
@@ -765,8 +776,8 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
             Make the space work for your event
           </h2>
           <p className="mt-2 max-w-[672px] text-[15px] leading-[24px] text-[#c8c6c5]">
-            Each option is booked separately. Pick a full floor, a shared table, a quiet corner, or the open rooftop terrace for a BBQ
-            under the sky.
+            {isTimeCafe ? 'Each option is booked separately. Pick a full floor, a shared table, a quiet corner, or the open rooftop terrace for a BBQ under the sky.'
+              : 'Each option is booked separately. Choose the space that fits your group and gathering.'}
           </p>
           <div role="radiogroup" aria-label="Choose a space" className="mt-8 grid gap-6 md:grid-cols-2 md:gap-7">
             {spaces.map((s, i) => {
@@ -801,7 +812,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                   <p className="mt-1 text-sm text-stone">Host response window: 48 hours</p>
                 </div>
                 <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full border-[1.5px] border-ink bg-flame font-head text-sm text-white">
-                  TC
+                  {isTimeCafe ? 'TC' : venue.name.split(/\s+/).filter(w => !/^(the|-)$/.test(w.toLowerCase())).slice(0, 2).map(w => w[0]).join('')}
                 </span>
               </div>
             )}
@@ -809,8 +820,8 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
             <ul className="reveal grid gap-6 border-b border-line py-8 sm:grid-cols-3">
               {[
                 { I: Users, t: `Room for up to ${space.max} guests`, d: `${space.name}: ${space.cap}. Each space is booked separately; capacities cannot be combined into one request.` },
-                { I: ShieldCheck, t: 'Verified on-site', d: 'Our team visited in person, measured every room, and confirmed the AV, power backup, and access claims.' },
-                { I: Clock, t: 'Host response window: 48h', d: 'Time Cafe reviews your request. Track its status in Your bookings; nothing is charged when you submit.' },
+                { I: ShieldCheck, t: 'Verified on-site', d: isTimeCafe ? 'Our team visited in person, measured every room, and confirmed the AV, power backup, and access claims.' : 'Check the listed amenities and confirm any specific setup needs with the host.' },
+                { I: Clock, t: 'Host response window: 48h', d: `${venue.name} reviews your request. Track its status in Your bookings; nothing is charged when you submit.` },
               ].map(({ I, t, d }) => (
                 <li key={t}>
                   <I className="size-5 text-flame" />
@@ -823,16 +834,15 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
             <section aria-labelledby="about-title" className="reveal border-b border-line py-8">
               <h2 id="about-title" className="font-head text-xl">About this space</h2>
               <p className="mt-4 max-w-[640px] text-sm leading-[22.75px] text-stone">
-                Time Cafe is a vibrant, contemporary cafe in Nungambakkam, Chennai, making it an ideal venue for meetups and events thanks
-                to its central accessibility, warm, conversational ambience, and modular seating that smoothly adapts to different group sizes.
+                {isTimeCafe ? 'Time Cafe is a vibrant, contemporary cafe in Nungambakkam, Chennai, making it an ideal venue for meetups and events thanks to its central accessibility, warm, conversational ambience, and modular seating that smoothly adapts to different group sizes.' : venue.summary}
               </p>
-              <p className="mt-3 max-w-[640px] text-sm leading-[22.75px] text-stone">
+              {isTimeCafe && <p className="mt-3 max-w-[640px] text-sm leading-[22.75px] text-stone">
                 Paired with a versatile, crowd-pleasing menu spanning artisan coffees to hearty continental bites, it provides organizers with
                 an inviting, low-friction space that comfortably bridges the gap between casual hangout and professional gathering.
-              </p>
+              </p>}
             </section>
 
-            <EventFit />
+            {isTimeCafe && <EventFit />}
 
             <section aria-labelledby="offers-title" className="reveal border-b border-line py-10">
               <div className="flex flex-wrap items-end justify-between gap-2">
@@ -841,15 +851,11 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                   <p className="mt-1 text-sm text-stone">Everything below is included in your booking.</p>
                 </div>
                 <span className="inline-flex items-center gap-1.5 border-[1.5px] border-ink bg-white px-2.5 py-1 font-mono-b text-[11px] tracking-[0.7px] uppercase">
-                  <Check className="size-3.5 text-moss" /> {amenities.length} included
+                  <Check className="size-3.5 text-moss" /> {venueAmenities.length} included
                 </span>
               </div>
               <div className="mt-7 space-y-9">
-                {[
-                  { g: 'Present & perform', n: 'Screen, sound and stage', cols: 'sm:grid-cols-3', items: amenities.slice(0, 3) },
-                  { g: 'Stay connected & fed', n: 'Power, network and refreshments', cols: 'sm:grid-cols-3', items: [amenities[3], amenities[4], amenities[5]] },
-                  { g: 'Support on the day', n: 'People and practicalities', cols: 'sm:grid-cols-2', items: [amenities[6], amenities[7], amenities[8], amenities[9]] },
-                ].map(({ g, n, cols, items }, gi) => (
+                {amenityGroups.map(({ g, n, cols, items }, gi) => (
                   <div key={g}>
                     <div className="flex items-center gap-3">
                       <span aria-hidden="true" className="grid size-6 place-items-center rounded-full border-[1.5px] border-ink bg-flame font-mono-b text-[10px] text-white">{gi + 1}</span>
@@ -890,7 +896,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                   Add review
                 </button>
               </div>
-              {!reviews.length && <div className="mt-6"><ChandruTestimonial /></div>}
+              {!reviews.length && <div className="mt-6">{isTimeCafe ? <ChandruTestimonial /> : <p className="text-sm text-stone">No reviews yet. Be the first to share your experience.</p>}</div>}
               <ul className="mt-6 grid gap-5 md:grid-cols-2">
                 {reviews.map((r, i) => (
                   <li
@@ -943,7 +949,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 </a>
               </div>
               <p className="mt-4 max-w-[640px] text-sm leading-[22.75px] text-stone">
-                Use the map above to plan your visit to Time Cafe. Confirm any accessibility or parking needs with the host before booking.
+                Use the map above to plan your visit to {venue.name}. Confirm any accessibility or parking needs with the host before booking.
               </p>
             </section>
 
@@ -953,7 +959,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div>
                   <h3 className="font-mono-b text-xs tracking-[0.96px] uppercase">House rules</h3>
                   <ul className="mt-3 space-y-2">
-                    {['1-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'].map((r) => (
+                    {(isTimeCafe ? ['1-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'] : ['1-hour minimum booking', ...venue.policies]).map((r) => (
                       <li key={r} className="flex items-start gap-2 text-sm text-stone">
                         <Check className="mt-0.5 size-4 shrink-0 text-moss" strokeWidth={2.25} /> {r}
                       </li>
@@ -963,8 +969,8 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div>
                   <h3 className="font-mono-b text-xs tracking-[0.96px] uppercase">Cancellation</h3>
                   <p className="mt-3 text-sm leading-[22.75px] text-stone">
-                    Free cancellation up to 7 days before your event. Cancel within 7 days and the deposit is held as credit toward a future
-                    booking. No charge is taken until the host confirms.
+                    {isTimeCafe ? 'Free cancellation up to 7 days before your event. Cancel within 7 days and the deposit is held as credit toward a future booking. No charge is taken until the host confirms.'
+                      : venue.policies.find(policy => /cancel/i.test(policy)) || 'Confirm the cancellation terms with the host before paying. No charge is taken when you submit your request.'}
                   </p>
                 </div>
               </div>
@@ -1114,7 +1120,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                           updateDraft((current) => ({ ...current, message: e.target.value }))
                           setErrors((x) => ({ ...x, message: '' }))
                         }}
-                        placeholder="Tell Time Cafe what you're planning, how many people, any setup needs…"
+                        placeholder={`Tell ${venue.name} what you're planning, how many people, any setup needs…`}
                         aria-invalid={!!errors.message}
                         aria-describedby={err('message')}
                         className={`${inputCls} resize-none`}
@@ -1166,10 +1172,10 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                   <Check className="size-6" strokeWidth={2.5} />
                 </span>
                 <h2 ref={sentTitle} tabIndex={-1} className="rise mt-4 font-head text-xl focus:outline-none">
-                  Request sent to Time Cafe
+                  Request sent to {venue.name}
                 </h2>
                 <p className="rise mt-2 text-sm leading-[22px] text-stone" style={{ '--d': '80ms' } as React.CSSProperties}>
-                  Your request is saved in Your bookings. Time Cafe has a 48-hour response window. You only pay after approval; nothing has been charged now.
+                  Your request is saved in Your bookings. {venue.name} has a 48-hour response window. You only pay after approval; nothing has been charged now.
                 </p>
                 <dl className="mt-5 divide-y divide-line border-y border-line text-sm">
                   {[
@@ -1204,7 +1210,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
         <BookingConfirmation
           summary={{
             firstName: profile?.name.split(' ')[0] ?? 'there',
-            venue: 'Time Cafe',
+            venue: venue.name,
             eventType,
             space: space.name,
             image: space.img,
