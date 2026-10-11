@@ -35,7 +35,7 @@ DECLARE
   phone TEXT;
   charge INT;
 BEGIN
-  IF NEW.archived_at IS NOT NULL OR NEW.venue_slug <> 'time-cafe' THEN RETURN NEW; END IF;
+  IF NEW.archived_at IS NOT NULL THEN RETURN NEW; END IF;
   IF TG_OP = 'INSERT' THEN
     IF NEW.status <> 'requested' THEN RETURN NEW; END IF;
     event_kind := 'requested';

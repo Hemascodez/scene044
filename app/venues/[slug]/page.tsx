@@ -28,7 +28,7 @@ function first(value: string | string[] | undefined) {
 export async function generateMetadata({ params }: VenuePageProps): Promise<Metadata> {
   const { slug } = await params;
   const venue = await getCatalogVenue(slug);
-  if (slug !== "time-cafe" || !venue || venue.status === "hidden") {
+  if (!venue || venue.status === "hidden") {
     return { title: "Venue — SCENE/044", robots: { index: false, follow: false } };
   }
 
@@ -62,7 +62,7 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
   const query = await searchParams;
   const venue = await getCatalogVenue(slug);
 
-  if (slug !== "time-cafe" || !venue || venue.status === "hidden") notFound();
+  if (!venue || venue.status === "hidden") notFound();
 
   if (venue.status === "coming-soon") {
     return (
@@ -108,14 +108,16 @@ export default async function VenuePage({ params, searchParams }: VenuePageProps
       ))}
       <VenueChrome>
       <VenueDetail
+        key={JSON.stringify(query)}
         venue={venue}
         reviews={reviews}
         reviewSummary={summariseReviews(reviews)}
         aspects={aspectScores(reviews)}
         initial={{
+          spaceId: first(query.spaceId),
           date: first(query.date) ?? "",
           time: first(query.time) ?? "18:00",
-          people: Math.max(1, Number(first(query.people) ?? 25) || 25),
+          people: Math.max(1, Number(first(query.people) ?? Math.min(25, Math.max(1, ...venue.spaces.map(space => space.maxGuests)))) || 1),
           eventType: first(query.eventType) ?? "Tech meetup",
         }}
       />

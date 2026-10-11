@@ -41,7 +41,7 @@ export default async function VenueSearchPage({ searchParams }: {
         <div className="min-w-0 space-y-6">
           {matches.length === 0 && <section className="border-[1.5px] border-dashed border-warn-ink bg-warn/5 p-6" aria-label="Search results">
             <h2 className="font-display text-xl font-extrabold">{invalidCapacity ? "Enter a whole number of attendees" : capacity && largest ? `No space fits ${capacity} attendees` : "No bookable spaces right now"}</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">{invalidCapacity ? "Use a positive whole number to check the capacity." : largest ? `Time Cafe’s largest individual space fits ${largest} people. We won’t show a smaller space as a suitable match.` : "Please check back shortly."}</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{invalidCapacity ? "Use a positive whole number to check the capacity." : largest ? `Our largest individual space fits ${largest} people. We won’t show a smaller space as a suitable match.` : "Please check back shortly."}</p>
             <Link href={venueSearchHref({ ...query, people: "" })} className={`${venueButton.outline} mt-4`}>Clear attendee filter</Link>
           </section>}
           {matches.map(({ venue, space }, index) => {

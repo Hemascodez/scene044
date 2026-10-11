@@ -81,16 +81,23 @@ const Eyebrow = ({ children, className = '' }: { children: React.ReactNode; clas
   <p className={`font-mono-b text-[11px] leading-4 tracking-[1.32px] uppercase text-flame ${className}`}>{children}</p>
 )
 
+function venueSlides(venue: CatalogVenue) {
+  const photos = venue.photos.length ? venue.photos : venue.spaces.map(space => space.image).filter(Boolean)
+  return photos.length ? photos.map((src, i) => ({ src, alt: `${venue.name} — photo ${i + 1}` }))
+    : venue.slug === 'time-cafe' ? slides : []
+}
+
 /**
  * Venue landing in the approved visual system, with real navigation/auth.
  * Prototype testimonials and fabricated booking statistics are not published.
  */
-export default function Landing({ venue }: { venue: CatalogVenue | null }) {
+export default function Landing({ venues }: { venues: CatalogVenue[] }) {
   const router = useRouter()
-  const onOpenVenue = () => router.push(venueDetailSearchHref('time-cafe', readVenueSearchPreferences()))
+  const featured = venues.find(venue => venue.slug === 'time-cafe') ?? venues[0]
+  const onOpenVenue = (slug: string) => router.push(venueDetailSearchHref(slug, readVenueSearchPreferences()))
   const onListVenue = () => router.push('/venues/partner')
   useReveal()
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved] = useState<Record<string, boolean>>({})
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -132,20 +139,20 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
 
             <div className="rise relative" style={{ '--d': '200ms' } as React.CSSProperties}>
               <Carousel
-                slides={slides}
-                label="Time Cafe photos"
-                autoplay
+                slides={featured ? venueSlides(featured) : []}
+                label={featured ? `${featured.name} photos` : 'Venue photos'}
+                autoplay={!!featured}
                 className="aspect-[4/4.1] w-full border-[1.5px] border-ink shadow-hard lg:aspect-auto lg:h-[544px]"
               />
-              <figure className="absolute -bottom-8 left-3 w-[220px] border-[1.5px] border-ink bg-paper-2 p-4 shadow-hard sm:w-[240px] lg:-left-6 lg:bottom-auto lg:top-[444px]">
+              {featured && <figure className="absolute -bottom-8 left-3 w-[220px] border-[1.5px] border-ink bg-paper-2 p-4 shadow-hard sm:w-[240px] lg:-left-6 lg:bottom-auto lg:top-[444px]">
                 <figcaption className="flex items-center gap-1.5 font-body-m text-xs leading-4 text-moss">
                   <ShieldCheck className="size-[15px] shrink-0" /> Visited &amp; verified by SCENE/044
                 </figcaption>
-                <p className="mt-2 font-body-b text-lg leading-[22.5px] font-bold">Time Cafe</p>
+                <p className="mt-2 font-body-b text-lg leading-[22.5px] font-bold">{featured.name}</p>
                 <p className="mt-0.5 flex items-center gap-1 text-sm leading-5 text-stone">
-                  <MapPin className="size-3.5" /> Nungambakkam
+                  <MapPin className="size-3.5" /> {featured.area}
                 </p>
-              </figure>
+              </figure>}
             </div>
           </div>
 
@@ -188,19 +195,19 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
               </h2>
             </div>
             <p className="reveal font-mono-b text-[11px] tracking-[1px] uppercase text-stone">
-              Featured venue partner · Nungambakkam
+              {venues.length} {venues.length === 1 ? 'venue partner' : 'venue partners'} · Chennai
             </p>
           </div>
 
-          {venue?.status === 'live' ? <article className="reveal mt-10 grid overflow-hidden border-[1.5px] border-ink bg-white shadow-hard lg:grid-cols-[594fr_425fr]">
+          {venues.map(venue => <article key={venue.slug} className="reveal mt-10 grid overflow-hidden border-[1.5px] border-ink bg-white shadow-hard lg:grid-cols-[594fr_425fr]">
             <div className="relative">
               <Carousel
-                slides={[slides[1], slides[2], slides[0]]}
-                label="Time Cafe spaces"
+                slides={venueSlides(venue)}
+                label={`${venue.name} spaces`}
                 className="aspect-[4/3] lg:aspect-auto lg:h-full lg:min-h-[512px]"
               />
               <p className="absolute left-4 top-4 bg-paper/95 px-2.5 py-1 font-mono-b text-[10px] tracking-[0.8px] uppercase">
-                Verified on-site · Headquarters
+                Venue partner · {venue.area}
               </p>
             </div>
             <div className="flex flex-col border-t-[1.5px] border-ink p-6 md:p-8 lg:border-t-0 lg:border-l-[1.5px]">
@@ -208,7 +215,7 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
                 <div className="space-y-1.5 text-sm text-stone">
                   <p className="flex items-center gap-1.5">
                     <Star className="size-4 text-flame" />
-                    <span className="text-ink">Time Cafe</span> · Our current venue partner
+                    <span className="text-ink">{venue.name}</span> · Venue partner
                   </p>
                   <p className="flex items-center gap-1.5">
                     <MapPin className="size-4 shrink-0" />
@@ -217,15 +224,15 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
                 </div>
                 <button
                   type="button"
-                  aria-pressed={saved}
-                  aria-label={saved ? 'Remove Time Cafe from saved spaces' : 'Save Time Cafe to spaces'}
-                  onClick={() => setSaved((v) => !v)}
-                  className={`press grid size-10 shrink-0 place-items-center border-[1.5px] border-ink shadow-hard-sm ${saved ? 'bg-flame text-white' : 'bg-paper'}`}
+                  aria-pressed={!!saved[venue.slug]}
+                  aria-label={saved[venue.slug] ? `Remove ${venue.name} from saved spaces` : `Save ${venue.name} to spaces`}
+                  onClick={() => setSaved((v) => ({ ...v, [venue.slug]: !v[venue.slug] }))}
+                  className={`press grid size-10 shrink-0 place-items-center border-[1.5px] border-ink shadow-hard-sm ${saved[venue.slug] ? 'bg-flame text-white' : 'bg-paper'}`}
                 >
-                  <Heart className={`size-5 ${saved ? 'anim-stamp fill-current' : ''}`} />
+                  <Heart className={`size-5 ${saved[venue.slug] ? 'anim-stamp fill-current' : ''}`} />
                 </button>
               </div>
-              <h3 className="mt-6 font-head text-[32px] leading-tight">Time Cafe</h3>
+              <h3 className="mt-6 font-head text-[32px] leading-tight">{venue.name}</h3>
               <p className="mt-3 text-sm leading-[22.75px] text-stone">
                 Largest space: up to {venueMaxGuests(venue)} people. {venue.summary}
               </p>
@@ -249,7 +256,7 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
                 <div className="flex flex-col items-start gap-2">
                   <button
                     type="button"
-                    onClick={onOpenVenue}
+                    onClick={() => onOpenVenue(venue.slug)}
                     className="press inline-flex items-center gap-2 rounded-md border-[1.5px] border-ink bg-flame px-5 py-3 font-body-sb text-sm text-white shadow-hard-md"
                   >
                     View venue &amp; spaces <ArrowRight />
@@ -260,10 +267,8 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
                 </div>
               </div>
             </div>
-          </article> : <p className="mt-8 border border-line bg-white p-5">No venues are currently open for booking. Please check back shortly.</p>}
-          <p className="reveal mt-6 text-center text-sm text-stone">
-            Time Cafe is our current venue partner.
-          </p>
+          </article>)}
+          {venues.length === 0 && <p className="mt-8 border border-line bg-white p-5">No venues are currently open for booking. Please check back shortly.</p>}
         </section>
 
         {/* "What changed when they found SCENE/044" — the approved Figma frame
@@ -386,7 +391,7 @@ export default function Landing({ venue }: { venue: CatalogVenue | null }) {
               </p>
               <div className="reveal mt-8 max-w-[480px] border-[1.5px] border-ink bg-paper p-6 shadow-hard">
                 <p className="font-head text-lg">The price you see is the venue price.</p>
-                <p className="mt-3 leading-7 text-stone">Send a request, wait for Time Cafe&apos;s approval, then pay to confirm. SCENE&apos;s commission is handled with the host, not added to your total.</p>
+                <p className="mt-3 leading-7 text-stone">Send a request, wait for the venue&apos;s approval, then pay to confirm. SCENE&apos;s commission is handled with the host, not added to your total.</p>
               </div>
             </div>
             <ul className="space-y-4 self-center">

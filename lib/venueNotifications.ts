@@ -124,8 +124,7 @@ export async function drainVenueNotifications(sender: Sender = sendWhatsappTempl
 export async function queueVenueOverrunNotices(): Promise<number> {
   if (!venueNotificationsEnabled()) return 0;
   const result = await query(`UPDATE venue_bookings SET overrun_notified_at=now()
-    WHERE status='checked_in' AND archived_at IS NULL AND ends_at<=now() AND overrun_notified_at IS NULL
-      AND venue_slug='time-cafe'`);
+    WHERE status='checked_in' AND archived_at IS NULL AND ends_at<=now() AND overrun_notified_at IS NULL`);
   return result.rowCount ?? 0;
 }
 

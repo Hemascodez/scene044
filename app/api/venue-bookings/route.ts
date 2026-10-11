@@ -96,7 +96,7 @@ export async function POST(request: Request) {
 
   const venue = await getCatalogVenue(venueSlug);
   const space = venue?.spaces.find((item) => item.id === spaceId);
-  if (venueSlug !== "time-cafe" || venue?.status !== "live" || !space) {
+  if (venue?.status !== "live" || !space) {
     return NextResponse.json({ error: "Unknown venue or space" }, { status: 400 });
   }
   if (people > space.maxGuests) {

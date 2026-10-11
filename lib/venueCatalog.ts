@@ -126,13 +126,12 @@ export async function listAllVenues(): Promise<CatalogVenue[]> {
   return attachSpaces(rows);
 }
 
-/** What the public site shows: live venues plus "launching soon" teasers.
- *  `hidden` drafts are excluded, so a half-filled venue is never public. */
+/** Every published venue is public; drafts stay private. */
 export async function listPublicVenues(): Promise<CatalogVenue[]> {
   const { rows } = await query<VenueRow>(
     `SELECT ${VENUE_COLUMNS} FROM venues
-      WHERE status = 'live' AND slug = 'time-cafe'
-      ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END, name`,
+      WHERE status = 'live'
+      ORDER BY name`,
   );
   return attachSpaces(rows);
 }
@@ -141,8 +140,7 @@ export async function listPublicVenues(): Promise<CatalogVenue[]> {
  * Card-level view of a catalog row, for the landing and search surfaces that
  * used to read from the static `lib/venues.ts` registry.
  *
- * Only called on rows already filtered to `live`/`coming-soon` (as
- * `listPublicVenues` returns), so a `hidden` row is never coerced here.
+ * Only call on rows already filtered for public visibility.
  */
 export function toVenueListing(venue: CatalogVenue): VenueListing {
   return {

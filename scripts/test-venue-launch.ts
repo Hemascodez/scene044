@@ -75,9 +75,10 @@ async function main() {
     }
     await sql("INSERT INTO venue_users(id,phone_e164,name) VALUES(1,'919876543210','Fixture organiser')");
     await sql("INSERT INTO venue_user_sessions(user_id,token_hash,expires_at) VALUES(1,$1,now()+interval '1 day')", [hashVenueSession(token)]);
-    await sql("INSERT INTO venues(id,slug,name,area,status) VALUES(1,'time-cafe','Time Cafe','Nungambakkam','live'),(2,'other-fixture','Other fixture','Test','live')");
+    await sql("INSERT INTO venues(id,slug,name,area,status) VALUES(1,'time-cafe','Time Cafe','Nungambakkam','live'),(2,'other-fixture','Other fixture','Test','live'),(3,'hidden-fixture','Hidden fixture','Test','hidden')");
     await sql("INSERT INTO venue_spaces(venue_id,space_key,name,max_guests,community_rate,production_rate) VALUES(1,'first-floor','First floor',30,2000,2000)");
-    assert.deepEqual((await listPublicVenues()).map(v => v.slug), ['time-cafe']);
+    await sql("INSERT INTO venue_spaces(venue_id,space_key,name,max_guests,community_rate,production_rate) VALUES(2,'whole-space','Whole space',20,1000,1000),(3,'whole-space','Draft space',20,1000,1000)");
+    assert.deepEqual((await listPublicVenues()).map(v => v.slug), ['other-fixture', 'time-cafe'], 'every live venue is public; drafts stay private');
     // Synthetic selection, not the private production-booking snapshot.
     const manifest = {
       capturedAt: '2026-10-07T06:46:00Z', venueSlug: 'time-cafe', reason: 'Local regression fixture',
@@ -171,7 +172,7 @@ async function main() {
       people: 10, description: 'Local isolated booking flow check', name: 'Tampered name', phone: '999', total: 1, hourlyRate: 1 };
     assert.equal((await submitBooking(new Request('http://localhost:3000/api/venue-bookings', { method: 'POST', body: JSON.stringify(body) }))).status,401);
     for (const invalid of [{ date: '2026-02-30' }, { date: '2020-01-01' }, { time: '25:00' }, { time: '23:30' },
-      { duration: 0 }, { duration: 3.5 }, { people: 1.5 }, { people: 31 }, { venueSlug: 'other-fixture' }, { spaceId: 'missing' }]) {
+      { duration: 0 }, { duration: 3.5 }, { people: 1.5 }, { people: 31 }, { venueSlug: 'hidden-fixture', spaceId: 'whole-space' }, { spaceId: 'missing' }]) {
       assert.equal((await submitBooking(request('/api/venue-bookings', { ...body, ...invalid }))).status,400,JSON.stringify(invalid));
     }
     assert.equal(validateVenueBookingWindow('2026-10-08','08:00',3,new Date('2026-10-08T03:00:00Z'))?.field,'date', 'IST start already passed');
@@ -189,6 +190,19 @@ async function main() {
     const result = await submitted.json();
     assert.equal(result.total,1200);
     assert.equal(result.status,'requested');
+    assert.equal((await submitBooking(request('/api/venue-bookings', { ...body, venueSlug: 'other-fixture' }))).status, 400, 'room IDs cannot be used at another venue');
+    assert.equal((await submitBooking(request('/api/venue-bookings', { ...body, venueSlug: 'other-fixture', spaceId: 'whole-space', people: 21 }))).status, 400, 'second venue enforces its own capacity');
+    await sql("INSERT INTO venue_host_access(venue_slug,phone_e164) VALUES('other-fixture','919111111111')");
+    const otherResponse = await submitBooking(request('/api/venue-bookings', { ...body, venueSlug: 'other-fixture', spaceId: 'whole-space', people: 20, whatsappOptIn: true }));
+    assert.equal(otherResponse.status, 200, 'a second published venue accepts booking requests');
+    const otherBooking = await otherResponse.json();
+    assert.equal(otherBooking.total, 1000, 'second venue uses its own stored rate');
+    assert.ok((await listVenueBookings('other-fixture')).some(b => b.id === otherBooking.id));
+    assert.ok((await listCuratorBookings(1)).bookings.some(b => b.id === otherBooking.id));
+    const otherNotifications = (await sql('SELECT audience,recipient,venue_slug,payload FROM venue_notifications WHERE booking_id=$1 ORDER BY audience', [otherBooking.id])).rows;
+    assert.deepEqual(otherNotifications.map(n => n.audience), ['host', 'organiser'], 'second venue queues both approved-host and opted-in organiser messages');
+    assert.equal(otherNotifications[0].recipient, '919111111111');
+    assert.ok(otherNotifications.every(n => n.venue_slug === 'other-fixture' && (n.payload as { venueName: string }).venueName === 'Other fixture'));
     assert.equal((await (await readDraft(draftRequest)).json()).draft,null,'submitted drafts cannot reappear on another device');
     const persisted = await getBookingByCheckinToken(result.token);
     assert.equal(persisted?.organizerName,'Fixture organiser');
@@ -228,7 +242,7 @@ async function main() {
     assert.equal(received.headers.get('Cache-Control'),'no-store');
     assert.deepEqual((await received.json()).reviews.map((r: { organizerName: string }) => r.organizerName), ['Fixture received review']);
     console.log('PASS: authenticated 1-hour request → account/host visibility → guarded host approval → exact-price checkout → server payment verification (stubbed gateway) → protected QR check-in → normal one-hour timer → completion; invalid dates/times/guest counts and protected published-only reviews.');
-    console.log('PASS: real local PostgreSQL migrations, Time Cafe only, ₹6000 checkout/₹600 commission, curator-only ₹10 trial, 5-minute QR, exact nine-row archive, new requests retained, payment/order/review history preserved, blocked archived actions, overdue suppression, guarded restore and old-price capture rejection. No cloud writes or gateway calls.');
+    console.log('PASS: multi-venue publication, capacity/rate isolation, booking persistence, curator visibility and venue-scoped WhatsApp queue; ₹6000 checkout/₹600 commission, curator-only ₹10 trial, 5-minute QR and protected booking history. No cloud writes or gateway calls.');
   } finally {
     globalThis.fetch = previousFetch;
     globalThis.__pgPool = previousPool;

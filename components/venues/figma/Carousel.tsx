@@ -19,10 +19,10 @@ export default function Carousel({
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
   const n = slides.length
-  const go = (d: number) => setI((v) => (v + d + n) % n)
+  const go = (d: number) => { if (n > 1) setI((v) => (v + d + n) % n) }
 
   useEffect(() => {
-    if (!autoplay || paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (n < 2 || !autoplay || paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const t = setInterval(() => setI((v) => (v + 1) % n), 5500)
     return () => clearInterval(t)
   }, [autoplay, paused, n])
@@ -59,7 +59,7 @@ export default function Carousel({
         ))}
       </div>
 
-      <div className="absolute inset-x-3 top-1/2 flex -translate-y-1/2 justify-between">
+      {n > 1 && <div className="absolute inset-x-3 top-1/2 flex -translate-y-1/2 justify-between">
         {[
           { d: -1, l: 'Show previous image', I: ChevronLeft },
           { d: 1, l: 'Show next image', I: ChevronRight },
@@ -74,9 +74,9 @@ export default function Carousel({
             <I className="size-5" />
           </button>
         ))}
-      </div>
+      </div>}
 
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/55 to-transparent px-4 pt-12 pb-4">
+      {n > 0 && <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/55 to-transparent px-4 pt-12 pb-4">
         <div className="flex gap-1.5" role="group" aria-label="Choose image">
           {slides.map((_, k) => (
             <button
@@ -92,7 +92,7 @@ export default function Carousel({
         <p className="font-mono-b text-[10px] leading-[15px] tracking-[0.8px] text-white" aria-hidden="true">
           {i + 1} / {n}
         </p>
-      </div>
+      </div>}
     </section>
   )
 }

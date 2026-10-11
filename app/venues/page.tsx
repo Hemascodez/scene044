@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Landing from "@/components/venues/figma/Landing";
-import { getCatalogVenue } from "@/lib/venueCatalog";
+import { listPublicVenues } from "@/lib/venueCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -18,5 +18,5 @@ export const metadata: Metadata = {
 
 /** The venue landing page — the approved Figma Make design, verbatim. */
 export default async function VenuesLandingPage() {
-  return <Landing venue={await getCatalogVenue("time-cafe")} />;
+  return <Landing venues={await listPublicVenues()} />;
 }

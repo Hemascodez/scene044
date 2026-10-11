@@ -2,7 +2,7 @@ import { VENUE_EVENT_TYPES, venueSearchHref, type VenueSpace } from "./venues";
 
 export type VenueSearchValues = { location: string; date: string; time: string; people: string; eventType: string };
 export const DEFAULT_VENUE_SEARCH: VenueSearchValues = {
-  location: "Nungambakkam, Chennai", date: "", time: "18:00", people: "", eventType: "Tech meetup",
+  location: "Chennai", date: "", time: "18:00", people: "", eventType: "Tech meetup",
 };
 
 export function venueSearchValues(params: Record<string, string | string[] | undefined>): VenueSearchValues {
