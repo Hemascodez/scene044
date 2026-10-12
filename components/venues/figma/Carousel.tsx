@@ -30,10 +30,15 @@ export default function Carousel({
   const [internalIndex, setInternalIndex] = useState(0)
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [stopped, setStopped] = useState(false)
+  /* 'auto' pauses on hover/focus so content does not move while being read.
+     Once the visitor presses the control, that choice wins: pressing Play used
+     to leave the button focused, which re-paused it immediately and made the
+     slideshow look broken after one use. */
+  const [intent, setIntent] = useState<'auto' | 'playing' | 'stopped'>('auto')
   const n = slides.length
   const i = (activeIndex ?? internalIndex) % Math.max(n, 1)
-  const paused = hovered || focused || stopped
+  const stopped = intent === 'stopped'
+  const paused = stopped || (intent === 'auto' && (hovered || focused))
   const select = (index: number) => {
     if (onSlideChange) onSlideChange(index)
     else setInternalIndex(index)
@@ -130,7 +135,7 @@ export default function Carousel({
           {showPlaybackControl && autoplay && n > 1 && <button
             type="button"
             aria-label={stopped ? 'Resume venue slideshow' : 'Pause venue slideshow'}
-            onClick={() => setStopped(value => !value)}
+            onClick={() => setIntent(value => (value === 'stopped' ? 'playing' : 'stopped'))}
             className="min-h-10 font-mono-b text-[10px] leading-[15px] tracking-[0.8px] text-white motion-reduce:hidden"
           >
             {stopped ? 'PLAY' : 'PAUSE'}

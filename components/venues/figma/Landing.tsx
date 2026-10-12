@@ -98,8 +98,25 @@ function heroPhoto(venue: CatalogVenue) {
 export default function Landing({ venues }: { venues: CatalogVenue[] }) {
   const router = useRouter()
   const heroVenues = venues.filter(venue => venue.status === 'live' && heroPhoto(venue))
+  /* Up to three photos per venue, interleaved one-venue-at-a-time so the
+     caption keeps changing instead of sitting on one venue for three slides. */
+  const heroSlides = (() => {
+    const perVenue = heroVenues.map(venue => {
+      const cover = heroPhoto(venue)!
+      const rest = [...venue.photos, ...venue.spaces.flatMap(space => [space.image, ...(space.photos ?? [])])]
+      return { venue, photos: [...new Set([cover, ...rest.filter(Boolean)])].slice(0, 3) }
+    })
+    const rounds = Math.max(0, ...perVenue.map(v => v.photos.length))
+    return Array.from({ length: rounds }, (_, round) =>
+      perVenue.filter(v => v.photos[round]).map(v => ({
+        venue: v.venue,
+        src: v.photos[round],
+        alt: `${v.venue.name} — ${v.venue.area}, ${v.venue.city}`,
+      })),
+    ).flat()
+  })()
   const [heroIndex, setHeroIndex] = useState(0)
-  const featured = heroVenues[heroIndex % Math.max(heroVenues.length, 1)]
+  const featured = heroSlides[heroIndex % Math.max(heroSlides.length, 1)]?.venue
   const onOpenVenue = (slug: string) => router.push(venueDetailSearchHref(slug, readVenueSearchPreferences()))
   const onListVenue = () => router.push('/venues/partner')
   useReveal()
@@ -145,7 +162,7 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
 
             <div className="rise relative" style={{ '--d': '200ms' } as React.CSSProperties}>
               <Carousel
-                slides={heroVenues.map(venue => ({ src: heroPhoto(venue)!, alt: `${venue.name} — ${venue.area}, ${venue.city}` }))}
+                slides={heroSlides.map(({ src, alt }) => ({ src, alt }))}
                 label="Featured Chennai venues"
                 autoplay
                 activeIndex={heroIndex}
