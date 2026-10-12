@@ -23,6 +23,7 @@ import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
 import { venueMapEmbedUrl } from '@/lib/venueMaps'
+import { isWeekdaysOnlyVenue, venueBookingDateError } from '@/lib/venueAvailability'
 import ReviewFlow from './ReviewFlow'
 import { submitVenueReviewWithPhotos } from '@/lib/client/venueReviewApi'
 import type { VenueReview } from '@/lib/venueBookings'
@@ -491,6 +492,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   venue: CatalogVenue; publishedReviews?: VenueReview[]; search?: VenueSearchValues; initialSpaceId?: string
 }) {
   const isTimeCafe = venue.slug === 'time-cafe'
+  const weekdaysOnly = isWeekdaysOnlyVenue(venue.slug)
   // Photos the host manages in their workspace replace the design art once they
   // add any; venues with an empty gallery still render the approved design.
   const photos = venue.photos.length
@@ -633,6 +635,10 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
       if (windowError.field === 'hours' && chosenPackage) {
         e.start = `A ${chosenPackage.hours}-hour booking from ${start} would run past midnight. Choose an earlier start time.`
       } else e[windowError.field] = windowError.error
+    }
+    if (!windowError) {
+      const dateError = venueBookingDateError(venue.slug, date)
+      if (dateError) e.date = dateError
     }
     const g = Number(guests)
     if (!guests || !Number.isInteger(g) || g < 1) e.guests = 'Enter a whole number of guests.'
@@ -801,6 +807,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
             </span>
           </p>
           <p className="mt-3 text-sm leading-6 text-stone">Explore the spaces and location first. A booking request is not a confirmed booking, and no payment is taken here.</p>
+          {weekdaysOnly && <p className="mt-2 text-sm font-medium text-ink">Available for bookings Monday–Friday only.</p>}
           <details className="mt-4 border border-line bg-white p-4">
             <summary className="cursor-pointer text-sm font-medium">View map &amp; exact address</summary>
             <p className="mt-3 text-sm">{venue.address || `${venue.area}, ${venue.city}`}</p>
@@ -1037,7 +1044,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div>
                   <h3 className="font-mono-b text-xs tracking-[0.96px] uppercase">House rules</h3>
                   <ul className="mt-3 space-y-2">
-                    {(isTimeCafe ? ['1-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'] : [`${pricing?.minHours ?? 1}-hour minimum booking`, ...venue.policies]).map((r) => (
+                    {(isTimeCafe ? ['1-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'] : [`${pricing?.minHours ?? 1}-hour minimum booking`, ...(weekdaysOnly ? ['Bookings available Monday–Friday only'] : []), ...venue.policies]).map((r) => (
                       <li key={r} className="flex items-start gap-2 text-sm text-stone">
                         <Check className="mt-0.5 size-4 shrink-0 text-moss" strokeWidth={2.25} /> {r}
                       </li>
@@ -1074,7 +1081,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div className="mt-3 border-y border-line py-3" aria-live="polite">
                   <h2 className="mb-2 font-head text-lg">Send a booking request</h2>
                   <p key={space.id} className="anim-fade font-head text-sm">{space.name}</p>
-                  <p className="mt-0.5 text-xs text-stone">{pricing?.minHours ?? 1}-hour minimum · Pay only after host approval</p>
+                  <p className="mt-0.5 text-xs text-stone">{pricing?.minHours ?? 1}-hour minimum · Pay only after host approval{weekdaysOnly ? ' · Weekdays only' : ''}</p>
                 </div>
                 {profile && (
                   <p className="rise mt-3 flex items-center gap-2 bg-moss/10 px-3 py-2 text-xs text-moss">
@@ -1116,13 +1123,14 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                         value={date}
                         onChange={(e) => {
                           updateDraft((current) => ({ ...current, date: e.target.value }))
-                          setErrors((x) => ({ ...x, date: '' }))
+                          setErrors((x) => ({ ...x, date: venueBookingDateError(venue.slug, e.target.value) ?? '' }))
                         }}
                         aria-invalid={!!errors.date}
-                        aria-describedby={err('date')}
+                        aria-describedby={[weekdaysOnly ? `${idBase}-date-note` : null, err('date')].filter(Boolean).join(' ') || undefined}
                         className={inputCls}
                       />
                     </label>
+                    {weekdaysOnly && <p id={`${idBase}-date-note`} className="mt-1.5 text-xs text-stone">Choose a Monday–Friday date; weekends are unavailable.</p>}
                     {errorText('date')}
                   </div>
 

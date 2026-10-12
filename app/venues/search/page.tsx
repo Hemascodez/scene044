@@ -9,6 +9,7 @@ import { formatRupees, rateForSpace, venueMaxGuests, venueSearchHref } from "@/l
 import { listPublicVenues } from "@/lib/venueCatalog";
 import { matchingSpaces, requestedCapacity, venueDetailSearchHref, venueSearchValues } from "@/lib/venueSearch";
 import { venueMapEmbedUrl } from "@/lib/venueMaps";
+import { venueBookingDateError } from "@/lib/venueAvailability";
 
 export const metadata: Metadata = {
   title: "Search Chennai Event Spaces — SCENE/044",
@@ -23,16 +24,18 @@ export default async function VenueSearchPage({ searchParams }: {
   const capacity = requestedCapacity(query.people);
   const invalidCapacity = capacity !== null && !Number.isFinite(capacity);
   const allLive = (await listPublicVenues()).filter(venue => venue.status === "live");
+  const eligibleForDate = allLive.filter(venue => !venueBookingDateError(venue.slug, query.date));
+  const weekdayOnlyExcluded = eligibleForDate.length < allLive.length;
   // The landing search offers real neighbourhoods; honour one when it names a
   // venue area. "Chennai" or anything else keeps the full list, so free-text
   // locations from older links never empty the page.
   const area = allLive.find(venue => venue.area.toLowerCase() === query.location.trim().toLowerCase())?.area;
-  const live = area ? allLive.filter(venue => venue.area === area) : allLive;
+  const live = area ? eligibleForDate.filter(venue => venue.area === area) : eligibleForDate;
   const matches = live.flatMap(venue => matchingSpaces(venue.spaces, query.people).map(space => ({ venue, space })));
   const largest = Math.max(0, ...live.map(venue => venueMaxGuests(venue) ?? 0));
   const mapVenue = matches[0]?.venue;
   const matchedVenues = new Set(matches.map(({ venue }) => venue.slug));
-  const otherVenues = allLive.filter(venue => !matchedVenues.has(venue.slug));
+  const otherVenues = eligibleForDate.filter(venue => !matchedVenues.has(venue.slug));
 
   return <VenueChrome>
     <div className="mx-auto max-w-7xl px-4 py-8 font-body sm:px-6 lg:px-8 lg:py-12">
@@ -45,6 +48,7 @@ export default async function VenueSearchPage({ searchParams }: {
           <span key={item} className="border border-foreground bg-venue-card px-3 py-1.5 text-xs">{item}</span>)}</div>
       </div>
       <p className="mt-4 text-sm leading-6 text-muted-foreground">{matches.length > 0 && "These spaces fit the group size. "}Your date and time travel with your request; availability is confirmed by the host. Browsing does not make or charge a booking.</p>
+      {weekdayOnlyExcluded && <p className="mt-2 text-sm text-muted-foreground">FreshlyMade takes bookings Monday–Friday only, so it is not shown for this weekend date.</p>}
       <ScrollToResultsOnSearch trigger={JSON.stringify(query)} targetId="venue-results" />
       <div id="venue-results" className={`mt-8 grid scroll-mt-24 gap-8 ${mapVenue ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
         <div className="min-w-0 space-y-6">
@@ -72,6 +76,7 @@ export default async function VenueSearchPage({ searchParams }: {
                 <h2 className="mt-2 font-display text-xl font-extrabold"><Link href={href} className="underline-offset-4 hover:underline">{space.name}</Link></h2>
                 <p className="mt-2 font-bold text-ok-ink">Fits up to {space.maxGuests} people</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{space.description}</p>
+                {venue.slug === 'the-freshlymade-resto-cafe' && <p className="mt-2 text-sm font-medium">Bookings Monday–Friday only</p>}
                 <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm underline underline-offset-4"><VenueIcon name="map" className="size-4" /> View location on Google Maps<span className="sr-only"> (opens in a new tab)</span></a>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-venue-line pt-4">
                   <p className="text-sm"><strong className="text-xl">{rate === null ? "Host quote" : formatRupees(rate)}</strong>{rate !== null && " / hour"}<span className="mt-1 block text-xs text-muted-foreground">{space.pricing?.minHours ?? 1}-hour minimum · No added service fee</span></p>

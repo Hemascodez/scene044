@@ -8,6 +8,7 @@ import { absoluteUrl } from "@/lib/seo";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { deleteVenueBookingDraft } from "@/lib/venueBookingDrafts";
 import { validateVenueBookingWindow } from "@/lib/venueBookingValidation";
+import { venueBookingDateError } from "@/lib/venueAvailability";
 import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
 
 /**
@@ -102,6 +103,8 @@ export async function POST(request: Request) {
   if (venue?.status !== "live" || !space) {
     return NextResponse.json({ error: "Unknown venue or space" }, { status: 400 });
   }
+  const dateError = venueBookingDateError(venue.slug, date);
+  if (dateError) return NextResponse.json({ error: dateError, field: 'date' }, { status: 400 });
   if (people > space.maxGuests) {
     return NextResponse.json({ error: `${space.name} supports up to ${space.maxGuests} people` }, { status: 400 });
   }
