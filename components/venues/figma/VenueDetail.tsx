@@ -550,6 +550,8 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const hourlyRate = catalogSpace ? rateForSpace(catalogSpace, eventType) : null
   const [saved, setSaved] = useState(false)
   const [photo, setPhoto] = useState<number | null>(null)
+  const galleryRef = useRef<HTMLDivElement>(null)
+  const [galleryEdges, setGalleryEdges] = useState({ previous: false, next: photos.length > 1 })
   const [copied, setCopied] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
 
@@ -567,6 +569,22 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   // the chosen space and a way to the form in reach. It steps aside while the
   // form is on screen, so it never covers a field (WCAG 2.2 · 2.4.11).
   const [formInView, setFormInView] = useState(false)
+  const updateGalleryEdges = () => {
+    const gallery = galleryRef.current
+    if (!gallery) return
+    const previous = gallery.scrollLeft > 2
+    const next = gallery.scrollLeft + gallery.clientWidth < gallery.scrollWidth - 2
+    setGalleryEdges(current => current.previous === previous && current.next === next ? current : { previous, next })
+  }
+  const scrollGallery = (direction: -1 | 1) => {
+    const gallery = galleryRef.current
+    if (!gallery) return
+    const photoWidth = gallery.firstElementChild?.getBoundingClientRect().width ?? gallery.clientWidth
+    gallery.scrollBy({
+      left: direction * (photoWidth + 1.5),
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    })
+  }
   useEffect(() => {
     const el = bookingRef.current
     if (!el || !('IntersectionObserver' in window)) return
@@ -791,29 +809,41 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
         </header>
 
         <section aria-label="Photos" className="rise mt-6" style={{ '--d': '120ms' } as React.CSSProperties}>
-          <div className="flex h-[300px] snap-x snap-mandatory gap-[1.5px] overflow-x-auto overscroll-x-contain border-[1.5px] border-ink bg-ink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[380px] lg:grid lg:h-[448px] lg:snap-none lg:grid-cols-4 lg:grid-rows-2 lg:overflow-hidden">
-            {photos.slice(0, 5).map((g, i) => (
-              <button
-                key={g.src}
-                type="button"
-                onClick={() => setPhoto(i)}
-                aria-label={`Open photo ${i + 1}: ${g.alt}`}
-                className={`group relative overflow-hidden bg-sand h-full w-[85%] shrink-0 snap-start sm:w-[60%] lg:w-auto lg:shrink ${i === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}`}
-              >
-                <img
-                  src={g.src}
-                  alt=""
-                  loading={i === 0 ? 'eager' : 'lazy'}
-                  decoding="async"
-                  className="size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
-                />
-                {i === 4 && (
-                  <span className="absolute bottom-3 right-3 border-[1.5px] border-ink bg-paper px-3 py-2 font-mono-b text-[10px] tracking-[0.6px] uppercase shadow-hard-sm">
-                    Show all {photos.length} photos
-                  </span>
-                )}
+          <div className="relative">
+            <div ref={galleryRef} onScroll={updateGalleryEdges} className="flex h-[300px] snap-x snap-mandatory gap-[1.5px] overflow-x-auto overscroll-x-contain border-[1.5px] border-ink bg-ink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-[380px] lg:grid lg:h-[448px] lg:snap-none lg:grid-cols-4 lg:grid-rows-2 lg:overflow-hidden">
+              {photos.slice(0, 5).map((g, i) => (
+                <button
+                  key={g.src}
+                  type="button"
+                  onClick={() => setPhoto(i)}
+                  aria-label={`Open photo ${i + 1}: ${g.alt}`}
+                  className={`group relative overflow-hidden bg-sand h-full w-[85%] shrink-0 snap-start sm:w-[60%] lg:w-auto lg:shrink ${i === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}`}
+                >
+                  <img
+                    src={g.src}
+                    alt=""
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    className="size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+                  />
+                  {i === 4 && (
+                    <span className="absolute bottom-3 right-3 border-[1.5px] border-ink bg-paper px-3 py-2 font-mono-b text-[10px] tracking-[0.6px] uppercase shadow-hard-sm">
+                      Show all {photos.length} photos
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {photos.length > 1 && galleryEdges.previous && (
+              <button type="button" onClick={() => scrollGallery(-1)} aria-label="Scroll to previous venue photo" className="absolute left-3 top-1/2 z-10 flex size-12 -translate-y-1/2 items-center justify-center border-[1.5px] border-ink bg-paper text-ink shadow-hard-sm active:translate-y-[calc(-50%+2px)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame lg:hidden">
+                <ChevronLeft className="size-6" aria-hidden="true" />
               </button>
-            ))}
+            )}
+            {photos.length > 1 && galleryEdges.next && (
+              <button type="button" onClick={() => scrollGallery(1)} aria-label="Scroll to next venue photo" className="absolute right-3 top-1/2 z-10 flex size-12 -translate-y-1/2 items-center justify-center border-[1.5px] border-ink bg-paper text-ink shadow-hard-sm active:translate-y-[calc(-50%+2px)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame lg:hidden">
+                <ChevronRight className="size-6" aria-hidden="true" />
+              </button>
+            )}
           </div>
         </section>
         <Lightbox index={photo} onIndex={setPhoto} onClose={() => setPhoto(null)} gallery={photos} />
