@@ -16,6 +16,8 @@ import { matchingSpaces, type VenueSearchValues } from '@/lib/venueSearch'
 import { publishedVenueReviews } from '@/lib/venueTestimonials'
 import { ChandruTestimonial } from './ChandruTestimonial'
 import { EventFit } from './EventFit'
+import { BookingOptions } from './BookingOptions'
+import { HOURLY_ID, packageById, packageTotal, venuePricing } from './venuePackages'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
@@ -163,13 +165,15 @@ type TimeCafeDraft = {
   date: string
   start: string
   hours: number
+  /** Package id, or HOURLY_ID. Only used by venues that sell packages. */
+  packageId: string
   guests: string
   social: string
   message: string
 }
 
 const initialBookingDraft: TimeCafeDraft = {
-  spaceId: 'first-floor', eventType: '', date: '', start: '11:00', hours: 1,
+  spaceId: 'first-floor', eventType: '', date: '', start: '11:00', hours: 1, packageId: HOURLY_ID,
   guests: '25', social: '', message: '',
 }
 
@@ -184,6 +188,7 @@ function parseTimeCafeDraft(data: unknown, spaceId: string): TimeCafeDraft | nul
     date: typeof saved.date === 'string' ? saved.date : '',
     start: typeof saved.start === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(saved.start) ? saved.start : '11:00',
     hours: typeof saved.hours === 'number' && hourOptions.includes(saved.hours) ? saved.hours : 1,
+    packageId: typeof saved.packageId === 'string' ? saved.packageId : HOURLY_ID,
     guests: typeof saved.guests === 'string' ? saved.guests : '25',
     social: typeof saved.social === 'string' ? saved.social : '',
     message: typeof saved.message === 'string' ? saved.message : '',
@@ -192,7 +197,7 @@ function parseTimeCafeDraft(data: unknown, spaceId: string): TimeCafeDraft | nul
 
 function serializeTimeCafeDraft(value: TimeCafeDraft): Record<string, unknown> {
   return { kind: 'figma', eventType: value.eventType, date: value.date, start: value.start,
-    hours: value.hours, guests: value.guests, social: value.social, message: value.message }
+    hours: value.hours, packageId: value.packageId, guests: value.guests, social: value.social, message: value.message }
 }
 
 const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
@@ -531,7 +536,15 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
       spaceId: searchedSpace?.id ?? '', guests: String(Math.min(25, searchedSpace?.maxGuests ?? 25)), ...selection }, profilePhone: profile?.phone ?? null,
     authReady, parse: parseTimeCafeDraft, serialize: serializeTimeCafeDraft, selection,
   })
-  const { spaceId, eventType, date, start, hours, guests, social, message } = draft
+  const { spaceId, eventType, date, start, guests, social, message } = draft
+  // Venues that sell packages price the booking from the chosen option; the
+  // rest keep the plain hourly maths below.
+  const pricing = venuePricing(venue.slug)
+  const packageId = pricing ? draft.packageId : HOURLY_ID
+  const chosenPackage = pricing ? packageById(pricing, packageId) : null
+  // A package fixes the length; hourly respects the venue's minimum.
+  const hourlyHours = pricing ? Math.max(draft.hours, pricing.minHours) : draft.hours
+  const hours = chosenPackage ? chosenPackage.hours : hourlyHours
   const space = spaces.find((s) => s.id === spaceId) ?? spaces[0]
   const catalogSpace = venue.spaces.find(s => s.id === space?.dbId)
   const hourlyRate = catalogSpace ? rateForSpace(catalogSpace, eventType) : null
@@ -581,14 +594,28 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   }, [venue.name])
 
   const subtotal = hourlyRate === null ? null : hourlyRate * hours
-  const total = subtotal === null ? null : amountDue(subtotal)
+  // One figure, the organiser's. SCENE's share is deducted host-side, so there
+  // is never a fee line here (see amountDue).
+  const total = pricing ? packageTotal(pricing, packageId, hours) : subtotal === null ? null : amountDue(subtotal)
+  /** "11:00 – 15:00", so the summary states when the booking actually ends. */
+  const endTime = (() => {
+    const [h, m] = start.split(':').map(Number)
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null
+    const end = new Date(2000, 0, 1, h + hours, m)
+    return `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+  })()
+  const optionLabel = chosenPackage ? `${chosenPackage.name} · ${chosenPackage.hours} hours` : `Hourly · ${hours} ${hours === 1 ? 'hour' : 'hours'}`
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 
   const validate = () => {
     const e: Record<string, string> = {}
     if (!eventType) e.type = 'Choose what you are planning.'
     const windowError = validateVenueBookingWindow(date, start, hours)
-    if (windowError) e[windowError.field] = windowError.error
+    if (windowError) {
+      if (windowError.field === 'hours' && chosenPackage) {
+        e.start = `A ${chosenPackage.hours}-hour booking from ${start} would run past midnight. Choose an earlier start time.`
+      } else e[windowError.field] = windowError.error
+    }
     const g = Number(guests)
     if (!guests || !Number.isInteger(g) || g < 1) e.guests = 'Enter a whole number of guests.'
     else if (g > space.max) e.guests = `This space fits up to ${space.max} guests.`
@@ -978,7 +1005,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div>
                   <h3 className="font-mono-b text-xs tracking-[0.96px] uppercase">House rules</h3>
                   <ul className="mt-3 space-y-2">
-                    {(isTimeCafe ? ['1-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'] : ['1-hour minimum booking', ...venue.policies]).map((r) => (
+                    {(isTimeCafe ? ['1-hour minimum booking', 'No open flame or fog machines indoors', 'Amplified music until 9:30 PM', 'Outside catering welcome (kitchen not included)'] : [`${pricing?.minHours ?? 1}-hour minimum booking`, ...venue.policies]).map((r) => (
                       <li key={r} className="flex items-start gap-2 text-sm text-stone">
                         <Check className="mt-0.5 size-4 shrink-0 text-moss" strokeWidth={2.25} /> {r}
                       </li>
@@ -1015,7 +1042,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                 <div className="mt-3 border-y border-line py-3" aria-live="polite">
                   <h2 className="mb-2 font-head text-lg">Send a booking request</h2>
                   <p key={space.id} className="anim-fade font-head text-sm">{space.name}</p>
-                  <p className="mt-0.5 text-xs text-stone">1-hour minimum · Pay only after host approval</p>
+                  <p className="mt-0.5 text-xs text-stone">{pricing?.minHours ?? 1}-hour minimum · Pay only after host approval</p>
                 </div>
                 {profile && (
                   <p className="rise mt-3 flex items-center gap-2 bg-moss/10 px-3 py-2 text-xs text-moss">
@@ -1067,20 +1094,43 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                     {errorText('date')}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  {pricing && (
+                    <BookingOptions
+                      pricing={pricing}
+                      value={packageId}
+                      hours={hourlyHours}
+                      name={`${idBase}-package`}
+                      labelId={`${idBase}-package-l`}
+                      onChange={(id) => {
+                        updateDraft((current) => ({ ...current, packageId: id }))
+                        setErrors((x) => ({ ...x, hours: '', start: '', date: '' }))
+                      }}
+                    />
+                  )}
+
+                  <div className={chosenPackage ? '' : 'grid grid-cols-2 gap-3'}>
                     <label className={fieldBox}>
                       <span className={monoLabel}>Start</span>
                       <input type="time" data-field="start" aria-invalid={!!errors.start} aria-describedby={err('start')} value={start} onChange={(e) => { updateDraft((current) => ({ ...current, start: e.target.value })); setErrors(x => ({ ...x, start: '', hours: '', date: '' })) }} className={inputCls} />
                     </label>
-                    <label className={fieldBox}>
-                      <span className={monoLabel}>Hours</span>
-                      <select data-field="hours" aria-invalid={!!errors.hours} aria-describedby={err('hours')} value={hours} onChange={(e) => { updateDraft((current) => ({ ...current, hours: Number(e.target.value) })); setErrors(x => ({ ...x, hours: '' })) }} className={`${inputCls} cursor-pointer`}>
-                        {hourOptions.map((h) => (
-                          <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}</option>
-                        ))}
-                      </select>
-                    </label>
+                    {/* A package fixes its own length, so the picker only
+                        appears for hourly bookings. */}
+                    {!chosenPackage && (
+                      <label className={fieldBox}>
+                        <span className={monoLabel}>Hours</span>
+                        <select data-field="hours" aria-invalid={!!errors.hours} aria-describedby={err('hours')} value={hours} onChange={(e) => { updateDraft((current) => ({ ...current, hours: Number(e.target.value) })); setErrors(x => ({ ...x, hours: '' })) }} className={`${inputCls} cursor-pointer`}>
+                          {hourOptions.filter((h) => h >= (pricing?.minHours ?? 1)).map((h) => (
+                            <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </div>
+                  {chosenPackage && endTime && (
+                    <p className="text-xs leading-5 text-stone">
+                      {chosenPackage.hours} hours, {start} to {endTime}.
+                    </p>
+                  )}
 
                   {errorText('start')}
                   {errorText('hours')}
@@ -1170,17 +1220,34 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                     <>Continue to verify &amp; request <ArrowRight /></>
                   )}
                 </button>
-                <p className="mt-3 text-xs leading-5 text-stone">This sends a request only. The host must approve it before you can pay and confirm the booking.</p>
+                <p className="mt-3 text-xs leading-5 text-stone">No payment now. Pay the full amount after the host approves.</p>
 
                 {submitError && <FieldError className="mt-3">{submitError}</FieldError>}
 
                 <dl className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
-                  <div className="flex justify-between text-stone">
-                    <dt>{hourlyRate === null ? 'Price confirmed by host' : `${money(hourlyRate)} × ${hours} ${hours === 1 ? 'hour' : 'hours'}`}</dt>
-                    <dd key={subtotal} className="anim-fade">{subtotal === null ? 'Host quote' : money(subtotal)}</dd>
-                  </div>
+                  {pricing ? (
+                    <>
+                      <div className="flex justify-between gap-4 text-stone">
+                        <dt>Option</dt>
+                        <dd key={optionLabel} className="anim-fade text-right text-ink">{optionLabel}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4 text-stone">
+                        <dt>Date</dt>
+                        <dd className="text-right text-ink">{date ? dateNice : 'Not chosen yet'}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4 text-stone">
+                        <dt>Time</dt>
+                        <dd key={endTime} className="anim-fade text-right text-ink">{endTime ? `${start} – ${endTime}` : start}</dd>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-stone">
+                      <dt>{hourlyRate === null ? 'Price confirmed by host' : `${money(hourlyRate)} × ${hours} ${hours === 1 ? 'hour' : 'hours'}`}</dt>
+                      <dd key={subtotal} className="anim-fade">{subtotal === null ? 'Host quote' : money(subtotal)}</dd>
+                    </div>
+                  )}
                   <div className="flex justify-between border-t border-line pt-3 font-head">
-                    <dt>Estimated total</dt>
+                    <dt>{pricing ? 'Total payable' : 'Estimated total'}</dt>
                     <dd key={total} className="anim-fade">{total === null ? 'Host quote' : money(total)}</dd>
                   </div>
                 </dl>
@@ -1202,9 +1269,10 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                     ['Event', eventType],
                     ['Space', space.name],
                     ['Date', dateNice],
-                    ['Window', `${start} · ${hours}h`],
+                    ['Option', optionLabel],
+                    ['Window', endTime ? `${start} – ${endTime}` : `${start} · ${hours}h`],
                     ['Guests', guests],
-                    ['Estimate', total === null ? 'Host quote' : money(total)],
+                    [pricing ? 'Total payable' : 'Estimate', total === null ? 'Host quote' : money(total)],
                   ].map(([k, v], i) => (
                     <div key={k} className="rise flex justify-between gap-4 py-2.5" style={{ '--d': `${140 + i * 50}ms` } as React.CSSProperties}>
                       <dt className="font-mono-b text-[11px] tracking-[0.6px] uppercase text-stone">{k}</dt>
@@ -1273,8 +1341,15 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
               {/* Announces the change when a space is picked further up the page. */}
               <div className="min-w-0 flex-1" aria-live="polite">
                 <p key={space.id} className="anim-fade truncate font-head text-sm">{space.name}</p>
-                <p className="text-xs text-stone">
-                  {hourlyRate === null ? 'Host quote' : `${money(hourlyRate)} / hour`} · 1-hour minimum
+                <p key={`${optionLabel}-${total}`} className="anim-fade truncate text-xs text-stone">
+                  {pricing ? (
+                    <>
+                      <span className="font-head text-sm text-ink">{total === null ? 'Host quote' : money(total)}</span>
+                      {' · '}{chosenPackage ? chosenPackage.name : `${hours} ${hours === 1 ? 'hour' : 'hours'}`}
+                    </>
+                  ) : (
+                    `${hourlyRate === null ? 'Host quote' : `${money(hourlyRate)} / hour`} · 1-hour minimum`
+                  )}
                 </p>
               </div>
               <button

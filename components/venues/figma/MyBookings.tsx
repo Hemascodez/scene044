@@ -142,7 +142,7 @@ function BookingCard({
                   </p>
                 </div>
                 <button type="button" onClick={onPay} className={`${flameBtn} py-3`}>
-                  Pay {b.amount} <img src={payArrow} alt="" width={15} height={15} className="size-[15px]" />
+                  Pay {b.amount} &amp; confirm <img src={payArrow} alt="" width={15} height={15} className="size-[15px]" />
                 </button>
               </div>
             )}
@@ -800,7 +800,7 @@ export default function MyBookings({
           </dl>
           <p className="mt-3 text-xs leading-5 text-stone">Free cancellation up to 48 hours before your event. Pay securely with Razorpay — card, UPI or netbanking.</p>
           <button type="button" data-autofocus onClick={confirmPay} disabled={payBusy} aria-busy={payBusy} className={`${flameBtn} mt-5 w-full py-3`}>
-            {payBusy ? 'Processing payment…' : `Pay ${paying.amount}`}
+            {payBusy ? 'Processing payment…' : `Pay ${paying.amount} & confirm`}
           </button>
         </Dialog>
       )}
