@@ -4,6 +4,7 @@ import { getPublicEventSitemapEntries } from "@/lib/events";
 import { absoluteUrl, eventPath, venuePath, SITE_URL as BASE_URL } from "@/lib/seo";
 import { stockPosterFor } from "@/lib/stockPosters";
 import { listPublicVenues } from "@/lib/venueCatalog";
+import { escapeSitemapUrls } from "@/lib/sitemapXml";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .filter((date): date is Date => !!date)
     .sort((a, b) => b.getTime() - a.getTime())[0];
 
-  return [
+  return escapeSitemapUrls([
     {
       url: BASE_URL,
       ...(latestSiteUpdate ? { lastModified: latestSiteUpdate } : {}),
@@ -76,5 +77,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         absoluteUrl(event.posterImageUrl ?? stockPosterFor(event.category, event.id)),
       ],
     })),
-  ];
+  ]);
 }
