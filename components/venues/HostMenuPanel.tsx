@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { MenuItem } from '@/lib/venueOperations';
 type Draft = Omit<MenuItem, 'pricePaise'> & { price: string };
 const field = 'min-w-0 w-full border border-ink bg-white p-2 text-sm focus-visible:outline-2 focus-visible:outline-primary-ink';
-export function HostMenuPanel() {
+export function HostMenuPanel({ venueName = 'Your venue' }: { venueName?: string }) {
   const [items, setItems] = useState<Draft[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Loading menu…');
@@ -33,11 +33,11 @@ export function HostMenuPanel() {
     setBusy(true);
     try {
       const response = await fetch('/api/host/menu', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: items.map(({ price, ...i }) => ({ ...i, pricePaise: Math.round(Number(price) * 100) })) }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error); setMessage('Menu saved to Time Cafe. Available items can now be added to checked-in bookings.');
+      const data = await response.json(); if (!response.ok) throw new Error(data.error); setMessage(`Menu saved to ${venueName}. Available items can now be added to checked-in bookings.`);
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Could not save'); } finally { setBusy(false); }
   }
   return <section className="space-y-4 border-2 border-ink bg-white p-4 sm:p-6 shadow-hard">
-    <h2 className="font-head text-xl">Time Cafe menu</h2>
+    <h2 className="font-head text-xl">{venueName} menu</h2>
     <p className="text-sm text-stone">Take a clear menu photo or upload one. AI creates a draft; you check it before saving. The photo is processed, not stored in your profile.</p>
     <label className="block text-sm font-semibold">Menu photo (JPG, PNG, WebP · under 5 MB)<input disabled={busy} className={`${field} mt-2`} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { const file = e.target.files?.[0]; if (file) void extract(file); e.target.value = ''; }} /></label>
     <div className="space-y-3">{items.map((i, index) => <div key={i.id} className="grid gap-2 border-t border-venue-line pt-3 sm:grid-cols-2">

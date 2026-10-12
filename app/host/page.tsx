@@ -20,7 +20,7 @@ export default async function HostPage() {
   const venue = slug ? await getCatalogVenue(slug) : null;
   return (
     <VenueShell bare>
-      <HostWorkspacePage venue={venue ? { slug: venue.slug, name: venue.name, photo: venue.photos[0] ?? null } : undefined} />
+      <HostWorkspacePage venue={venue ? { slug: venue.slug, name: venue.name, photo: venue.photos[0] ?? null, spaceNames: venue.spaces.map(space => space.name) } : undefined} />
     </VenueShell>
   );
 }

@@ -22,6 +22,7 @@ import { HOURLY_ID, packageById, packageTotal } from '@/lib/venuePricing'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
+import { venueMapEmbedUrl } from '@/lib/venueMaps'
 import ReviewFlow from './ReviewFlow'
 import { submitVenueReviewWithPhotos } from '@/lib/client/venueReviewApi'
 import type { VenueReview } from '@/lib/venueBookings'
@@ -785,7 +786,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
           <details className="mt-4 border border-line bg-white p-4">
             <summary className="cursor-pointer text-sm font-medium">View map &amp; exact address</summary>
             <p className="mt-3 text-sm">{venue.address || `${venue.area}, ${venue.city}`}</p>
-            <iframe title={`Location of ${venue.name}`} src={venue.mapEmbedUrl || `https://www.google.com/maps?q=${mapQuery}&z=16&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="mt-4 block h-60 w-full border-0" />
+            <iframe title={`Location of ${venue.name}`} src={venueMapEmbedUrl(venue)} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="mt-4 block h-60 w-full border-0" />
           </details>
         </header>
 
@@ -980,7 +981,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
               <div className="relative mt-5 overflow-hidden border-[1.5px] border-ink bg-sand">
                 <iframe
                   title={`Google Map showing ${venue.name}, ${venue.area}`}
-                  src={`https://www.google.com/maps?q=${mapQuery}&z=16&output=embed`}
+                  src={venueMapEmbedUrl(venue)}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   allowFullScreen

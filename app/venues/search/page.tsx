@@ -8,6 +8,7 @@ import { SearchVenueSuggestions } from "@/components/venues/figma/SearchVenueSug
 import { formatRupees, rateForSpace, venueMaxGuests, venueSearchHref } from "@/lib/venues";
 import { listPublicVenues } from "@/lib/venueCatalog";
 import { matchingSpaces, requestedCapacity, venueDetailSearchHref, venueSearchValues } from "@/lib/venueSearch";
+import { venueMapEmbedUrl } from "@/lib/venueMaps";
 
 export const metadata: Metadata = {
   title: "Search Chennai Event Spaces — SCENE/044",
@@ -81,7 +82,7 @@ export default async function VenueSearchPage({ searchParams }: {
           })}
         </div>
         {mapVenue && <aside className="h-fit min-w-0 border-[1.5px] border-foreground bg-venue-card shadow-hard lg:sticky lg:top-24">
-          <iframe title={`Map of ${mapVenue.name}`} src={mapVenue.mapEmbedUrl || `https://www.google.com/maps?q=${encodeURIComponent(mapVenue.address || `${mapVenue.name}, ${mapVenue.area}`)}&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="block h-60 w-full border-0" />
+          <iframe title={`Map of ${mapVenue.name}`} src={venueMapEmbedUrl(mapVenue)} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="block h-60 w-full border-0" />
           <div className="p-5"><h2 className="font-display text-xl font-extrabold">Where you’ll be</h2><p className="mt-2 text-sm leading-6">{mapVenue.address || `${mapVenue.area}, ${mapVenue.city}`}</p></div>
         </aside>}
       </div>

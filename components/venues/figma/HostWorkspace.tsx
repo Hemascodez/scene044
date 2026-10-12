@@ -39,7 +39,7 @@ import type { Profile } from './AuthModal'
 
 const VENUE_PATH = '/venues/time-cafe'
 
-function ShareVenueEmpty({ venuePath }: { venuePath: string }) {
+function ShareVenueEmpty({ venuePath, venueName }: { venuePath: string; venueName: string }) {
 
   return (
     <section
@@ -57,7 +57,7 @@ function ShareVenueEmpty({ venuePath }: { venuePath: string }) {
           Share your venue link with organisers. Their booking requests will show up here for you to review.
         </p>
       </div>
-      <VenueShare path={venuePath} name="Time Cafe" />
+      <VenueShare path={venuePath} name={venueName} />
     </section>
   )
 }
@@ -185,7 +185,7 @@ export default function HostWorkspace({
   onExit,
   onLogout,
 }: {
-  venue?: { slug: string; name: string; photo: string | null }
+  venue?: { slug: string; name: string; photo: string | null; spaceNames: string[] }
   hostName?: string
   profile?: Profile | null
   onSaveProfile?: (p: Profile) => Promise<void>
@@ -273,7 +273,8 @@ export default function HostWorkspace({
   const [blockTimeModal, setBlockTimeModal] = useState(false)
   const [blockDate, setBlockDate] = useState(() => isoDay(new Date()))
   const [blockTitle, setBlockTitle] = useState('Private event')
-  const [blockSpace, setBlockSpace] = useState('First-floor event space')
+  const [blockSpace, setBlockSpace] = useState('')
+  const selectedBlockSpace = venue?.spaceNames.includes(blockSpace) ? blockSpace : venue?.spaceNames[0] ?? ''
 
 
   // Check-in State
@@ -390,7 +391,7 @@ export default function HostWorkspace({
 
   const handleBlockTimeSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createManualVenueBlock({ date: blockDate, from: '00:00', to: '23:59', spaceName: blockSpace, note: blockTitle })
+    createManualVenueBlock({ date: blockDate, from: '00:00', to: '23:59', spaceName: selectedBlockSpace, note: blockTitle })
     setBlockTimeModal(false)
     refresh()
     showToast(`Time slot blocked on ${dayLabel(blockDate)}: ${blockTitle}`)
@@ -622,7 +623,7 @@ export default function HostWorkspace({
               {activeNewRequests.length === 0 ? (
                 confirmedList.length === 0 ? (
                   <div className="mt-6">
-                    <ShareVenueEmpty venuePath={venuePath} />
+                    <ShareVenueEmpty venuePath={venuePath} venueName={venue?.name ?? 'Time Cafe'} />
                   </div>
                 ) : (
                   <div className="mt-6 rounded border border-dashed border-ink/30 bg-white/70 p-8 text-center">
@@ -1063,7 +1064,7 @@ export default function HostWorkspace({
               <h1 className="font-head text-3xl leading-[45px] text-ink uppercase sm:text-4xl">Host profile</h1>
               <p className="text-sm leading-5 text-stone">This is how organisers see you and your venue.</p>
             </div>
-            <HostMenuPanel />
+            <HostMenuPanel venueName={venue?.name} />
             {profile && onSaveProfile ? (
               <ProfileCard
                 variant="host"
@@ -1307,14 +1308,11 @@ export default function HostWorkspace({
                 <label htmlFor="block-space-select" className="block text-stone uppercase">Space</label>
                 <select
                   id="block-space-select"
-                  value={blockSpace}
+                  value={selectedBlockSpace}
                   onChange={(e) => setBlockSpace(e.target.value)}
                   className="mt-1 w-full border-[1.5px] border-ink bg-paper p-2 text-ink focus:outline-none"
                 >
-                  <option>First-floor event space</option>
-                  <option>BBQ table</option>
-                  <option>Korean table</option>
-                  <option>Conversation table</option>
+                  {venue?.spaceNames.map(name => <option key={name} value={name}>{name}</option>)}
                 </select>
               </div>
 
