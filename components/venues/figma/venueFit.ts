@@ -31,6 +31,7 @@ const SIGNALS = {
   wellness: { label: 'Studio floor', re: /yoga|wellness|meditation|\bmats?\b/i },
   restroom: { label: 'Washrooms', re: /restroom|washroom|toilet/i },
   openFloor: { label: 'Open floor', re: /studio|mirror|dance|\bhall\b|open floor|event floor/i },
+  props: { label: 'Props & mats', re: /\bprops?\b|\bmats?\b|equipment|supplies|stationery/i },
   tables: { label: 'Work tables', re: /\btables?\b|\bdesks?\b/i },
 } satisfies Record<string, Signal>
 
@@ -49,6 +50,11 @@ const RUBRIC: Partial<Record<(typeof VENUE_EVENT_TYPES)[number], Criterion[]>> =
   'Wellness session': [f('wellness', 3), f('quiet', 1.5), f('light', 1), f('ac', 1), cap(10, 1), f('restroom', 0.5)],
   'Art workshop': [f('light', 2), f('tables', 1.5), cap(12, 1.5), f('flexible', 1), f('food', 0.5), f('ac', 0.5)],
   'Dance class': [f('openFloor', 3), f('sound', 2), cap(15, 1.5), f('ac', 1), f('restroom', 0.5)],
+  'Dance workshop': [f('openFloor', 3), f('sound', 2), cap(15, 1.5), f('ac', 1), f('restroom', 0.5)],
+  // Theatre and acting want a clear floor to move on, quiet to be heard in,
+  // and somewhere to keep props — not projectors or catering.
+  'Theatre workshop': [f('openFloor', 3), f('quiet', 1.5), f('props', 1.5), cap(15, 1.5), f('restroom', 0.5), f('ac', 0.5)],
+  'Acting workshop': [f('openFloor', 3), f('quiet', 2), f('props', 1), cap(12, 1.5), f('ac', 0.5), f('restroom', 0.5)],
   'Podcast recording': [f('quiet', 3), f('mic', 2), f('recording', 1.5), f('power', 1), f('ac', 0.5)],
   Photoshoot: [f('light', 3), f('outdoor', 1.5), f('flexible', 1), f('power', 1), f('ac', 0.5)],
   'Videography / ad shoot': [f('light', 2), f('power', 2), f('quiet', 1.5), f('flexible', 1), f('ac', 0.5)],
@@ -66,6 +72,16 @@ export type VenueFit = {
 }
 
 const ROWS = 5
+
+/** Events that measure the same thing; only the best of each is shown. */
+const FAMILIES: Record<string, string> = {
+  'Dance class': 'movement',
+  'Dance workshop': 'movement',
+  'Theatre workshop': 'drama',
+  'Acting workshop': 'drama',
+  Photoshoot: 'shoot',
+  'Videography / ad shoot': 'shoot',
+}
 
 /** Everything the page says about the venue and its rooms, as one string. */
 function corpus(venue: CatalogVenue) {
@@ -109,7 +125,17 @@ export function venueFit(venue: CatalogVenue): VenueFit | null {
     return [{ name, order, score: Math.round((10 * earned) / total), note }]
   })
 
-  const top = scored.sort((a, b) => b.score - a.score || a.order - b.order).slice(0, ROWS)
+  const ranked = scored.sort((a, b) => b.score - a.score || a.order - b.order)
+  const usedFamilies = new Set<string>()
+  const top = ranked
+    .filter((r) => {
+      const family = FAMILIES[r.name]
+      if (!family) return true
+      if (usedFamilies.has(family)) return false
+      usedFamilies.add(family)
+      return true
+    })
+    .slice(0, ROWS)
   const best = top[0]?.score ?? 0
   const rows: FitRow[] = top.map((r) => ({
     name: r.name,

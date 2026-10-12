@@ -3,10 +3,13 @@ export const VENUE_EVENT_TYPES = [
   "Workshop",
   "Professional gathering",
   "Wellness session",
-  // Owner request: arts and movement sit with wellness. Both book at the
+  // Owner request: arts and movement sit with wellness. All book at the
   // community rate (isProductionEvent covers shoots only).
   "Art workshop",
   "Dance class",
+  "Dance workshop",
+  "Theatre workshop",
+  "Acting workshop",
   "Podcast recording",
   "Photoshoot",
   "Videography / ad shoot",

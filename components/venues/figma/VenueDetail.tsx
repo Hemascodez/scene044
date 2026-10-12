@@ -17,6 +17,7 @@ import { publishedVenueReviews } from '@/lib/venueTestimonials'
 import { ChandruTestimonial } from './ChandruTestimonial'
 import { EventFit } from './EventFit'
 import { BookingOptions } from './BookingOptions'
+import { venueAmenityGroups, venueAmenityList } from './venueAmenities'
 import { HOURLY_ID, packageById, packageTotal, venuePricing } from './venuePackages'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
@@ -503,16 +504,14 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
       img: s.image, alt: s.name, photos: venueRoomPhotos(s.image, s.name, design?.photos, s.photos),
       price: rateForSpace(s, '') }
   })
-  const venueAmenities = isTimeCafe ? amenities : venue.amenities.map(t => ({
-    I: /wifi|internet/i.test(t) ? Wifi : /mic/i.test(t) ? Mic : /speaker|sound/i.test(t) ? Volume
-      : /power|charg/i.test(t) ? Zap : /coffee|food|barista/i.test(t) ? Coffee : Check,
-    t, d: '',
-  }))
+  // Time Cafe keeps its hand-written design copy; every other venue gets the
+  // same grouped treatment generated from its own amenity list.
+  const venueAmenities = isTimeCafe ? amenities : venueAmenityList(venue).map(t => ({ I: Check, t, d: '' }))
   const amenityGroups = isTimeCafe ? [
     { g: 'Present & perform', n: 'Screen, sound and stage', cols: 'sm:grid-cols-3', items: venueAmenities.slice(0, 3) },
     { g: 'Stay connected & fed', n: 'Power, network and refreshments', cols: 'sm:grid-cols-3', items: venueAmenities.slice(3, 6) },
     { g: 'Support on the day', n: 'People and practicalities', cols: 'sm:grid-cols-2', items: venueAmenities.slice(6) },
-  ] : [{ g: 'At this venue', n: 'Amenities provided by the host', cols: 'sm:grid-cols-3', items: venueAmenities }]
+  ] : venueAmenityGroups(venue)
   const reviews = publishedVenueReviews(publishedReviews).map(r => ({ id: r.id, n: r.organizerName || 'Organiser', q: r.comment || '',
     imgs: r.photoConsent ? r.photoIds.map(id => `/api/poster/${id}`) : [], rating: r.rating,
     date: new Date(r.createdAt).toLocaleDateString('en-IN'), event: r.eventType || '', source: r.source }));
@@ -921,7 +920,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                             <I className="size-5" />
                           </span>
                           <span className="mt-3 block font-head text-[14px] leading-5 text-ink">{t}</span>
-                          <span className="mt-1 block text-[13px] leading-5 text-stone">{d}</span>
+                          {d && <span className="mt-1 block text-[13px] leading-5 text-stone">{d}</span>}
                         </li>
                       ))}
                     </ul>

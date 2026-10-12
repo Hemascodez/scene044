@@ -203,3 +203,56 @@ export const Link2 = (p: P) =>
     p,
   )
 
+
+/* Amenity icons for venues beyond Time Cafe, so a real amenity list reads as
+   distinct items rather than a wall of ticks. Same 24×24 stroke style. */
+export const Sun = (p: P) =>
+  base(
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" />
+    </>,
+    p,
+  )
+export const Snowflake = (p: P) =>
+  base(
+    <>
+      <path d="M12 2v20M4.2 7l15.6 10M19.8 7L4.2 17" />
+      <path d="M9 4l3 2 3-2M9 20l3-2 3 2M4.2 10.5L4.6 7l3.4-.6M19.8 13.5l-.4 3.5-3.4.6M19.8 10.5L19.4 7 16 6.4M4.2 13.5l.4 3.5 3.4.6" />
+    </>,
+    p,
+  )
+export const Accessibility = (p: P) =>
+  base(
+    <>
+      <circle cx="12" cy="4.2" r="1.8" />
+      <path d="M6 8.5l6 1.6 6-1.6M12 10.1V15M12 15l-2.6 6M12 15l2.6 6" />
+    </>,
+    p,
+  )
+export const Restroom = (p: P) =>
+  base(
+    <>
+      <circle cx="7" cy="4.2" r="1.8" />
+      <path d="M4.4 21V13H3.2l1.6-5h4.4l1.6 5H9.6v8z" />
+      <circle cx="17" cy="4.2" r="1.8" />
+      <path d="M14 21l1.2-6h-1.6L15.4 8h3.2l1.8 7h-1.6l1.2 6z" />
+    </>,
+    p,
+  )
+export const Seating = (p: P) =>
+  base(
+    <>
+      <path d="M5 11V6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5V11" />
+      <path d="M3.5 11h17v5.5h-17zM5.5 16.5V20M18.5 16.5V20" />
+    </>,
+    p,
+  )
+export const Sparkle = (p: P) =>
+  base(
+    <>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M18.5 16l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />
+    </>,
+    p,
+  )
