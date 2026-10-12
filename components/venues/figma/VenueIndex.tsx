@@ -234,6 +234,7 @@ function VenueCard({
 }) {
   const guests = venueMaxGuests(venue)
   const rate = venueFromRate(venue)
+  const minHours = venue.spaces.length ? Math.min(...venue.spaces.map(s => s.pricing?.minHours ?? 1)) : 1
   const uses = bestFor(venue)
   // Some venues list amenities only on their rooms; fall back to those.
   const amenities = venue.amenities.length
@@ -307,7 +308,7 @@ function VenueCard({
                   <span className="font-head text-base">{formatRupees(rate)}</span>{' '}
                   {/* The space sits outside the nowrap span so the suffix can drop
                       to its own line on a narrow card instead of overflowing. */}
-                  <span className="whitespace-nowrap text-xs leading-4 text-stone">/hr · 1h min</span>
+                  <span className="whitespace-nowrap text-xs leading-4 text-stone">/hr · {minHours}h min</span>
                 </>
               )}
             </dd>

@@ -41,6 +41,8 @@ export interface VenueBooking {
   whatsappOptIn: boolean;
   hourlyRate: number | null;
   total: number | null;
+  packageId?: string | null;
+  packageName?: string | null;
   status: VenueBookingStatus;
   checkedInAt: string | null;
   endsAt: string | null;

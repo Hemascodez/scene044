@@ -1,3 +1,5 @@
+import type { VenuePricing } from './venuePricing';
+
 export const VENUE_EVENT_TYPES = [
   "Tech meetup",
   "Workshop",
@@ -36,6 +38,7 @@ export interface VenueSpace {
   communityRate: number | null;
   productionRate: number | null;
   minimumFoodSpend: number | null;
+  pricing?: VenuePricing | null;
 }
 
 export const TIME_CAFE = {
@@ -199,7 +202,7 @@ interface HasSpaces {
  */
 export function venueFromRate(venue: HasSpaces): number | null {
   const rates = venue.spaces
-    .map((space) => space.communityRate)
+    .map((space) => space.pricing?.hourlyRate ?? space.communityRate)
     .filter((rate): rate is number => typeof rate === "number");
   return rates.length > 0 ? Math.min(...rates) : null;
 }
@@ -221,7 +224,7 @@ export function isProductionEvent(eventType: string) {
 }
 
 export function rateForSpace(space: VenueSpace, eventType: string): number | null {
-  return isProductionEvent(eventType) ? space.productionRate : space.communityRate;
+  return space.pricing?.hourlyRate ?? (isProductionEvent(eventType) ? space.productionRate : space.communityRate);
 }
 
 /** Organisers pay the listed venue price only. SCENE's 10% is deducted on

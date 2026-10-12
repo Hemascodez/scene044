@@ -50,6 +50,11 @@ export interface VenueBooking {
   whatsappOptIn: boolean;
   hourlyRate: number | null;
   total: number | null;
+  packageId?: string | null;
+  packageName?: string | null;
+  hostAmount?: number | null;
+  sceneAmount?: number | null;
+  pricingModel?: 'host-markup' | 'host-commission' | null;
   status: VenueBookingStatus;
   checkedInAt: string | null;
   endsAt: string | null;
@@ -129,6 +134,8 @@ export const BOOKING_COLUMNS = `
   trust_type AS "trustType", trust_url AS "trustUrl",
   whatsapp_opt_in AS "whatsappOptIn",
   hourly_rate AS "hourlyRate", total, status,
+  package_id AS "packageId", package_name AS "packageName", host_amount AS "hostAmount",
+  scene_amount AS "sceneAmount", pricing_model AS "pricingModel",
   checked_in_at AS "checkedInAt", ends_at AS "endsAt", completed_at AS "completedAt",
   trial_duration_minutes AS "trialDurationMinutes", trial_amount_paise AS "trialAmountPaise", paid_at AS "paidAt",
   archived_at AS "archivedAt", archive_reason AS "archiveReason",
@@ -156,6 +163,11 @@ export interface NewBookingInput {
   emailOptIn?: boolean;
   hourlyRate: number | null;
   total: number | null;
+  packageId?: string;
+  packageName?: string;
+  hostAmount?: number | null;
+  sceneAmount?: number | null;
+  pricingModel?: 'host-markup' | 'host-commission';
 }
 
 /**
@@ -170,8 +182,9 @@ export async function createVenueBooking(input: NewBookingInput): Promise<VenueB
          (code, checkin_token, venue_slug, venue_name, space_id, space_name,
             event_date, start_time, duration_hours, people, event_type, description,
             organizer_name, organizer_email, organizer_phone, trust_type, trust_url,
-            whatsapp_opt_in, email_opt_in, hourly_rate, total, organizer_user_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+            whatsapp_opt_in, email_opt_in, hourly_rate, total, organizer_user_id,
+            package_id, package_name, host_amount, scene_amount, pricing_model)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
          RETURNING ${BOOKING_COLUMNS}`,
         [
           newBookingCode(),
@@ -196,6 +209,8 @@ export async function createVenueBooking(input: NewBookingInput): Promise<VenueB
           input.hourlyRate,
           input.total,
           input.organizerUserId ?? null,
+          input.packageId ?? null, input.packageName ?? null, input.hostAmount ?? null,
+          input.sceneAmount ?? null, input.pricingModel ?? null,
         ],
       );
       return rows[0];
@@ -205,6 +220,13 @@ export async function createVenueBooking(input: NewBookingInput): Promise<VenueB
     }
   }
   throw new Error("could not allocate a unique booking code");
+}
+
+/** Internal host/SCENE settlement amounts never enter organiser API responses. */
+export function organizerBooking(booking: VenueBooking) {
+  const { hostAmount, sceneAmount, pricingModel, ...publicBooking } = booking;
+  void hostAmount; void sceneAmount; void pricingModel;
+  return publicBooking;
 }
 
 export async function getBookingByCode(code: string): Promise<VenueBooking | null> {

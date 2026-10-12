@@ -21,7 +21,7 @@ function cleanFormData(value: unknown): Record<string, unknown> | null {
   if (raw.kind !== "figma" && raw.kind !== "generic") return null;
   const cleaned: Record<string, unknown> = { kind: raw.kind };
   for (const [key, max] of Object.entries({
-    eventType: 100, date: 20, time: 10, start: 10, guests: 8,
+    eventType: 100, packageId: 80, date: 20, time: 10, start: 10, guests: 8,
     description: 4000, message: 4000, social: 500,
     name: 120, email: 300, phone: 40, trustType: 40, trustUrl: 500,
   })) {

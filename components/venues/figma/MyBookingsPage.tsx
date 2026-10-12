@@ -52,7 +52,7 @@ function toDesign(entry: { booking: VenueBooking; qrSvg: string }): Booking {
     status,
     eventType: b.eventType,
     venue: b.venueName,
-    space: b.spaceName,
+    space: b.packageName && b.packageId !== 'hourly' ? `${b.spaceName} · ${b.packageName}` : b.spaceName,
     img: SPACE_PHOTO[b.spaceId] ?? "/venues/figma/spaces-f33c5.jpg",
     date: prettyDate(b.eventDate),
     time: `${b.startTime} · ${b.trialDurationMinutes ? '5-minute live trial' : `${b.durationHours} ${b.durationHours === 1 ? "hour" : "hours"}`}`,

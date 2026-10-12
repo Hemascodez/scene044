@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import QRCode from "qrcode";
-import { createVenueBooking, listBookingsForOrganizer } from "@/lib/venueBookings";
-import { getCatalogVenue } from "@/lib/venueCatalog";
-import { rateForSpace, VENUE_EVENT_TYPES } from "@/lib/venues";
+import { createVenueBooking, listBookingsForOrganizer, organizerBooking } from "@/lib/venueBookings";
+import { getCatalogVenue, quoteCatalogSpace } from "@/lib/venueCatalog";
+import { isProductionEvent, VENUE_EVENT_TYPES } from "@/lib/venues";
+import { HOURLY_ID, BookingPricingError } from '@/lib/venuePricing';
 import { absoluteUrl } from "@/lib/seo";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { deleteVenueBookingDraft } from "@/lib/venueBookingDrafts";
@@ -23,6 +24,8 @@ interface CreateBookingBody {
   date?: unknown;
   time?: unknown;
   duration?: unknown;
+  packageId?: unknown;
+  expectedTotal?: unknown;
   people?: unknown;
   description?: unknown;
   name?: unknown;
@@ -45,7 +48,7 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: "Sign in to see your bookings." }, { status: 401 });
   const bookings = await listBookingsForOrganizer(user.id);
   const entries = await Promise.all(bookings.map(async (booking) => ({
-    booking,
+    booking: organizerBooking(booking),
     qrSvg: await QRCode.toString(absoluteUrl(`/host/checkin/${booking.checkinToken}`), { type: "svg", margin: 1, width: 256 }),
   })));
   return NextResponse.json({ ok: true, entries }, { headers: { "Cache-Control": "no-store" } });
@@ -103,8 +106,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `${space.name} supports up to ${space.maxGuests} people` }, { status: 400 });
   }
 
-  const hourlyRate = rateForSpace(space, eventType);
-  const total = hourlyRate === null ? null : hourlyRate * duration;
+  if (body.packageId !== undefined && (typeof body.packageId !== 'string' || !/^[a-z0-9-]{1,80}$/.test(body.packageId))) {
+    return NextResponse.json({ error: 'Invalid booking option.' }, { status: 400 });
+  }
+  let quote;
+  try {
+    quote = await quoteCatalogSpace(venue.id, space.id, isProductionEvent(eventType), duration, body.packageId as string | undefined ?? HOURLY_ID);
+  } catch (error) {
+    if (error instanceof BookingPricingError) return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error('Could not price venue booking', error instanceof Error ? error.name : 'Error');
+    return NextResponse.json({ error: 'Could not check the current price. Please retry.' }, { status: 503 });
+  }
+  if (quote.pricingModel === 'host-markup' && (body.packageId === undefined || typeof body.expectedTotal !== 'number')) {
+    return NextResponse.json({ error: 'Refresh the venue page to see its current booking options and prices.' }, { status: 409 });
+  }
+  if (body.expectedTotal !== undefined && body.expectedTotal !== quote.total) {
+    return NextResponse.json({ error: 'The price has changed. Refresh the venue page and review the total before sending your request.' }, { status: 409 });
+  }
 
   const booking = await createVenueBooking({
     organizerUserId: user.id,
@@ -125,8 +143,7 @@ export async function POST(request: Request) {
     trustUrl,
     whatsappOptIn,
     emailOptIn,
-    hourlyRate,
-    total,
+    ...quote,
   });
 
   // The booking is already real at this point. A failed cleanup must never
@@ -148,6 +165,8 @@ export async function POST(request: Request) {
     token: booking.checkinToken,
     status: booking.status,
     total: booking.total,
+    packageId: booking.packageId,
+    packageName: booking.packageName,
     qrSvg,
   });
 }

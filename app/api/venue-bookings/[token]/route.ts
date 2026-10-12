@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBookingByCheckinToken, withdrawRequestedBooking } from "@/lib/venueBookings";
+import { getBookingByCheckinToken, withdrawRequestedBooking, organizerBooking } from "@/lib/venueBookings";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
 
@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const booking = await getBookingByCheckinToken(token);
   if (!booking || booking.organizerUserId !== user.id) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-  return NextResponse.json({ ok: true, booking }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ok: true, booking: organizerBooking(booking) }, { headers: { "Cache-Control": "no-store" } });
 }
 
 /**
@@ -40,5 +40,5 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ t
     );
   }
   scheduleVenueNotifications();
-  return NextResponse.json({ ok: true, booking: withdrawn });
+  return NextResponse.json({ ok: true, booking: organizerBooking(withdrawn) });
 }

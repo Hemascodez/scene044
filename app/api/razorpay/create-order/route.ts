@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createRazorpayOrder, razorpayCheckoutKey, paymentForOrder, fetchCapturedPayment } from "@/lib/razorpay";
 import { getBookingByCheckinToken } from "@/lib/venueBookings";
-import { getCatalogVenue } from "@/lib/venueCatalog";
-import { rateForSpace } from "@/lib/venues";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { bookingChargePaise, recordPaymentOrder, latestPaymentOrder, confirmCapturedPayment } from '@/lib/venueOperations';
 import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
@@ -44,14 +42,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This booking isn't ready for payment" }, { status: 409 });
   }
 
-  const venue = await getCatalogVenue(booking.venueSlug);
-  const space = venue?.spaces.find((item) => item.id === booking.spaceId);
-  if (!venue || !space) {
-    return NextResponse.json({ error: "Unknown venue or space" }, { status: 400 });
-  }
-
-  const rate = rateForSpace(space, booking.eventType);
-  if (rate === null && !booking.trialAmountPaise) {
+  // The agreed booking snapshot survives later room/rate edits.
+  if (booking.total === null && !booking.trialAmountPaise) {
     return NextResponse.json(
       { error: "This space requires a manual quote and can't be paid online yet" },
       { status: 400 },

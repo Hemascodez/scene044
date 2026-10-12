@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import type { VenueListing, VenueSpace, VenueStatus } from "@/lib/venues";
+import { parseSpacePricing, publicSpacePricing, quoteSpace, HOURLY_ID, BookingPricingError, type BookingQuote } from './venuePricing';
 
 /**
  * The venue catalog, read from and written to the database.
@@ -62,13 +63,14 @@ interface SpaceRow {
   productionRate: number | null;
   minimumFoodSpend: number | null;
   sortOrder: number;
+  pricingOptions: unknown;
 }
 
 const SPACE_COLUMNS = `
   id AS "rowId", venue_id AS "venueId", space_key AS "spaceKey", name, eyebrow, description,
   capacity, max_guests AS "maxGuests", image, photos, amenities,
   community_rate AS "communityRate", production_rate AS "productionRate",
-  minimum_food_spend AS "minimumFoodSpend", sort_order AS "sortOrder"
+  minimum_food_spend AS "minimumFoodSpend", sort_order AS "sortOrder", pricing_options AS "pricingOptions"
 `;
 
 function toSpace(row: SpaceRow): CatalogSpace {
@@ -89,6 +91,7 @@ function toSpace(row: SpaceRow): CatalogSpace {
     productionRate: row.productionRate,
     minimumFoodSpend: row.minimumFoodSpend,
     sortOrder: row.sortOrder,
+    pricing: publicSpacePricing(row.communityRate, parseSpacePricing(row.pricingOptions)),
   };
 }
 
@@ -164,6 +167,19 @@ export async function getCatalogVenue(slug: string): Promise<CatalogVenue | null
   );
   const [venue] = await attachSpaces(rows);
   return venue ?? null;
+}
+
+/** Reload the private room rates for repricing; never accept a client amount. */
+export async function quoteCatalogSpace(venueId: number, spaceKey: string, production: boolean, duration: number, packageId = HOURLY_ID): Promise<BookingQuote> {
+  const { rows } = await query<{ communityRate: number | null; productionRate: number | null; pricingOptions: unknown }>(
+    `SELECT s.community_rate AS "communityRate", s.production_rate AS "productionRate", s.pricing_options AS "pricingOptions"
+       FROM venue_spaces s JOIN venues v ON v.id=s.venue_id
+      WHERE s.venue_id=$1 AND s.space_key=$2 AND s.retired_at IS NULL AND v.status='live'`, [venueId, spaceKey]);
+  if (!rows[0]) throw new BookingPricingError('This space is no longer available.');
+  const row = rows[0];
+  const config = parseSpacePricing(row.pricingOptions);
+  // Configured package venues share one agreed hourly rate across event types.
+  return quoteSpace(config ? row.communityRate : production ? row.productionRate : row.communityRate, config, duration, packageId);
 }
 
 export type VenueWritableFields = Partial<{
@@ -399,8 +415,7 @@ export async function countNewPartnerRequests(): Promise<number> {
 
 // ------------------------------------------------------------------ earnings
 
-/** SCENE's cut of a confirmed booking. Mirrors the 90% payout the host
- *  dashboard and partner page already state. */
+/** Legacy commission. New bookings also support an agreed host-rate markup. */
 export const SCENE_FEE_RATE = 0.1;
 
 export interface VenueEarnings {
@@ -430,11 +445,13 @@ export async function venueEarnings(venueSlug?: string): Promise<VenueEarnings> 
     confirmed: string;
     completed: string;
     gross: string;
+    fee: string;
   }>(
     `SELECT
        count(*) FILTER (WHERE status IN ('confirmed','checked_in','completed'))::text AS confirmed,
        count(*) FILTER (WHERE status = 'completed')::text AS completed,
-       COALESCE(sum(total) FILTER (WHERE status IN ('confirmed','checked_in','completed') AND trial_amount_paise IS NULL), 0)::text AS gross
+       COALESCE(sum(total) FILTER (WHERE status IN ('confirmed','checked_in','completed') AND trial_amount_paise IS NULL), 0)::text AS gross,
+       COALESCE(sum(COALESCE(scene_amount, ROUND(total * 0.1))) FILTER (WHERE status IN ('confirmed','checked_in','completed') AND trial_amount_paise IS NULL), 0)::text AS fee
      FROM venue_bookings
      WHERE ($1::text IS NULL OR venue_slug = $1) AND archived_at IS NULL`,
     [venueSlug ?? null],
@@ -448,7 +465,7 @@ export async function venueEarnings(venueSlug?: string): Promise<VenueEarnings> 
   );
 
   const grossValue = Number(rows[0]?.gross ?? 0);
-  const sceneFee = Math.round(grossValue * SCENE_FEE_RATE);
+  const sceneFee = Number(rows[0]?.fee ?? 0);
   return {
     confirmedCount: Number(rows[0]?.confirmed ?? 0),
     completedCount: Number(rows[0]?.completed ?? 0),

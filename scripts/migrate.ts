@@ -15,6 +15,7 @@ async function main() {
   await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-10-08-host-venue-changes.sql'), 'utf8'));
   await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-10-08-time-cafe-rooms.sql'), 'utf8'));
   await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-10-08-host-space-editor.sql'), 'utf8'));
+  await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-10-12-venue-package-pricing.sql'), 'utf8'));
   console.log("Schema applied.");
 }
 

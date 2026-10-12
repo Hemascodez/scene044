@@ -480,6 +480,11 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
 );
 
 ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS organizer_user_id INT REFERENCES venue_users(id);
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS package_id TEXT;
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS package_name TEXT;
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS host_amount INT;
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS scene_amount INT;
+ALTER TABLE venue_bookings ADD COLUMN IF NOT EXISTS pricing_model TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_venue_bookings_organizer_user
   ON venue_bookings (organizer_user_id, created_at DESC);
@@ -656,6 +661,8 @@ CREATE INDEX IF NOT EXISTS idx_venue_spaces_venue ON venue_spaces (venue_id, sor
 -- Retiring a catalog option must not erase its historical booking snapshots.
 ALTER TABLE venue_spaces ADD COLUMN IF NOT EXISTS retired_at TIMESTAMPTZ;
 ALTER TABLE venue_spaces ADD COLUMN IF NOT EXISTS photos TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE venue_spaces ADD COLUMN IF NOT EXISTS pricing_options JSONB;
+ALTER TABLE venue_spaces ADD COLUMN IF NOT EXISTS pricing_initialized BOOLEAN NOT NULL DEFAULT false;
 
 
 -- ---------------------------------------------------------- Open venue reviews

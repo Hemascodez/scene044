@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from './icons'
-import { HOURLY_ID, type VenuePricing } from './venuePackages'
+import { HOURLY_ID, type VenuePricing } from '@/lib/venuePricing'
 
 const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
 

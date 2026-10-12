@@ -12,6 +12,7 @@ import { formatRemaining } from '../BookingCountdown'
 import { HostMenuPanel } from '../HostMenuPanel'
 import { createManualVenueBlock, readManualVenueBlocks, type ManualVenueBlock } from '@/lib/client/venueBookingStore'
 import { getISTParts } from '@/lib/client/istTime'
+import { bookingFinancials } from '@/lib/venuePricing'
 import {
   ArrowLeft,
   ArrowRight,
@@ -89,6 +90,7 @@ export type HostRequest = {
   phone: string
   organiserPays: number
   sceneFee: number
+  feeLabel: string
   payout: number
   status: 'new' | 'approved' | 'declined'
   declineReason?: string
@@ -110,14 +112,11 @@ type ConfirmedItem = {
   endsAt: string | null
 }
 
-/** The host's payout is 90% of the space cost; SCENE's host-side fee is the other 10%. */
-const HOST_FEE_RATE = 0.1
-
 const dayLabel = (date: string) =>
   new Date(`${date}T12:00:00+05:30`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }).replace(/^(\w+) /, '$1, ')
 
 function toRequest(b: HostBooking): HostRequest {
-  const value = b.trialAmountPaise ? 0 : b.total ?? 0
+  const financials = bookingFinancials(b)
   let group = ''
   try {
     group = b.trustUrl ? new URL(b.trustUrl).hostname.replace(/^www\./, '') : ''
@@ -132,16 +131,17 @@ function toRequest(b: HostBooking): HostRequest {
     orgGroup: group,
     date: dayLabel(b.eventDate),
     time: b.startTime,
-    duration: b.trialDurationMinutes ? '5-minute live trial' : `${b.durationHours} ${b.durationHours === 1 ? 'hour' : 'hours'}`,
+    duration: b.trialDurationMinutes ? '5-minute live trial' : `${b.packageName && b.packageId !== 'hourly' ? `${b.packageName} · ` : ''}${b.durationHours} ${b.durationHours === 1 ? 'hour' : 'hours'}`,
     guests: b.people,
     space: b.spaceName,
     eventPlan: b.description,
     requestedSetup: '',
     linkedin: b.trustUrl ?? '',
     phone: b.organizerPhone,
-    organiserPays: b.trialAmountPaise ? b.trialAmountPaise / 100 : value,
-    sceneFee: Math.round(value * HOST_FEE_RATE),
-    payout: Math.round(value * (1 - HOST_FEE_RATE)),
+    organiserPays: financials.total,
+    sceneFee: financials.sceneFee,
+    payout: financials.payout,
+    feeLabel: b.pricingModel === 'host-markup' ? 'SCENE share' : 'SCENE fee (10%)',
     status: 'new',
   }
 }
@@ -329,7 +329,8 @@ export default function HostWorkspace({
   const monthLabel = new Date(`${todayIso}T12:00:00+05:30`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })
   const paidThisMonth = hostBookings.filter((b) => !b.trialAmountPaise && ['confirmed', 'checked_in', 'completed'].includes(b.status) && b.eventDate.startsWith(monthKey))
   const monthValue = paidThisMonth.reduce((n, b) => n + (b.total ?? 0), 0)
-  const monthFee = Math.round(monthValue * HOST_FEE_RATE)
+  const monthFee = paidThisMonth.reduce((n, b) => n + bookingFinancials(b).sceneFee, 0)
+  const monthFeeLabel = paidThisMonth.some(b => b.pricingModel === 'host-markup') ? 'SCENE share' : 'SCENE fee (10%)'
   const spaceDemand = (() => {
     const counts = new Map<string, number>()
     for (const b of hostBookings) counts.set(b.spaceName, (counts.get(b.spaceName) ?? 0) + 1)
@@ -359,7 +360,7 @@ export default function HostWorkspace({
     activeNewRequests.reduce((acc, r) => acc + r.payout, 0) +
     hostBookings
       .filter((b) => !b.trialAmountPaise && ['approved', 'confirmed', 'checked_in'].includes(b.status) && b.eventDate >= todayIso)
-      .reduce((acc, b) => acc + Math.round((b.total ?? 0) * (1 - HOST_FEE_RATE)), 0)
+      .reduce((acc, b) => acc + bookingFinancials(b).payout, 0)
 
   const handleApprove = async (reqId: string) => {
     const req = requests.find((r) => r.id === reqId)
@@ -709,7 +710,7 @@ export default function HostWorkspace({
                           </dd>
                         </div>
                         <div className="flex justify-between sm:block">
-                          <dt className="text-stone">SCENE fee (10%)</dt>
+                          <dt className="text-stone">{req.feeLabel}</dt>
                           <dd className="font-head text-sm text-stone sm:mt-1">
                             −₹{req.sceneFee.toLocaleString('en-IN')}
                           </dd>
@@ -1116,7 +1117,7 @@ export default function HostWorkspace({
                 <dd className="mt-2 font-head text-3xl text-ink">₹{monthValue.toLocaleString('en-IN')}</dd>
               </div>
               <div className="border-[1.5px] border-ink bg-white p-5 shadow-hard">
-                <dt className="font-mono text-xs text-stone uppercase">SCENE fee (10%)</dt>
+                <dt className="font-mono text-xs text-stone uppercase">{monthFeeLabel}</dt>
                 <dd className="mt-2 font-head text-3xl text-stone">−₹{monthFee.toLocaleString('en-IN')}</dd>
               </div>
               <div className="border-[1.5px] border-ink bg-white p-5 shadow-hard">

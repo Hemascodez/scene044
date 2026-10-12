@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyRazorpayPaymentSignature, fetchCapturedPayment } from "@/lib/razorpay";
-import { getBookingByCheckinToken } from "@/lib/venueBookings";
+import { getBookingByCheckinToken, organizerBooking } from "@/lib/venueBookings";
 import { getVenueUserFromRequest } from "@/lib/venueUserAuth";
 import { bookingChargePaise, confirmCapturedPayment, getPaymentOrder } from '@/lib/venueOperations';
 import { scheduleVenueNotifications } from '@/lib/venueNotificationAfter';
@@ -83,7 +83,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Payment received, but the booking needs curator attention.' }, { status: 409 });
     }
     scheduleVenueNotifications();
-    return NextResponse.json({ ok: true, booking: await getBookingByCheckinToken(token) });
+    const confirmed = await getBookingByCheckinToken(token);
+    return NextResponse.json({ ok: true, booking: confirmed ? organizerBooking(confirmed) : null });
   } catch (error) {
     console.error('Razorpay payment reconciliation failed', error);
     return NextResponse.json({ error: 'Could not verify the captured payment. Retry verification or contact SCENE with your payment ID.' }, { status: 502 });

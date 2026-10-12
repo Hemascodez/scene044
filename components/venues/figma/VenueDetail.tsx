@@ -18,7 +18,7 @@ import { ChandruTestimonial } from './ChandruTestimonial'
 import { EventFit } from './EventFit'
 import { BookingOptions } from './BookingOptions'
 import { venueAmenityGroups, venueAmenityList } from './venueAmenities'
-import { HOURLY_ID, packageById, packageTotal, venuePricing } from './venuePackages'
+import { HOURLY_ID, packageById, packageTotal } from '@/lib/venuePricing'
 import { validateVenueBookingWindow } from '@/lib/venueBookingValidation'
 import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
@@ -538,14 +538,14 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const { spaceId, eventType, date, start, guests, social, message } = draft
   // Venues that sell packages price the booking from the chosen option; the
   // rest keep the plain hourly maths below.
-  const pricing = venuePricing(venue.slug)
-  const packageId = pricing ? draft.packageId : HOURLY_ID
+  const space = spaces.find((s) => s.id === spaceId) ?? spaces[0]
+  const catalogSpace = venue.spaces.find(s => s.id === space?.dbId)
+  const pricing = catalogSpace?.pricing ?? null
+  const packageId = pricing && packageById(pricing, draft.packageId) ? draft.packageId : HOURLY_ID
   const chosenPackage = pricing ? packageById(pricing, packageId) : null
   // A package fixes the length; hourly respects the venue's minimum.
   const hourlyHours = pricing ? Math.max(draft.hours, pricing.minHours) : draft.hours
   const hours = chosenPackage ? chosenPackage.hours : hourlyHours
-  const space = spaces.find((s) => s.id === spaceId) ?? spaces[0]
-  const catalogSpace = venue.spaces.find(s => s.id === space?.dbId)
   const hourlyRate = catalogSpace ? rateForSpace(catalogSpace, eventType) : null
   const [saved, setSaved] = useState(false)
   const [photo, setPhoto] = useState<number | null>(null)
@@ -646,6 +646,8 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
           date,
           time: start,
           duration: hours,
+          packageId,
+          expectedTotal: total,
           people: Number(guests),
           eventType,
           description: message.trim(),
