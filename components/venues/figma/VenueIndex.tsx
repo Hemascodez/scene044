@@ -61,6 +61,8 @@ export function VenueIndex({
   saved,
   onToggleSave,
   onOpenVenue,
+  id = 'spaces',
+  description = 'Compare capacity, price and amenities at a glance. Hosts reply within 48 hours.',
 }: {
   venues: CatalogVenue[]
   /** Time Cafe's design photos, used only if it has no catalog photos yet. */
@@ -68,6 +70,8 @@ export function VenueIndex({
   saved: Record<string, boolean>
   onToggleSave: (slug: string) => void
   onOpenVenue: (slug: string) => void
+  id?: string
+  description?: string
 }) {
   const [area, setArea] = useState<string | null>(null)
   const areas = useMemo(() => {
@@ -104,14 +108,14 @@ export function VenueIndex({
   }, [area])
 
   return (
-    <section id="spaces" aria-labelledby="spaces-title" className="mx-auto max-w-[1280px] scroll-mt-20 px-5 py-16 md:px-8 md:py-24">
+    <section id={id} aria-labelledby={`${id}-title`} className="mx-auto max-w-[1280px] scroll-mt-20 px-5 py-16 md:px-8 md:py-24">
       <div className="max-w-[576px]">
         <p className="reveal font-mono-b text-xs leading-4 tracking-[2.16px] uppercase text-primary-ink">Curated Chennai index</p>
-        <h2 id="spaces-title" className="reveal mt-2 font-head text-[28px] leading-tight tracking-[-0.6px] md:text-[36px] md:leading-[45px] md:tracking-[-0.9px]">
+        <h2 id={`${id}-title`} className="reveal mt-2 font-head text-[28px] leading-tight tracking-[-0.6px] md:text-[36px] md:leading-[45px] md:tracking-[-0.9px]">
           Available for reservation
         </h2>
         <p className="reveal mt-2 text-[15px] leading-[22.5px] text-stone">
-          Compare capacity, price and amenities at a glance. Hosts reply within 48 hours.
+          {description}
         </p>
       </div>
 

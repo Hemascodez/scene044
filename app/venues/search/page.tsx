@@ -4,6 +4,7 @@ import { VenueIcon, VenueKicker, venueButton } from "@/components/venues/VenueUi
 import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
 import { ScrollToResultsOnSearch } from "@/components/venues/ScrollToResultsOnSearch";
 import { VenueChrome } from "@/components/venues/figma/VenueChrome";
+import { SearchVenueSuggestions } from "@/components/venues/figma/SearchVenueSuggestions";
 import { formatRupees, rateForSpace, venueMaxGuests, venueSearchHref } from "@/lib/venues";
 import { listPublicVenues } from "@/lib/venueCatalog";
 import { matchingSpaces, requestedCapacity, venueDetailSearchHref, venueSearchValues } from "@/lib/venueSearch";
@@ -29,6 +30,8 @@ export default async function VenueSearchPage({ searchParams }: {
   const matches = live.flatMap(venue => matchingSpaces(venue.spaces, query.people).map(space => ({ venue, space })));
   const largest = Math.max(0, ...live.map(venue => venueMaxGuests(venue) ?? 0));
   const mapVenue = matches[0]?.venue;
+  const matchedVenues = new Set(matches.map(({ venue }) => venue.slug));
+  const otherVenues = allLive.filter(venue => !matchedVenues.has(venue.slug));
 
   return <VenueChrome>
     <div className="mx-auto max-w-7xl px-4 py-8 font-body sm:px-6 lg:px-8 lg:py-12">
@@ -40,14 +43,20 @@ export default async function VenueSearchPage({ searchParams }: {
         <div className="flex flex-wrap gap-2">{[query.eventType, query.date || "Any date", query.time].filter(Boolean).map(item =>
           <span key={item} className="border border-foreground bg-venue-card px-3 py-1.5 text-xs">{item}</span>)}</div>
       </div>
-      <p className="mt-4 text-sm leading-6 text-muted-foreground">These spaces fit the group size. Your date and time travel with your request; availability is confirmed by the host. Browsing does not make or charge a booking.</p>
+      <p className="mt-4 text-sm leading-6 text-muted-foreground">{matches.length > 0 && "These spaces fit the group size. "}Your date and time travel with your request; availability is confirmed by the host. Browsing does not make or charge a booking.</p>
       <ScrollToResultsOnSearch trigger={JSON.stringify(query)} targetId="venue-results" />
       <div id="venue-results" className={`mt-8 grid scroll-mt-24 gap-8 ${mapVenue ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
         <div className="min-w-0 space-y-6">
           {matches.length === 0 && <section className="border-[1.5px] border-dashed border-warn-ink bg-warn/5 p-6" aria-label="Search results">
-            <h2 className="font-display text-xl font-extrabold">{invalidCapacity ? "Enter a whole number of attendees" : capacity && largest ? `No space fits ${capacity} attendees` : "No bookable spaces right now"}</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">{invalidCapacity ? "Use a positive whole number to check the capacity." : largest ? `Our largest individual space fits ${largest} people. We won’t show a smaller space as a suitable match.` : "Please check back shortly."}</p>
-            <Link href={venueSearchHref({ ...query, people: "" })} className={`${venueButton.outline} mt-4`}>Clear attendee filter</Link>
+            <h2 className="font-display text-xl font-extrabold">{invalidCapacity ? "Enter a whole number of attendees" : "Sorry, we don’t have a matching space yet"}</h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{invalidCapacity ? "Use a positive whole number to check the capacity." : <>
+              {capacity && largest ? `No listed space${area ? ` in ${area}` : ""} fits ${capacity} attendees yet. Our largest space${area ? " in this area" : ""} accommodates ${largest}. ` : ""}
+              We’re onboarding more venues across Chennai, so there’ll be more spaces to choose from soon. Try adjusting your filters{otherVenues.length ? " or explore the venues below." : " and check back for new listings."}
+            </>}</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href={venueSearchHref({ ...query, people: "" })} className={venueButton.outline}>Clear attendee filter</Link>
+              {otherVenues.length > 0 && <a href="#explore-venues" className={venueButton.primary}>Explore other venues <VenueIcon name="arrow" className="size-4" /></a>}
+            </div>
           </section>}
           {matches.map(({ venue, space }, index) => {
             const rate = rateForSpace(space, query.eventType);
@@ -77,5 +86,6 @@ export default async function VenueSearchPage({ searchParams }: {
         </aside>}
       </div>
     </div>
+    {otherVenues.length > 0 && <SearchVenueSuggestions key={JSON.stringify(query)} venues={otherVenues} search={query} />}
   </VenueChrome>;
 }
