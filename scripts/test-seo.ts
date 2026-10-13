@@ -148,6 +148,7 @@ check("SEO text uses an ellipsis when shortened", shortened.endsWith("…"), tru
 check("description includes the real event date", eventSeoDescription(event).includes('27 Sep 2026'), true);
 check("description includes the real location", eventSeoDescription(event).includes('IIT Madras Research Park'), true);
 check("description fits a search snippet", eventSeoDescription(event).length <= 160, true);
+check('metadata skips rhetorical hooks', eventSeoDescription({ ...event, summary: 'Building AI systems and looking for sharper conversations? Hear practitioners discuss applied AI and cloud security.' }).includes('looking for sharper'), false);
 check("JSON-LD escapes script-closing input", serializeJsonLd({ name: "</script>" }).includes("<"), false);
 
 const schema = eventStructuredData(event)!;

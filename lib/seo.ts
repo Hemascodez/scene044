@@ -1,6 +1,6 @@
 import type { PublicEvent, PublicEventDetail } from "@/lib/events";
 import { formatSceneDateLong, formatSceneTime } from "@/lib/client/istTime";
-import { posterFor, usableEventSummary } from "@/lib/client/sceneEvent";
+import { posterFor, eventShortIntro } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
 import type { CatalogVenue } from "@/lib/venueCatalog";
 
@@ -55,13 +55,13 @@ export function truncateSeoText(value: string, maxLength = 160): string {
 }
 
 export function eventSeoDescription(event: PublicEvent): string {
-  const summary = usableEventSummary(event);
+  const summary = eventShortIntro(event);
   const when = event.startAt
     ? `${formatSceneDateLong(event.startAt)}, ${formatSceneTime(event.startAt)} IST`
     : "date to be announced";
   const where = event.isOnline ? "online" : (event.venueName ?? event.city);
   return truncateSeoText(
-    `${event.title}: ${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary ?? 'See event details and the original registration link on SCENE/044.'}`,
+    `${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary || `${event.title}. See event details and the original registration link on SCENE/044.`}`,
   );
 }
 
