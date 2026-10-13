@@ -17,6 +17,9 @@ import {
   eventStructuredData,
   serializeJsonLd,
   truncateSeoText,
+  venueSeoDescription,
+  venueSeoTitle,
+  venueStructuredData,
 } from "../lib/seo";
 import { eventTitleMatchScore, eventTitlesLikelyMatch } from "../lib/extract";
 
@@ -142,7 +145,9 @@ check(
 const shortened = truncateSeoText("word ".repeat(50), 40);
 check("SEO text respects maximum length", shortened.length <= 40, true);
 check("SEO text uses an ellipsis when shortened", shortened.endsWith("…"), true);
-check("description prefers source summary", eventSeoDescription(event), event.summary);
+check("description includes the real event date", eventSeoDescription(event).includes('27 Sep 2026'), true);
+check("description includes the real location", eventSeoDescription(event).includes('IIT Madras Research Park'), true);
+check("description fits a search snippet", eventSeoDescription(event).length <= 160, true);
 check("JSON-LD escapes script-closing input", serializeJsonLd({ name: "</script>" }).includes("<"), false);
 
 const schema = eventStructuredData(event)!;
@@ -153,6 +158,15 @@ check("free offer stays factual", (schema.offers as Record<string, unknown>).pri
 check("venue address reaches structured data", ((schema.location as Record<string, unknown>).address as Record<string, unknown>).streetAddress, "Taramani, Chennai");
 check("undated listing does not emit invalid Event schema", eventStructuredData({ ...event, startAt: null }), null);
 check("cancelled event exposes cancellation status", eventStructuredData({ ...event, status: "cancelled" })?.eventStatus, "https://schema.org/EventCancelled");
+check("unknown paid price is not invented", eventStructuredData({ ...event, priceType: 'paid', priceNote: null })?.offers, undefined);
+const venue = {
+  id: 1, slug: 'fixture', name: 'Fixture Studio', area: 'Kilpauk', city: 'Chennai', address: null,
+  summary: 'word '.repeat(100), status: 'live' as const, rating: 4.8, ratingCount: 40, ratingUrl: null,
+  phone: null, mapUrl: null, mapEmbedUrl: null, photos: [], amenities: [], policies: [], spaces: [],
+};
+check('venue title explains booking intent', venueSeoTitle(venue).includes('Event Space in Kilpauk'), true);
+check('venue description stays compact', venueSeoDescription(venue).length <= 160, true);
+check('imported dining ratings are not syndicated', venueStructuredData(venue).aggregateRating, undefined);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

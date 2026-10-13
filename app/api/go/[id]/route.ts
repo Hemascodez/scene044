@@ -13,7 +13,7 @@ export async function GET(
   }
 
   const { rows } = await query<{ primary_source_url: string }>(
-    "SELECT primary_source_url FROM events WHERE id = $1 AND status = ANY($2::text[])",
+    "SELECT primary_source_url FROM events WHERE id = COALESCE((SELECT canonical_id FROM event_aliases WHERE duplicate_id = $1), $1) AND status = ANY($2::text[])",
     [eventId, PUBLIC_EVENT_PAGE_STATUSES],
   );
   const event = rows[0];

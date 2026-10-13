@@ -7,6 +7,7 @@ import { useVenueApp } from "./VenueApp";
 import type { Booking, Review } from "./bookingsData";
 import { fetchMyBookings, type VenueBooking } from "@/lib/client/venueBookingStore";
 import { openRazorpayCheckout } from "@/lib/client/razorpay";
+import { trackBookingCheckout, trackBookingPurchase } from "@/lib/client/bookingAnalytics";
 import { submitSelfReportedReview } from "@/lib/client/venueReviewApi";
 import { amountDue, formatRupees } from "@/lib/venues";
 
@@ -127,7 +128,9 @@ export default function MyBookingsPage() {
       body: JSON.stringify({ token: entry.booking.checkinToken }),
     }).then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
     if (!order.ok || !order.data.ok) throw new Error(order.data.error ?? "Could not start payment.");
-    if (order.data.alreadyPaid) { refresh(); return; }
+    const analyticsItem = { venueSlug: entry.booking.venueSlug, spaceId: entry.booking.spaceId, value: order.data.amount / 100, code: entry.booking.code };
+    if (order.data.alreadyPaid) { trackBookingPurchase(analyticsItem); refresh(); return; }
+    trackBookingCheckout(analyticsItem);
 
     await new Promise<void>((resolve, reject) => {
       openRazorpayCheckout({
@@ -146,6 +149,7 @@ export default function MyBookingsPage() {
             body: JSON.stringify({ ...response, token: entry.booking.checkinToken }),
           }).then(async (r) => r.ok && (await r.json().catch(() => ({}))).ok);
           if (!verified) return reject(new Error("Payment could not be verified."));
+          trackBookingPurchase(analyticsItem);
           refresh();
           resolve();
           } catch { reject(new Error('Payment verification interrupted. Retry Pay & confirm to recover your payment without another charge.')); }

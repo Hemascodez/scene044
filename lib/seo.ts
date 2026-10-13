@@ -1,5 +1,5 @@
 import type { PublicEvent, PublicEventDetail } from "@/lib/events";
-import { formatSceneDate, formatSceneTime } from "@/lib/client/istTime";
+import { formatSceneDateLong, formatSceneTime } from "@/lib/client/istTime";
 import { posterFor, usableEventSummary } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
 import type { CatalogVenue } from "@/lib/venueCatalog";
@@ -56,15 +56,23 @@ export function truncateSeoText(value: string, maxLength = 160): string {
 
 export function eventSeoDescription(event: PublicEvent): string {
   const summary = usableEventSummary(event);
-  if (summary) return truncateSeoText(summary);
-
   const when = event.startAt
-    ? `${formatSceneDate(event.startAt)}, ${formatSceneTime(event.startAt)} IST`
+    ? `${formatSceneDateLong(event.startAt)}, ${formatSceneTime(event.startAt)} IST`
     : "date to be announced";
   const where = event.isOnline ? "online" : (event.venueName ?? event.city);
   return truncateSeoText(
-    `${event.title} takes place ${when} at ${where}. View details and the original registration source on SCENE/044.`,
+    `${event.title}: ${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary ?? 'See event details and the original registration link on SCENE/044.'}`,
   );
+}
+
+/** Metadata only: never rewrites the curator's visible copy or pricing. */
+export function venueSeoDescription(venue: CatalogVenue): string {
+  const maxGuests = Math.max(0, ...venue.spaces.map((space) => space.maxGuests));
+  return truncateSeoText(`Book ${venue.name} in ${venue.area}, ${venue.city}${maxGuests ? ` for up to ${maxGuests} guests` : ''}. Compare spaces, pricing and amenities. Request first; pay after host approval.`);
+}
+
+export function venueSeoTitle(venue: CatalogVenue): string {
+  return `${venue.name} — Event Space in ${venue.area}, Chennai | SCENE/044`;
 }
 
 export function categorySeoDescription(card: FieldCard): string {
@@ -186,8 +194,8 @@ export function categoryStructuredData(card: FieldCard, events: PublicEvent[]): 
   };
 }
 
-/** LocalBusiness for a bookable venue. Fields the curator hasn't filled in yet
- *  (rating, phone, address) are simply omitted rather than sent as nulls. */
+/** Imported dining ratings are NOT SCENE booking reviews and must not be
+ * syndicated as our own aggregateRating. The visible dining label is unchanged. */
 export function venueStructuredData(venue: CatalogVenue): Record<string, unknown> {
   const url = absoluteUrl(venuePath(venue));
   return {
@@ -196,7 +204,7 @@ export function venueStructuredData(venue: CatalogVenue): Record<string, unknown
     "@id": `${url}#business`,
     url,
     name: venue.name,
-    description: truncateSeoText(venue.summary || `${venue.name} in ${venue.area}, ${venue.city}.`),
+    description: venueSeoDescription(venue),
     image: venue.photos.map((photo) => absoluteUrl(photo)),
     address: {
       "@type": "PostalAddress",
@@ -207,15 +215,6 @@ export function venueStructuredData(venue: CatalogVenue): Record<string, unknown
     },
     ...(venue.phone ? { telephone: venue.phone } : {}),
     ...(venue.mapUrl ? { hasMap: venue.mapUrl } : {}),
-    ...(venue.rating
-      ? {
-          aggregateRating: {
-            "@type": "AggregateRating",
-            ratingValue: venue.rating,
-            ...(venue.ratingCount ? { reviewCount: venue.ratingCount } : {}),
-          },
-        }
-      : {}),
   };
 }
 

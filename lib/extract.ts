@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import OpenAI from "openai";
 import { safeFetchText } from "@/lib/safeFetch";
 import { normalizeDomain, normalizeUrl } from "@/lib/domain";
-import { findCheapEventDate, isPastEvent } from "@/lib/eventDates";
+import { findCheapEventDate, isPastEvent, eventDateRangeNeedsReview } from "@/lib/eventDates";
 import type { ExtractedEvent, PriceType } from "@/lib/types";
 
 const PAGE_TEXT_MAX_CHARS = 6000;
@@ -774,7 +774,7 @@ async function extractViaLlm(
 
 export interface ValidationResult {
   valid: boolean;
-  reason?: "invalid_title" | "past_event" | "no_event_date" | "low_extraction_confidence";
+  reason?: "invalid_title" | "past_event" | "no_event_date" | "suspicious_date_range" | "low_extraction_confidence";
 }
 
 /**
@@ -799,6 +799,9 @@ export function validateExtractedEvent(event: ExtractedEvent): ValidationResult 
     (typeof event.endAt === "string" && Number.isFinite(Date.parse(event.endAt)));
   if (!hasAnyDate) {
     return { valid: false, reason: "no_event_date" };
+  }
+  if (eventDateRangeNeedsReview(event.startAt, event.endAt)) {
+    return { valid: false, reason: "suspicious_date_range" };
   }
   if (isPastEvent(event.startAt, event.endAt)) {
     return { valid: false, reason: "past_event" };

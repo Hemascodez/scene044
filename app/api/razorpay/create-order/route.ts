@@ -67,7 +67,7 @@ export async function POST(request: Request) {
         const captured = await fetchCapturedPayment(payment.id, existing);
         if (captured.status !== 'captured' || !await confirmCapturedPayment(booking.id, existing.orderId, captured.id)) throw new Error('Payment needs reconciliation');
         scheduleVenueNotifications();
-        return NextResponse.json({ ok: true, alreadyPaid: true });
+        return NextResponse.json({ ok: true, alreadyPaid: true, amount: existing.amountPaise, currency: existing.currency });
       }
       return NextResponse.json({ ok: true, orderId: existing.orderId, amount: existing.amountPaise, currency: existing.currency, keyId: razorpayCheckoutKey() });
     } catch {

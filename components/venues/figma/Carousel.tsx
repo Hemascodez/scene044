@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from './icons'
+import ResponsiveVenueImage from '../ResponsiveVenueImage'
 
 type Slide = { src: string; alt: string }
 
@@ -14,6 +15,7 @@ export default function Carousel({
   activeIndex,
   onSlideChange,
   showPlaybackControl = false,
+  sizes = '(max-width: 768px) 90vw, (max-width: 1280px) 50vw, 640px',
 }: {
   slides: Slide[]
   label: string
@@ -26,6 +28,7 @@ export default function Carousel({
   activeIndex?: number
   onSlideChange?: (index: number) => void
   showPlaybackControl?: boolean
+  sizes?: string
 }) {
   const [internalIndex, setInternalIndex] = useState(0)
   const [hovered, setHovered] = useState(false)
@@ -85,10 +88,11 @@ export default function Carousel({
     >
       <div aria-live={paused ? 'polite' : 'off'} className="absolute inset-0">
         {slides.map((s, k) => (
-          <img
+          <ResponsiveVenueImage
             key={s.src}
             src={s.src}
             alt={s.alt}
+            sizes={sizes}
             aria-hidden={k !== i}
             role="group"
             aria-roledescription="slide"

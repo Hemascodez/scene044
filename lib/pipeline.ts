@@ -418,7 +418,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
           dateEvidence: extractedEvent.dateEvidence,
           venueEvidence: extractedEvent.venueEvidence,
         };
-        if (validation.reason === "no_event_date") {
+        if (validation.reason === "no_event_date" || validation.reason === "suspicious_date_range") {
           // Unknown is not past. Someone should look rather than the pipeline
           // guessing, so this gets its own queue instead of a rejection.
           await markDiscoveryItem(item.id, "needs_date_review", validation.reason, meta, null);

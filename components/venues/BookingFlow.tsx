@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { bookingCreated } from "@/lib/client/venueBookingStore";
+import { trackBookingRequest } from "@/lib/client/bookingAnalytics";
 import { useVenueBookingDraft } from "@/lib/client/useVenueBookingDraft";
 import { useScrollLock } from "@/lib/client/useScrollLock";
 import { VENUE_EVENT_TYPES, formatRupees, rateForSpace, type VenueEventType, type VenueSpace } from "@/lib/venues";
@@ -286,6 +287,7 @@ export function BookingFlow({ open, onClose, venueSlug, venueName, venueArea, sp
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error ?? "Could not send your request.");
+      if (typeof data.total === 'number') trackBookingRequest({ venueSlug, spaceId: space.id, value: data.total });
       bookingCreated();
       await clearDraft().catch(() => undefined);
       setBooked({ code: data.code, qrSvg: data.qrSvg });

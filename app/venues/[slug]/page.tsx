@@ -13,6 +13,8 @@ import {
   venueBreadcrumbStructuredData,
   venuePath,
   venueStructuredData,
+  venueSeoDescription,
+  venueSeoTitle,
 } from "@/lib/seo";
 
 interface VenuePageProps {
@@ -31,8 +33,8 @@ export async function generateMetadata({ params }: VenuePageProps): Promise<Meta
     return { title: "Venue — SCENE/044", robots: { index: false, follow: false } };
   }
 
-  const title = `${venue.name}, ${venue.area} — SCENE/044`;
-  const description = venue.summary || `Book ${venue.name} in ${venue.area}, Chennai for your next event.`;
+  const title = venueSeoTitle(venue);
+  const description = venueSeoDescription(venue);
   const path = venuePath(venue);
   const image = venue.photos[0] || venue.spaces.find(space => space.image)?.image;
 

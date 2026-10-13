@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import FieldError from './FieldError'
+import ResponsiveVenueImage from '../ResponsiveVenueImage'
 import Dropdown from './Dropdown'
 import BookingConfirmation from './BookingConfirmation'
 import useReveal from './useReveal'
@@ -10,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { SiteFooter, SiteHeader } from './SiteChrome'
 import { useVenueApp } from './VenueApp'
 import { bookingCreated } from '@/lib/client/venueBookingStore'
+import { trackBookingRequest } from '@/lib/client/bookingAnalytics'
 import { useVenueBookingDraft } from '@/lib/client/useVenueBookingDraft'
 import { amountDue, rateForSpace, VENUE_EVENT_TYPES, venueSearchHref } from '@/lib/venues'
 import { matchingSpaces, type VenueSearchValues } from '@/lib/venueSearch'
@@ -250,7 +252,7 @@ function Lightbox({ index, onIndex, onClose, gallery }: { index: number | null; 
             </button>
           </div>
           <div className="relative">
-            <img key={index} src={item.src} alt={item.alt} className="anim-fade aspect-[16/10] w-full object-cover" />
+            <ResponsiveVenueImage key={index} src={item.src} alt={item.alt} sizes="(max-width: 1024px) 95vw, 1000px" className="anim-fade aspect-[16/10] w-full object-cover" />
             {(['prev', 'next'] as const).map((d) => (
               <button
                 key={d}
@@ -374,10 +376,11 @@ function SpaceCardCarousel({
         >
           {photos.map((item, k) => (
             <li key={k} className="relative w-full shrink-0 snap-center">
-              <img
+              <ResponsiveVenueImage
                 src={item.src}
                 alt={item.alt || `${space.name}, photo ${k + 1} of ${photos.length}`}
                 loading="lazy"
+                sizes="(max-width: 768px) 85vw, (max-width: 1024px) 45vw, 400px"
                 decoding="async"
                 className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
               />
@@ -687,6 +690,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.ok) throw new Error(data.error ?? 'Could not send your request. Try again shortly.')
+      if (typeof data.total === 'number') trackBookingRequest({ venueSlug: venue.slug, spaceId: space.dbId, value: data.total })
       bookingCreated()
       await clearDraft().catch(() => undefined)
       setStatus('sent')
@@ -826,9 +830,10 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                   aria-label={`Open photo ${i + 1}: ${g.alt}`}
                   className={`group relative overflow-hidden bg-sand h-full w-[85%] shrink-0 snap-start sm:w-[60%] lg:w-auto lg:shrink ${i === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}`}
                 >
-                  <img
+                  <ResponsiveVenueImage
                     src={g.src}
-                    alt=""
+                    alt={g.alt}
+                    sizes={i === 0 ? '(max-width: 1024px) 85vw, 640px' : '(max-width: 1024px) 85vw, 320px'}
                     loading={i === 0 ? 'eager' : 'lazy'}
                     decoding="async"
                     className="size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
@@ -993,7 +998,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
                     <blockquote className="mt-3 text-sm leading-[22px] text-ink">{r.q}</blockquote>
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       {r.imgs.map((src) => (
-                        <img key={src} src={src} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                        <ResponsiveVenueImage key={src} src={src} alt={`Event photo shared by ${r.n}`} sizes="(max-width: 768px) 28vw, 180px" loading="lazy" className="aspect-[4/3] w-full object-cover" />
                       ))}
                     </div>
                     <div className="mt-4 flex items-end justify-between gap-3">

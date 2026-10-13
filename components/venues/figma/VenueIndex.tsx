@@ -61,6 +61,7 @@ export function VenueIndex({
   saved,
   onToggleSave,
   onOpenVenue,
+  venueHref = (slug) => `/venues/${slug}`,
   id = 'spaces',
   description = 'Compare capacity, price and amenities at a glance. Hosts reply within 48 hours.',
 }: {
@@ -70,6 +71,7 @@ export function VenueIndex({
   saved: Record<string, boolean>
   onToggleSave: (slug: string) => void
   onOpenVenue: (slug: string) => void
+  venueHref?: (slug: string) => string
   id?: string
   description?: string
 }) {
@@ -170,6 +172,7 @@ export function VenueIndex({
                   saved={!!saved[venue.slug]}
                   onToggleSave={() => onToggleSave(venue.slug)}
                   onOpen={() => onOpenVenue(venue.slug)}
+                  href={venueHref(venue.slug)}
                 />
               </li>
             ))}
@@ -225,12 +228,14 @@ function VenueCard({
   saved,
   onToggleSave,
   onOpen,
+  href,
 }: {
   venue: CatalogVenue
   slides: { src: string; alt: string }[]
   saved: boolean
   onToggleSave: () => void
   onOpen: () => void
+  href: string
 }) {
   const guests = venueMaxGuests(venue)
   const rate = venueFromRate(venue)
@@ -247,7 +252,7 @@ function VenueCard({
   return (
     <article className="flex w-full min-w-0 flex-col border-[1.5px] border-ink bg-white shadow-hard">
       <div className="relative border-b-[1.5px] border-ink">
-        <Carousel slides={slides} label={`${venue.name} photos`} className="aspect-[4/3]" arrowClassName="size-11" />
+        <Carousel slides={slides} label={`${venue.name} photos`} className="aspect-[4/3]" arrowClassName="size-11" sizes="(max-width: 768px) 86vw, (max-width: 1024px) 45vw, 400px" />
         <p className="pointer-events-none absolute left-3 top-3 bg-paper px-2.5 py-1 font-mono-b text-[10px] leading-[15px] tracking-[0.8px] uppercase">
           Venue partner
         </p>
@@ -278,7 +283,7 @@ function VenueCard({
           )}
         </div>
 
-        <h3 className="mt-2 line-clamp-2 font-head text-xl leading-[27.5px]">{venue.name}</h3>
+        <h3 className="mt-2 line-clamp-2 font-head text-xl leading-[27.5px]"><Link href={href} prefetch={false} onNavigate={(event) => { event.preventDefault(); onOpen() }}>{venue.name}</Link></h3>
         <p className="flex flex-wrap items-center gap-x-2 text-sm leading-5 text-stone">
           {spaces > 0 && <span>{spaces} bookable {spaces === 1 ? 'space' : 'spaces'}</span>}
           {/* Same rule as VenueDetail's "Verified on-site" copy: only venues
@@ -344,14 +349,15 @@ function VenueCard({
           <p className="flex items-center gap-1.5 font-mono-b text-[11px] leading-[16.5px] text-moss">
             <ShieldCheck className="size-[13px] shrink-0" /> No charge to request
           </p>
-          <button
-            type="button"
-            onClick={onOpen}
+          <Link
+            href={href}
+            prefetch={false}
+            onNavigate={(event) => { event.preventDefault(); onOpen() }}
             aria-label={`View ${venue.name}`}
             className="press inline-flex min-h-11 items-center justify-center gap-2 border-[1.5px] border-ink bg-primary-ink px-4 font-mono-b text-xs tracking-[0.72px] uppercase text-white shadow-hard-sm"
           >
             View space <ArrowRight className="size-[15px]" />
-          </button>
+          </Link>
           </div>
         </div>
       </div>

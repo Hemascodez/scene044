@@ -5,6 +5,7 @@ import { VenueSearchBar } from "@/components/venues/VenueSearchBar";
 import { ScrollToResultsOnSearch } from "@/components/venues/ScrollToResultsOnSearch";
 import { VenueChrome } from "@/components/venues/figma/VenueChrome";
 import { SearchVenueSuggestions } from "@/components/venues/figma/SearchVenueSuggestions";
+import ResponsiveVenueImage from "@/components/venues/ResponsiveVenueImage";
 import { formatRupees, rateForSpace, venueMaxGuests, venueSearchHref } from "@/lib/venues";
 import { listPublicVenues } from "@/lib/venueCatalog";
 import { matchingSpaces, requestedCapacity, venueDetailSearchHref, venueSearchValues } from "@/lib/venueSearch";
@@ -68,19 +69,19 @@ export default async function VenueSearchPage({ searchParams }: {
             const href = venueDetailSearchHref(venue.slug, query, space.id);
             const mapUrl = venue.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address || `${venue.name}, ${venue.area}, ${venue.city}`)}`;
             return <article key={`${venue.slug}:${space.id}`} className="grid min-w-0 overflow-hidden border-[1.5px] border-foreground bg-white shadow-hard sm:grid-cols-[220px_minmax(0,1fr)]">
-              <Link href={href} aria-label={`View details of ${space.name} at ${venue.name}`} className="block min-h-44 overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-ink">
-                <img src={space.image} alt={space.name} loading={index === 0 ? "eager" : "lazy"} className="h-full w-full object-cover" />
+              <Link href={href} prefetch={false} aria-label={`View details of ${space.name} at ${venue.name}`} className="block min-h-44 overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-primary-ink">
+                <ResponsiveVenueImage src={space.image} alt={`${space.name} at ${venue.name}`} sizes="(max-width: 640px) 90vw, 220px" loading={index === 0 ? "eager" : "lazy"} className="h-full w-full object-cover" />
               </Link>
               <div className="min-w-0 p-5">
                 <p className="text-xs text-muted-foreground">{venue.name} · {venue.area}</p>
-                <h2 className="mt-2 font-display text-xl font-extrabold"><Link href={href} className="underline-offset-4 hover:underline">{space.name}</Link></h2>
+                <h2 className="mt-2 font-display text-xl font-extrabold"><Link href={href} prefetch={false} className="underline-offset-4 hover:underline">{space.name}</Link></h2>
                 <p className="mt-2 font-bold text-ok-ink">Fits up to {space.maxGuests} people</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{space.description}</p>
                 {venue.slug === 'the-freshlymade-resto-cafe' && <p className="mt-2 text-sm font-medium">Bookings Monday–Friday only</p>}
                 <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm underline underline-offset-4"><VenueIcon name="map" className="size-4" /> View location on Google Maps<span className="sr-only"> (opens in a new tab)</span></a>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-venue-line pt-4">
                   <p className="text-sm"><strong className="text-xl">{rate === null ? "Host quote" : formatRupees(rate)}</strong>{rate !== null && " / hour"}<span className="mt-1 block text-xs text-muted-foreground">{space.pricing?.minHours ?? 1}-hour minimum · No added service fee</span></p>
-                  <Link href={href} className={venueButton.primary}>View space details <VenueIcon name="arrow" className="size-4" /></Link>
+                  <Link href={href} prefetch={false} className={venueButton.primary}>View space details <VenueIcon name="arrow" className="size-4" /></Link>
                 </div>
               </div>
             </article>;

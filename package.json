@@ -15,7 +15,7 @@
     "migrate:event-metadata": "node --import tsx scripts/migrate-event-metadata.ts",
     "whatsapp-digest": "node --import tsx scripts/send-whatsapp-digest.ts",
     "venue-overrun-notify": "node --import tsx scripts/send-overrun-notices.ts",
-    "test:seo": "node --import tsx scripts/test-seo.ts && node --import tsx scripts/test-sitemap.ts",
+    "test:seo": "node --import tsx scripts/test-seo.ts && node --import tsx scripts/test-sitemap.ts && node --import tsx scripts/test-booking-analytics.ts && node --import tsx scripts/test-venue-seo-ui.ts",
     "test:curator": "node --import tsx scripts/test-curator-draft-validation.ts && node --import tsx scripts/test-admin-event-update.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
     "test:venue-auth": "node --import tsx scripts/test-venue-auth.ts",

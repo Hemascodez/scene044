@@ -25,6 +25,15 @@ export const EVENT_END_GRACE_MS = 12 * 60 * 60 * 1000;
  */
 export const ASSUMED_DURATION_MS = 6 * 60 * 60 * 1000;
 
+/** A year-long conference is normally a source/extraction year typo. Don't
+ * repair it by guessing: route suspicious ranges to the existing curator
+ * date-review queue. Genuine long-running programmes can be approved there. */
+export function eventDateRangeNeedsReview(startAt: string | null, endAt: string | null): boolean {
+  if (!startAt || !endAt) return false;
+  const duration = Date.parse(endAt) - Date.parse(startAt);
+  return Number.isFinite(duration) && (duration <= 0 || duration > 180 * 86_400_000);
+}
+
 /** When an event is actually over, from whatever the source published. */
 export function effectiveEndAt(startAt: string | null, endAt: string | null): number | null {
   const end = endAt ? Date.parse(endAt) : NaN;

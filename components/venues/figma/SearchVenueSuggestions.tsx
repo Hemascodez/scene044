@@ -23,6 +23,7 @@ export function SearchVenueSuggestions({ venues, search }: {
     saved={saved}
     onToggleSave={(slug) => setSaved(value => ({ ...value, [slug]: !value[slug] }))}
     onOpenVenue={(slug) => router.push(venueDetailSearchHref(slug, search))}
+    venueHref={(slug) => venueDetailSearchHref(slug, search)}
     description="More venues to explore. These don’t match all your filters, so check their location and capacity before sending a request. The host confirms date and time availability."
   />
 }

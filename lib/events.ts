@@ -146,6 +146,7 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
        e.last_verified_at  AS "lastVerifiedAt"
      FROM events e
      WHERE e.status = ANY($1::text[])
+       AND NOT EXISTS (SELECT 1 FROM event_aliases a WHERE a.duplicate_id = e.id)
        /*
         * Upcoming only, decided in SQL rather than in the browser.
         * The client already hides past events, but that runs after the row has
@@ -233,7 +234,8 @@ export async function getPublicEventById(id: number): Promise<PublicEventDetail 
        e.last_verified_at  AS "lastVerifiedAt",
        e.updated_at        AS "updatedAt"
      FROM events e
-     WHERE e.id = $1 AND e.status = ANY($2::text[])`,
+     WHERE e.id = COALESCE((SELECT canonical_id FROM event_aliases WHERE duplicate_id = $1), $1)
+       AND e.status = ANY($2::text[])`,
     [id, PUBLIC_EVENT_PAGE_STATUSES],
   );
 
@@ -259,6 +261,7 @@ export async function getPublicEventSitemapEntries(): Promise<PublicEventSitemap
        e.updated_at       AS "updatedAt"
      FROM events e
      WHERE e.status = ANY($1::text[])
+       AND NOT EXISTS (SELECT 1 FROM event_aliases a WHERE a.duplicate_id = e.id)
      ORDER BY e.id ASC`,
     [PUBLIC_EVENT_PAGE_STATUSES],
   );

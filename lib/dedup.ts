@@ -134,6 +134,21 @@ interface CandidateRow {
   primary_source_url: string;
 }
 
+/** Reordered source titles ("DevFest 2026 Chennai" vs "DevFest Chennai
+ * 2026") can otherwise miss the merge threshold. Only strengthen a match
+ * with the full same title tokens, same venue, and the same start minute;
+ * different editions, sessions, cities and unknown dates remain distinct. */
+export function sameNamedEventAtVenue(candidate: DedupCandidate, row: CandidateRow): boolean {
+  if (candidate.isOnline || row.is_online || !candidate.startAt || !row.start_at || !candidate.venueName || !row.venue_name) return false;
+  const start = Date.parse(candidate.startAt);
+  const otherStart = new Date(row.start_at).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(otherStart) || Math.abs(start - otherStart) >= 60_000) return false;
+  const titleTokens = (text: string) => normalizeTitle(text).split(' ').filter(t => !STOPWORDS.has(t)).sort().join(' ');
+  if (!tokenize(candidate.title).length || titleTokens(candidate.title) !== titleTokens(row.title)) return false;
+  const venue = (text: string) => normalizeTitle(text).replace(/\biit madras\b/g, 'iitm');
+  return venue(candidate.venueName) === venue(row.venue_name);
+}
+
 /**
  * Two-stage lookup: an exact normalized-URL match short-circuits to score 1.0
  * (no value in running the weighted formula against an unambiguous match).
@@ -148,7 +163,8 @@ export async function findDuplicateEvent(
   const normalizedUrl = normalizeUrl(candidate.url);
 
   const { rows: urlMatches } = await query<{ id: number }>(
-    `SELECT e.id FROM events e
+    `SELECT COALESCE(a.canonical_id, e.id) AS id FROM events e
+     LEFT JOIN event_aliases a ON a.duplicate_id = e.id
      WHERE e.status IN ('live', 'updated', 'pending_review')
        AND (e.primary_source_url = $1
             OR EXISTS (SELECT 1 FROM event_sources es WHERE es.event_id = e.id AND es.source_url = $1))
@@ -180,6 +196,7 @@ export async function findDuplicateEvent(
     `SELECT id, title, start_at, is_online, venue_name, organizer_name, primary_source_url
      FROM events
      WHERE status IN ('live', 'updated', 'pending_review')
+       AND NOT EXISTS (SELECT 1 FROM event_aliases a WHERE a.duplicate_id = events.id)
        AND ($1::timestamptz IS NULL OR start_at IS NULL OR start_at BETWEEN $1 AND $2)
      ORDER BY created_at DESC
      LIMIT 200`,
@@ -192,7 +209,7 @@ export async function findDuplicateEvent(
       "SELECT source_url FROM event_sources WHERE event_id = $1",
       [row.id],
     );
-    const score =
+    const weightedScore =
       DEDUP_WEIGHTS.title * titleSimilarity(candidate.title, row.title) +
       DEDUP_WEIGHTS.date * dateScore(candidate.startAt, row.start_at) +
       DEDUP_WEIGHTS.venue *
@@ -204,6 +221,7 @@ export async function findDuplicateEvent(
           row.primary_source_url,
           sourceRows.map((s) => s.source_url),
         );
+    const score = sameNamedEventAtVenue(candidate, row) ? Math.max(0.97, weightedScore) : weightedScore;
 
     if (!best || score > best.score) {
       best = { eventId: row.id, matchedOn: "fuzzy", score };

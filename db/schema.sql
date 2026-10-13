@@ -50,6 +50,15 @@ CREATE TABLE IF NOT EXISTS events (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Canonical mappings retain duplicate rows and their discovery/click history.
+CREATE TABLE IF NOT EXISTS event_aliases (
+  duplicate_id INT PRIMARY KEY REFERENCES events(id),
+  canonical_id INT NOT NULL REFERENCES events(id),
+  reason TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (canonical_id < duplicate_id)
+);
+
 CREATE TABLE IF NOT EXISTS discovery_items (            -- every raw search hit; nothing is ever deleted
   id SERIAL PRIMARY KEY,
   query_id INT REFERENCES search_queries(id),
