@@ -18,7 +18,8 @@ export async function prepareTrial(bookingId: number): Promise<boolean> {
     await client.query('BEGIN');
     await client.query('SELECT id FROM venue_bookings WHERE id = $1 FOR UPDATE', [bookingId]);
     const updated = await client.query(`UPDATE venue_bookings b SET trial_duration_minutes = 5, trial_amount_paise = 1000, updated_at = now()
-      WHERE id = $1 AND venue_slug = 'time-cafe' AND status IN ('requested','approved') AND archived_at IS NULL
+      WHERE id = $1 AND venue_slug IN ('time-cafe', 'chennai-yoga-studio')
+      AND status IN ('requested','approved') AND archived_at IS NULL AND paid_at IS NULL
       AND NOT EXISTS (SELECT 1 FROM venue_booking_payments p WHERE p.booking_id = b.id)`, [bookingId]);
     await client.query('COMMIT'); return updated.rowCount === 1;
   } catch (error) { await client.query('ROLLBACK'); throw error; }

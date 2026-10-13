@@ -96,6 +96,9 @@ async function main() {
     await addBooking(11, 'SCN-NEW123', '2026-10-07T07:00:00Z');
     await addBooking(12, 'SCN-OLD123', '2026-10-06T00:00:00Z');
     await addBooking(13, 'SCN-OTHER1', '2026-10-06T00:00:00Z', 'other-fixture');
+    await addBooking(14, 'SCN-YOGA14', '2026-10-07T07:00:00Z', 'chennai-yoga-studio');
+    await addBooking(15, 'SCN-YOGA15', '2026-10-07T07:00:00Z', 'chennai-yoga-studio');
+    await sql("UPDATE venue_bookings SET venue_name='Chennai Yoga Studio', organizer_user_id=NULL, status='approved' WHERE id IN (14,15)");
     await sql("UPDATE venue_bookings SET status='approved' WHERE id IN(1,7)");
     assert.equal(amountDue(6000), 6000);
     assert.equal(bookingChargePaise({ total: 6000, trialAmountPaise: null }), 600000);
@@ -110,6 +113,12 @@ async function main() {
     assert.equal(earnings.venuePayout, 5400);
     assert.equal((await trialRoute(request('/api/admin/venue-bookings/9/trial'), { params: Promise.resolve({ id: '9' }) })).status, 401);
     assert.equal((await trialRoute(request('/api/admin/venue-bookings/9/trial', {}, true), { params: Promise.resolve({ id: '9' }) })).status, 200);
+    assert.equal((await trialRoute(request('/api/admin/venue-bookings/14/trial', {}, true), { params: Promise.resolve({ id: '14' }) })).status, 200, 'approved Yoga Studio booking can become a trial');
+    const yogaTrial = (await sql('SELECT trial_amount_paise, trial_duration_minutes FROM venue_bookings WHERE id=14')).rows[0];
+    assert.deepEqual([yogaTrial.trial_amount_paise, yogaTrial.trial_duration_minutes], [1000, 5]);
+    assert.equal(await prepareTrial(13), false, 'unrelated venues remain ineligible');
+    assert.equal(await recordPaymentOrder(15, 'order_yoga_existing', 600000), true);
+    assert.equal(await prepareTrial(15), false, 'an existing Yoga Studio payment order blocks trial conversion');
     assert.equal(await prepareTrial(1), false, 'cannot convert a paid booking into a trial');
     await sql("UPDATE venue_bookings SET status='approved' WHERE id=9");
     assert.equal(await recordPaymentOrder(9, 'order_trial', 600000), false);

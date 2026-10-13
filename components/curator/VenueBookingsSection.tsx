@@ -67,7 +67,7 @@ export function VenueBookingsSection() {
       <p className="text-sm">{b.trialAmountPaise ? '₹10 live trial · 5 minutes' : b.total === null ? 'Host quote' : `Booking total: ₹${b.total}${b.packageName && b.packageId !== 'hourly' ? ` · ${b.packageName}` : ''}`} · Food tab: ₹{(b.foodTotalPaise / 100).toFixed(2)}</p>
       <p className="text-sm break-all">{b.paidAt ? `Paid ${new Date(b.paidAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} · ${b.paymentId ?? 'Legacy payment'}` : ['confirmed','checked_in','completed'].includes(b.status) ? 'Legacy confirmed booking; no captured-payment record' : 'Not paid'}</p>
       <div className="flex flex-wrap gap-3">
-        {!b.archivedAt && ['requested','approved'].includes(b.status) && !b.trialAmountPaise && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, true)}>Prepare ₹10 / 5-minute trial</button>}
+        {!b.archivedAt && ['time-cafe', 'chennai-yoga-studio'].includes(b.venueSlug) && ['requested','approved'].includes(b.status) && !b.trialAmountPaise && !b.paidAt && !b.paymentId && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, true)}>Prepare ₹10 / 5-minute trial</button>}
         {!b.archivedAt && b.status === 'requested' && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, false)}>Approve request</button>}
         {b.archivedAt && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => restore(b)}>Restore booking</button>}
       </div>
