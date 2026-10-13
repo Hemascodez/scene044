@@ -19,7 +19,9 @@ export default function HostLoginPage() {
     <AuthModal open={open} saved={profile} initialRole="Host" onClose={() => setOpen(false)} onVerified={(p) => {
       setOpen(false);
       window.dispatchEvent(new Event('scene044:venue-auth-changed'));
-      router.replace(p.role === 'Host' ? '/host' : '/venues');
+      const next = new URLSearchParams(window.location.search).get('next');
+      router.replace(p.role === 'Host' && next && /^\/host\?ref=SCN-[A-Z0-9]{6,8}$/.test(next)
+        ? next : p.role === 'Host' ? '/host' : '/venues');
       router.refresh();
     }} />
   </main>;

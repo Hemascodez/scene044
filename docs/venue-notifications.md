@@ -1,6 +1,6 @@
 # Approved venue WhatsApp notifications
 
-Meta verified all ten templates APPROVED on 8 October 2026. Language: `en`
+Meta verified the original ten templates APPROVED on 8 October 2026. Language: `en`
 (not `en_US`). Names and body-variable order are in `lib/venueNotifications.ts`.
 These Utility notifications are separate from OTP and the weekly marketing digest.
 
@@ -10,15 +10,15 @@ These Utility notifications are separate from OTP and the weekly marketing diges
 | Host approves priced request | `scene044_booking_approved` | — |
 | Razorpay capture verified and committed | `scene044_booking_confirmed` | `scene044_host_booking_confirmed` |
 | Host declines | `scene044_booking_declined` | — |
-| Host cancels / organiser withdraws | `scene044_booking_cancelled` (correct actor) | — |
+| Host cancels / organiser withdraws | `scene044_booking_cancelled` (correct actor) | `scene044_host_booking_cancelled_v2` for organiser withdrawal |
 | Backend changes request to expired | `scene044_booking_expired` | — |
 | Checked-in session reaches ends_at | `scene044_venue_overrun` | — |
 | Venue application saved | `scene044_venue_listing_received` to submitting contact | — |
 
 No automatic expiry rule is added: the tracker currently lets unanswered requests
 keep waiting after 48 hours. An expiry message sends only on a real `expired`
-transition. No approved host-cancellation, refund, review-request or abandoned-draft
-template exists yet; don't reuse another template with misleading copy.
+transition. No approved refund, review-request or abandoned-draft template exists
+yet; don't reuse another template with misleading copy.
 Quote-only approvals are skipped until a genuine payable quote exists.
 
 ## Deployment
@@ -29,11 +29,38 @@ No historical booking/application messages are backfilled. Database triggers
 enqueue only new committed events, including payment transactions; rollbacks
 also roll back the queue. The payload excludes QR tokens, email and descriptions.
 
-Set **only on the Railway website**:
+Set **only on the Railway website** after deploying this code:
 
 ```env
 WHATSAPP_VENUE_NOTIFICATIONS_ENABLED=true
 ```
+
+Most original booking-status templates literally say "Time Cafe". The dispatcher
+blocks them for other venues. The venue-neutral Utility replacements have
+independent gates. Set each gate only when Meta shows that exact template as
+Active:
+
+```env
+WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED=true
+WHATSAPP_ORGANISER_REQUEST_LINK_TEMPLATE_ENABLED=true
+WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED=true
+```
+
+Those templates include a booking-specific URL button. Hosts go to
+`/host?ref=SCN-...`; organisers go to `/bookings?ref=SCN-...`. Both pages still
+require the recipient's authenticated account. Never use a QR/check-in token
+in a WhatsApp URL. The organiser approval and cancellation replacements remain
+gated until their individual Meta approvals:
+
+```env
+WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED=true
+WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED=true
+```
+
+The queue retains non-Time-Cafe host requests, host withdrawal notices,
+organiser approvals and organiser cancellations while their replacement
+templates await approval. Dispatch rechecks current booking status, host access
+and organiser opt-in; superseded events are skipped.
 
 The existing `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` and
 `WHATSAPP_GRAPH_API_VERSION` are reused. No new credentials or Meta webhook URL.

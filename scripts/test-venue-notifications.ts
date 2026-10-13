@@ -22,12 +22,19 @@ async function main() {
   const db = await PGlite.create();
   const previousPool = globalThis.__pgPool;
   const previousFetch = globalThis.fetch;
-  const keys = ['WHATSAPP_VENUE_NOTIFICATIONS_ENABLED','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID','WHATSAPP_GRAPH_API_VERSION'] as const;
+  const keys = ['WHATSAPP_VENUE_NOTIFICATIONS_ENABLED','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID','WHATSAPP_GRAPH_API_VERSION',
+    'WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED','WHATSAPP_ORGANISER_REQUEST_LINK_TEMPLATE_ENABLED','WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED',
+    'WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED','WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED'] as const;
   const previousEnv = keys.map(key => process.env[key]);
   process.env.WHATSAPP_VENUE_NOTIFICATIONS_ENABLED = 'false';
   process.env.WHATSAPP_ACCESS_TOKEN = 'fixture-only';
   process.env.WHATSAPP_PHONE_NUMBER_ID = 'fixture-only';
   process.env.WHATSAPP_GRAPH_API_VERSION = 'v24.0';
+  process.env.WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED = 'false';
+  process.env.WHATSAPP_ORGANISER_REQUEST_LINK_TEMPLATE_ENABLED = 'false';
+  process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED = 'false';
+  process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED = 'false';
+  process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED = 'false';
   const sql = async (text: string, params?: unknown[]) => {
     const result = await db.query(text, params);
     return { ...result, rowCount: /^\s*SELECT\b/i.test(text) ? result.rows.length : result.affectedRows };
@@ -55,6 +62,29 @@ async function main() {
     assert.equal(mapped.language, 'en');
     assert.equal(mapped.name, 'scene044_booking_requested_v2');
     assert.deepEqual(mapped.bodyParameters, ['Hema','Workshop','Time Cafe','20 October 2026 at 6:30 pm IST','25',b.code]);
+    const yogaRequest: VenueNotification = { ...organiserRequest, venue_slug: 'chennai-yoga-studio',
+      payload: { ...organiserRequest.payload, venueName: 'Chennai Yoga Studio' } };
+    assert.equal(venueNotificationTemplate(yogaRequest)?.name,'scene044_booking_requested_v2',
+      'the existing organiser request template uses a variable venue name');
+    assert.equal(venueNotificationTemplate({ ...yogaRequest, audience: 'host' }),null,
+      'do not call another venue Time Cafe while replacement host template awaits approval');
+    assert.equal(venueNotificationTemplate({ ...yogaRequest, kind: 'approved' }),null,
+      'do not send Time Cafe-branded approval to a different venue');
+    process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED = 'true';
+    assert.equal(venueNotificationTemplate({ ...yogaRequest, kind: 'approved' })?.name,'scene044_booking_approved_link_v2');
+    assert.equal(venueNotificationTemplate({ ...yogaRequest, kind: 'approved' })?.urlButtonSuffix,b.code);
+    process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED = 'false';
+    process.env.WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED = 'true';
+    process.env.WHATSAPP_ORGANISER_REQUEST_LINK_TEMPLATE_ENABLED = 'true';
+    const linkedOrganiserRequest = venueNotificationTemplate(yogaRequest)!;
+    const linkedHostRequest = venueNotificationTemplate({ ...yogaRequest, audience: 'host' })!;
+    assert.equal(linkedOrganiserRequest.name,'scene044_booking_requested_link_v3');
+    assert.equal(linkedOrganiserRequest.urlButtonSuffix,b.code);
+    assert.equal(linkedHostRequest.name,'scene044_host_booking_request_v2');
+    assert.deepEqual(linkedHostRequest.bodyParameters,['Chennai Yoga Studio','Workshop','20 October 2026 at 6:30 pm IST','25','Hema',b.code]);
+    assert.equal(linkedHostRequest.urlButtonSuffix,b.code);
+    process.env.WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED = 'false';
+    process.env.WHATSAPP_ORGANISER_REQUEST_LINK_TEMPLATE_ENABLED = 'false';
     await drainVenueNotifications(sender); assert.equal(sent.length, 0, 'kill switch prevents sends');
     process.env.WHATSAPP_VENUE_NOTIFICATIONS_ENABLED = 'true';
     await sql("UPDATE venue_host_access SET revoked_at=now() WHERE phone_e164='919222222222'");
@@ -84,6 +114,22 @@ async function main() {
     await drainVenueNotifications(sender);
     const cancellation = sent.find(s => s.name === 'scene044_booking_cancelled')!;
     assert.deepEqual(cancellation.bodyParameters, ['Hema',cancelled.code,'you','20 October 2026 at 6:30 pm IST',cancelled.code]);
+    const yogaCancellation = { ...yogaRequest, kind: 'cancelled',
+      payload: { ...yogaRequest.payload, actor: 'you' } };
+    assert.equal(venueNotificationTemplate(yogaCancellation),null);
+    process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED = 'true';
+    assert.deepEqual(venueNotificationTemplate(yogaCancellation)?.bodyParameters,
+      ['Hema',b.code,'Chennai Yoga Studio','you','20 October 2026 at 6:30 pm IST']);
+    assert.equal(venueNotificationTemplate(yogaCancellation)?.urlButtonSuffix,b.code);
+    process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED = 'false';
+    assert.equal((await sql("SELECT count(*)::int AS n FROM venue_notifications WHERE booking_id=$1 AND audience='host' AND kind='cancelled' AND state='pending'",[cancelled.id])).rows[0].n, 1,
+      'organiser withdrawal queues host alerts without sending before Meta approval');
+    process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED = 'true';
+    await drainVenueNotifications(sender);
+    const hostCancellation = sent.find(s => s.name === 'scene044_host_booking_cancelled_v2')!;
+    assert.deepEqual(hostCancellation.bodyParameters, ['Time Cafe','Hema',cancelled.code,'Workshop','20 October 2026 at 6:30 pm IST']);
+    assert.equal(hostCancellation.urlButtonSuffix,cancelled.code);
+    process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED = 'false';
     const hostCancelled = await booking(); await setBookingStatus(hostCancelled.id,'cancelled'); await drainVenueNotifications(sender);
     assert.equal(sent.filter(s=>s.name==='scene044_booking_cancelled').at(-1)!.bodyParameters[2],'the venue');
     const declined = await booking(); await setBookingStatus(declined.id,'declined'); await drainVenueNotifications(sender);
@@ -139,7 +185,7 @@ async function main() {
     assert.ok(await setBookingStatus(historical.id,'declined')); // Genuine new transition only.
     assert.equal((await sql('SELECT count(*)::int AS n FROM venue_notifications WHERE booking_id=$1',[historical.id])).rows[0].n,1);
     rows = (await sql('SELECT * FROM venue_notifications')).rows as unknown as VenueNotification[];
-    assert.equal(new Set(rows.map(r=>venueNotificationTemplate(r)?.name).filter(Boolean)).size,10,'all ten approved templates covered');
+    assert.equal(new Set(rows.map(r=>venueNotificationTemplate(r)?.name).filter(Boolean)).size,10,'all ten original approved templates covered');
     assert.ok(rows.every(r=>!JSON.stringify(r.payload).includes('checkin_token')),'QR secrets never enter message outbox');
     console.log('Venue notifications PASS: ten templates, atomic events, prices, trial, opt-in, host revocation, no backfill, retries, uncertain sends and receipt races. No real messages sent.');
   } finally {

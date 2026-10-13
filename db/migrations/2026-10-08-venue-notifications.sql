@@ -65,7 +65,10 @@ BEGIN
       VALUES ('booking:'||NEW.id||':'||event_kind||':organiser',event_kind,NEW.id,NEW.venue_slug,'organiser',phone,snapshot)
       ON CONFLICT(event_key) DO NOTHING;
   END IF;
-  IF event_kind IN ('requested','confirmed') THEN
+  -- A withdrawal by the organiser releases the host's slot. A host-initiated
+  -- cancellation is already known to that host and must not alert them again.
+  IF event_kind IN ('requested','confirmed') OR
+     (event_kind = 'cancelled' AND NEW.cancellation_actor = 'you') THEN
     INSERT INTO venue_notifications(event_key,kind,booking_id,venue_slug,audience,recipient,payload)
       SELECT 'booking:'||NEW.id||':'||event_kind||':host:'||h.phone_e164,event_kind,NEW.id,NEW.venue_slug,'host',h.phone_e164,snapshot
       FROM venue_host_access h WHERE h.venue_slug=NEW.venue_slug AND h.revoked_at IS NULL

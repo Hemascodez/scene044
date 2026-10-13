@@ -108,7 +108,7 @@ function BookingCard({
   const muted = b.status === 'declined' || b.status === 'withdrawn'
 
   return (
-    <li className={`${card} rise`} style={{ '--d': `${i * 70}ms` } as React.CSSProperties}>
+    <li id={`booking-${b.code}`} tabIndex={-1} className={`${card} rise scroll-mt-24 focus:outline-none`} style={{ '--d': `${i * 70}ms` } as React.CSSProperties}>
       <article aria-label={`${b.eventType} at ${b.venue}, ${s.label}`} className="flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
         <div className={`h-40 shrink-0 overflow-hidden border-[1.5px] border-ink bg-sand shadow-[2px_2px_0_0_#111] sm:h-[164px] sm:w-40 ${muted ? 'grayscale' : ''}`}>
           <img src={b.img} alt={`${b.venue}, ${b.space}`} className="size-full object-cover" />
@@ -461,6 +461,7 @@ export default function MyBookings({
   const [banner, setBanner] = useState<string | null>(null)
   const [voted, setVoted] = useState<string[]>([])
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const focusedBookingRef = useRef<string | null>(null)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -481,6 +482,24 @@ export default function MyBookings({
   const upcoming = bookings.filter((b) => ['due', 'confirmed', 'sent'].includes(b.status))
   const past = bookings.filter((b) => b.status === 'completed')
   const declined = bookings.filter((b) => b.status === 'declined' || b.status === 'withdrawn')
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('ref')?.trim().toUpperCase()
+    if (!code || !/^SCN-[A-Z0-9]{6,8}$/.test(code) || focusedBookingRef.current === code) return
+    const booking = bookings.find((item) => item.code?.toUpperCase() === code)
+    if (!booking) return
+    const targetTab: Tab = booking.status === 'completed' ? 'past'
+      : booking.status === 'declined' || booking.status === 'withdrawn' ? 'declined' : 'upcoming'
+    if (tab !== targetTab) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deep link selects the existing tab after account bookings arrive
+      setTab(targetTab)
+      return
+    }
+    const target = document.getElementById(`booking-${code}`)
+    if (!target) return
+    focusedBookingRef.current = code
+    target.scrollIntoView({ block: 'center' })
+    target.focus({ preventScroll: true })
+  }, [bookings, tab])
   const tabs: [Tab, string, number][] = [
     ['upcoming', 'Upcoming', upcoming.length],
     ['past', 'Past', past.length],

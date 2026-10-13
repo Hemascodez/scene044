@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { checkInBooking, listHostBookings, listHostReviews, setHostBookingStatus, type HostBooking } from '@/lib/client/hostApi'
 import type { VenueReview } from '@/lib/venueBookings'
 import { publishedVenueReviews } from '@/lib/venueTestimonials'
@@ -210,6 +210,15 @@ export default function HostWorkspace({
     }
   }
   const [activeTab, setActiveTab] = useState<HostTab>('bookings')
+  const [linkedBookingCode, setLinkedBookingCode] = useState('')
+  const focusedBookingRef = useRef<string | null>(null)
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('ref')?.trim().toUpperCase()
+    if (code && /^SCN-[A-Z0-9]{6,8}$/.test(code)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- URL state is available only after hydration
+      setLinkedBookingCode(code)
+    }
+  }, [])
   const [orderBookingId, setOrderBookingId] = useState('')
   /** Ticks so the "Running now" pill in the bookings list stays roughly current. */
   const [now, setNow] = useState(() => Date.now())
@@ -219,6 +228,21 @@ export default function HostWorkspace({
   }, [])
   // Live data: the host's real bookings (polled) and their manual calendar blocks.
   const [hostBookings, setHostBookings] = useState<HostBooking[]>([])
+  const linkedBooking = linkedBookingCode ? hostBookings.find(b => b.code.toUpperCase() === linkedBookingCode) : undefined
+  useEffect(() => {
+    if (!linkedBooking || focusedBookingRef.current === linkedBookingCode) return
+    if (activeTab !== 'bookings') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a booking deep link opens the existing bookings tab
+      setActiveTab('bookings')
+      return
+    }
+    const target = document.getElementById(`host-booking-${linkedBookingCode}`)
+      ?? document.getElementById(`host-booking-summary-${linkedBookingCode}`)
+    if (!target) return
+    focusedBookingRef.current = linkedBookingCode
+    target.scrollIntoView({ block: 'center' })
+    target.focus({ preventScroll: true })
+  }, [activeTab, linkedBooking, linkedBookingCode])
   const [receivedReviews, setReceivedReviews] = useState<VenueReview[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(true)
   const [reviewsError, setReviewsError] = useState('')
@@ -569,6 +593,11 @@ export default function HostWorkspace({
         {/* ================= TAB 1: BOOKINGS ================= */}
         {activeTab === 'bookings' && (
           <div className="space-y-8 page-in">
+            {linkedBooking && (
+              <div id={`host-booking-summary-${linkedBooking.code}`} tabIndex={-1} role="status" className="scroll-mt-24 border border-ink bg-white p-4 text-sm focus:outline-none">
+                Booking <strong>{linkedBooking.code}</strong> · {linkedBooking.eventType} · {linkedBooking.status.replace('_', ' ')}
+              </div>
+            )}
             {/* Header section */}
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -637,7 +666,9 @@ export default function HostWorkspace({
                   {activeNewRequests.map((req) => (
                     <article
                       key={req.id}
-                      className="border-[1.5px] border-ink bg-white shadow-hard transition-all duration-200 hover:shadow-hard-lg"
+                      id={`host-booking-${req.code}`}
+                      tabIndex={-1}
+                      className="scroll-mt-24 border-[1.5px] border-ink bg-white shadow-hard transition-all duration-200 hover:shadow-hard-lg focus:outline-none"
                     >
                       {/* Request Header bar */}
                       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line p-5 bg-paper">
@@ -764,7 +795,9 @@ export default function HostWorkspace({
                 {confirmedList.map((item) => (
                   <div
                     key={item.id}
-                    className="flex flex-wrap items-center justify-between gap-4 border-[1.5px] border-ink bg-white p-4 shadow-hard-sm transition-transform hover:-translate-y-0.5"
+                    id={`host-booking-${item.code}`}
+                    tabIndex={-1}
+                    className="flex scroll-mt-24 flex-wrap items-center justify-between gap-4 border-[1.5px] border-ink bg-white p-4 shadow-hard-sm transition-transform hover:-translate-y-0.5 focus:outline-none"
                   >
                     <div className="flex items-center gap-4">
                       {/* Date Badge */}

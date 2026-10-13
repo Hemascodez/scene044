@@ -6,6 +6,7 @@ import { sendWhatsappTemplate, type WhatsappTemplateInput, type WhatsappTemplate
 export interface VenueNotification {
   id: string;
   kind: string;
+  venue_slug: string | null;
   audience: 'organiser' | 'host' | 'partner';
   recipient: string;
   payload: { name: string; eventType: string; venueName: string; spaceName: string; date: string;
@@ -21,6 +22,12 @@ export function venueNotificationsEnabled(): boolean {
 /** Names, counts and language checked against Meta's approved templates, 8 Oct 2026. */
 export function venueNotificationTemplate(row: VenueNotification): WhatsappTemplateInput | null {
   const p = row.payload;
+  const isTimeCafe = row.venue_slug === 'time-cafe';
+  const hostRequestApproved = process.env.WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED === 'true';
+  const organiserRequestApproved = process.env.WHATSAPP_ORGANISER_REQUEST_LINK_TEMPLATE_ENABLED === 'true';
+  const hostCancellationApproved = process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED === 'true';
+  const organiserCancellationApproved = process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED === 'true';
+  const organiserApprovalApproved = process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED === 'true';
   const date = row.kind === 'listing_received' ? '' : new Date(`${p.date}T${p.time}+05:30`);
   const when = date instanceof Date && Number.isFinite(date.getTime())
     ? new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric',
@@ -31,23 +38,49 @@ export function venueNotificationTemplate(row: VenueNotification): WhatsappTempl
   let bodyParameters: string[];
   switch (row.kind) {
     case 'requested':
-      name = row.audience === 'host' ? 'scene044_new_booking_request' : 'scene044_booking_requested_v2';
-      bodyParameters = row.audience === 'host' ? [p.eventType, when, String(p.people), p.name, p.code]
-        : [p.name, p.eventType, p.venueName, when, String(p.people), p.code];
+      if (row.audience === 'host') {
+        if (!hostRequestApproved && !isTimeCafe) return null;
+        name = hostRequestApproved ? 'scene044_host_booking_request_v2' : 'scene044_new_booking_request';
+        bodyParameters = hostRequestApproved
+          ? [p.venueName, p.eventType, when, String(p.people), p.name, p.code]
+          : [p.eventType, when, String(p.people), p.name, p.code];
+      } else {
+        name = organiserRequestApproved ? 'scene044_booking_requested_link_v3' : 'scene044_booking_requested_v2';
+        bodyParameters = [p.name, p.eventType, p.venueName, when, String(p.people), p.code];
+      }
       break;
     case 'approved':
+      if (!isTimeCafe && !organiserApprovalApproved) return null;
       // Quote-only rooms do not have a payable amount yet. Never claim ₹0 is due.
       if (amount === null) return null;
-      name = 'scene044_booking_approved'; bodyParameters = [p.name, p.eventType, when, amount, p.code]; break;
+      name = organiserApprovalApproved ? 'scene044_booking_approved_link_v2' : 'scene044_booking_approved';
+      bodyParameters = organiserApprovalApproved
+        ? [p.name, p.venueName, p.eventType, when, amount, p.code]
+        : [p.name, p.eventType, when, amount, p.code];
+      break;
     case 'confirmed':
+      if (!isTimeCafe) return null;
       if (amount === null) return null;
       name = row.audience === 'host' ? 'scene044_host_booking_confirmed' : 'scene044_booking_confirmed';
       bodyParameters = row.audience === 'host' ? [p.code, p.name, when, amount] : [p.name, p.eventType, amount, when, p.code]; break;
     case 'declined':
+      if (!isTimeCafe) return null;
       name = 'scene044_booking_declined'; bodyParameters = [p.name, p.eventType, when, p.code]; break;
     case 'cancelled':
-      name = 'scene044_booking_cancelled'; bodyParameters = [p.name, p.code, p.actor, when, p.code]; break;
+      if (row.audience === 'host') {
+        if (!hostCancellationApproved || p.actor !== 'you') return null;
+        name = 'scene044_host_booking_cancelled_v2';
+        bodyParameters = [p.venueName, p.name, p.code, p.eventType, when];
+      } else {
+        if (!isTimeCafe && !organiserCancellationApproved) return null;
+        name = organiserCancellationApproved ? 'scene044_booking_cancelled_link_v2' : 'scene044_booking_cancelled';
+        bodyParameters = organiserCancellationApproved
+          ? [p.name, p.code, p.venueName, p.actor, when]
+          : [p.name, p.code, p.actor, when, p.code];
+      }
+      break;
     case 'expired':
+      if (!isTimeCafe) return null;
       name = 'scene044_booking_expired'; bodyParameters = [p.name, p.eventType, when, p.code]; break;
     case 'overrun':
       name = 'scene044_venue_overrun'; bodyParameters = [p.name, p.venueName, p.spaceName]; break;
@@ -56,7 +89,14 @@ export function venueNotificationTemplate(row: VenueNotification): WhatsappTempl
     default: return null;
   }
   if (bodyParameters.some(value => !value?.trim())) return null;
-  return { to: row.recipient, name, language: 'en', bodyParameters, opaqueCallbackData: `venue-notification:${row.id}` };
+  return { to: row.recipient, name, language: 'en', bodyParameters,
+    ...((hostRequestApproved && row.kind === 'requested' && row.audience === 'host')
+      || (organiserRequestApproved && row.kind === 'requested' && row.audience === 'organiser')
+      || (hostCancellationApproved && row.kind === 'cancelled' && row.audience === 'host')
+      || (organiserCancellationApproved && row.kind === 'cancelled' && row.audience === 'organiser')
+      || (organiserApprovalApproved && row.kind === 'approved' && row.audience === 'organiser')
+      ? { urlButtonSuffix: p.code } : {}),
+    opaqueCallbackData: `venue-notification:${row.id}` };
 }
 
 type Sender = (input: WhatsappTemplateInput) => Promise<WhatsappTemplateSendResult>;
@@ -77,7 +117,15 @@ export async function drainVenueNotifications(sender: Sender = sendWhatsappTempl
     const { rows } = await query<VenueNotification>(`UPDATE venue_notifications SET state='sending',claim_token=$1,
       claimed_at=now(),attempts=attempts+1,updated_at=now() WHERE id=(
         SELECT id FROM venue_notifications WHERE state='pending' AND next_attempt_at<=now()
-        ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *`, [token]);
+          AND NOT (kind='requested' AND audience='host' AND venue_slug<>'time-cafe' AND NOT $2::boolean)
+          AND NOT (kind='cancelled' AND audience='host' AND NOT $3::boolean)
+          AND NOT (kind='cancelled' AND audience='organiser' AND venue_slug<>'time-cafe' AND NOT $4::boolean)
+          AND NOT (kind='approved' AND audience='organiser' AND venue_slug<>'time-cafe' AND NOT $5::boolean)
+        ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *`, [token,
+          process.env.WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED === 'true',
+          process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED === 'true',
+          process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED === 'true',
+          process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED === 'true']);
     const row = rows[0];
     if (!row) break;
     const update = async (state: string, error: string | null, providerId: string | null = null, delay = 0) => {
