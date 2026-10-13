@@ -47,6 +47,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    ...["privacy", "terms", "account/delete"].map((path) => ({
+      url: `${BASE_URL}/${path}`,
+      changeFrequency: "yearly" as const,
+      priority: 0.2,
+    })),
     ...venues
       .filter((venue) => venue.status === "live")
       .map((venue) => ({

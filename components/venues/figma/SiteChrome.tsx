@@ -119,7 +119,7 @@ export function SiteFooter({ wide = false }: { wide?: boolean }) {
         <p>© 2026 SCENE/044. Made in Chennai.</p>
         <p className={`flex ${wide ? "gap-4" : "gap-6"}`}>
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>
-          <Link href="/privacy" className="hover:text-ink">Terms</Link>
+          <Link href="/terms" className="hover:text-ink">Terms</Link>
         </p>
       </div>
     </footer>

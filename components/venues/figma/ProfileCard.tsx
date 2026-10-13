@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from 'react'
+import Link from 'next/link'
 import FieldError from './FieldError'
 import Dialog from './Dialog'
 import { Close } from './icons'
@@ -305,6 +306,13 @@ export default function ProfileCard({
             Log out
           </button>
         </div>
+      )}
+
+      {mode === 'view' && (
+        <p className="mt-4 text-xs leading-5 text-stone">
+          Need to remove your account and data?{' '}
+          <Link href="/account/delete" className="underline underline-offset-2 hover:text-ink">Request account deletion</Link>
+        </p>
       )}
 
       {confirmLogout && onLogout && (
