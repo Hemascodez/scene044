@@ -28,6 +28,8 @@ export function venueNotificationTemplate(row: VenueNotification): WhatsappTempl
   const hostCancellationApproved = process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED === 'true';
   const organiserCancellationApproved = process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED === 'true';
   const organiserApprovalApproved = process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED === 'true';
+  const organiserConfirmationApproved = process.env.WHATSAPP_ORGANISER_CONFIRMATION_TEMPLATE_ENABLED === 'true';
+  const hostConfirmationApproved = process.env.WHATSAPP_HOST_CONFIRMATION_TEMPLATE_ENABLED === 'true';
   const date = row.kind === 'listing_received' ? '' : new Date(`${p.date}T${p.time}+05:30`);
   const when = date instanceof Date && Number.isFinite(date.getTime())
     ? new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric',
@@ -59,10 +61,21 @@ export function venueNotificationTemplate(row: VenueNotification): WhatsappTempl
         : [p.name, p.eventType, when, amount, p.code];
       break;
     case 'confirmed':
-      if (!isTimeCafe) return null;
       if (amount === null) return null;
-      name = row.audience === 'host' ? 'scene044_host_booking_confirmed' : 'scene044_booking_confirmed';
-      bodyParameters = row.audience === 'host' ? [p.code, p.name, when, amount] : [p.name, p.eventType, amount, when, p.code]; break;
+      if (row.audience === 'host') {
+        if (!hostConfirmationApproved && !isTimeCafe) return null;
+        name = hostConfirmationApproved ? 'scene044_host_booking_confirmed_all_venues' : 'scene044_host_booking_confirmed';
+        bodyParameters = hostConfirmationApproved
+          ? [p.venueName, p.code, p.eventType, p.name, amount, when]
+          : [p.code, p.name, when, amount];
+      } else {
+        if (!organiserConfirmationApproved && !isTimeCafe) return null;
+        name = organiserConfirmationApproved ? 'scene044_booking_confirmed_all_venues' : 'scene044_booking_confirmed';
+        bodyParameters = organiserConfirmationApproved
+          ? [p.name, p.eventType, p.venueName, amount, when, p.code]
+          : [p.name, p.eventType, amount, when, p.code];
+      }
+      break;
     case 'declined':
       if (!isTimeCafe) return null;
       name = 'scene044_booking_declined'; bodyParameters = [p.name, p.eventType, when, p.code]; break;
@@ -95,6 +108,8 @@ export function venueNotificationTemplate(row: VenueNotification): WhatsappTempl
       || (hostCancellationApproved && row.kind === 'cancelled' && row.audience === 'host')
       || (organiserCancellationApproved && row.kind === 'cancelled' && row.audience === 'organiser')
       || (organiserApprovalApproved && row.kind === 'approved' && row.audience === 'organiser')
+      || (hostConfirmationApproved && row.kind === 'confirmed' && row.audience === 'host')
+      || (organiserConfirmationApproved && row.kind === 'confirmed' && row.audience === 'organiser')
       ? { urlButtonSuffix: p.code } : {}),
     opaqueCallbackData: `venue-notification:${row.id}` };
 }
@@ -121,11 +136,15 @@ export async function drainVenueNotifications(sender: Sender = sendWhatsappTempl
           AND NOT (kind='cancelled' AND audience='host' AND NOT $3::boolean)
           AND NOT (kind='cancelled' AND audience='organiser' AND venue_slug<>'time-cafe' AND NOT $4::boolean)
           AND NOT (kind='approved' AND audience='organiser' AND venue_slug<>'time-cafe' AND NOT $5::boolean)
+          AND NOT (kind='confirmed' AND audience='host' AND venue_slug<>'time-cafe' AND NOT $6::boolean)
+          AND NOT (kind='confirmed' AND audience='organiser' AND venue_slug<>'time-cafe' AND NOT $7::boolean)
         ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *`, [token,
           process.env.WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED === 'true',
           process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED === 'true',
           process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED === 'true',
-          process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED === 'true']);
+          process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED === 'true',
+          process.env.WHATSAPP_HOST_CONFIRMATION_TEMPLATE_ENABLED === 'true',
+          process.env.WHATSAPP_ORGANISER_CONFIRMATION_TEMPLATE_ENABLED === 'true']);
     const row = rows[0];
     if (!row) break;
     const update = async (state: string, error: string | null, providerId: string | null = null, delay = 0) => {

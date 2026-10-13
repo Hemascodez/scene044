@@ -24,7 +24,8 @@ async function main() {
   const previousFetch = globalThis.fetch;
   const keys = ['WHATSAPP_VENUE_NOTIFICATIONS_ENABLED','WHATSAPP_ACCESS_TOKEN','WHATSAPP_PHONE_NUMBER_ID','WHATSAPP_GRAPH_API_VERSION',
     'WHATSAPP_HOST_REQUEST_LINK_TEMPLATE_ENABLED','WHATSAPP_ORGANISER_REQUEST_LINK_TEMPLATE_ENABLED','WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED',
-    'WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED','WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED'] as const;
+    'WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED','WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED',
+    'WHATSAPP_ORGANISER_CONFIRMATION_TEMPLATE_ENABLED','WHATSAPP_HOST_CONFIRMATION_TEMPLATE_ENABLED'] as const;
   const previousEnv = keys.map(key => process.env[key]);
   process.env.WHATSAPP_VENUE_NOTIFICATIONS_ENABLED = 'false';
   process.env.WHATSAPP_ACCESS_TOKEN = 'fixture-only';
@@ -35,6 +36,8 @@ async function main() {
   process.env.WHATSAPP_HOST_CANCELLATION_TEMPLATE_ENABLED = 'false';
   process.env.WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED = 'false';
   process.env.WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED = 'false';
+  process.env.WHATSAPP_ORGANISER_CONFIRMATION_TEMPLATE_ENABLED = 'false';
+  process.env.WHATSAPP_HOST_CONFIRMATION_TEMPLATE_ENABLED = 'false';
   const sql = async (text: string, params?: unknown[]) => {
     const result = await db.query(text, params);
     return { ...result, rowCount: /^\s*SELECT\b/i.test(text) ? result.rows.length : result.affectedRows };
@@ -105,6 +108,25 @@ async function main() {
     assert.equal(confirmations.length, 2, 'duplicate payment verification queues one per audience');
     assert.equal(confirmations[0].bodyParameters[2], '6,000');
     assert.equal(confirmations[1].bodyParameters[3], '6,000');
+    const yogaConfirmation = { ...yogaRequest, kind: 'confirmed',
+      payload: { ...yogaRequest.payload, amountPaise: 1000 } };
+    assert.equal(venueNotificationTemplate(yogaConfirmation), null,
+      'an unapproved cross-venue confirmation must not be sent');
+    assert.equal(venueNotificationTemplate({ ...yogaConfirmation, audience: 'host' }), null);
+    process.env.WHATSAPP_ORGANISER_CONFIRMATION_TEMPLATE_ENABLED = 'true';
+    process.env.WHATSAPP_HOST_CONFIRMATION_TEMPLATE_ENABLED = 'true';
+    const yogaOrganiserConfirmation = venueNotificationTemplate(yogaConfirmation)!;
+    assert.equal(yogaOrganiserConfirmation.name, 'scene044_booking_confirmed_all_venues');
+    assert.deepEqual(yogaOrganiserConfirmation.bodyParameters,
+      ['Hema','Workshop','Chennai Yoga Studio','10','20 October 2026 at 6:30 pm IST',b.code]);
+    assert.equal(yogaOrganiserConfirmation.urlButtonSuffix, b.code);
+    const yogaHostConfirmation = venueNotificationTemplate({ ...yogaConfirmation, audience: 'host' })!;
+    assert.equal(yogaHostConfirmation.name, 'scene044_host_booking_confirmed_all_venues');
+    assert.deepEqual(yogaHostConfirmation.bodyParameters,
+      ['Chennai Yoga Studio',b.code,'Workshop','Hema','10','20 October 2026 at 6:30 pm IST']);
+    assert.equal(yogaHostConfirmation.urlButtonSuffix, b.code);
+    process.env.WHATSAPP_ORGANISER_CONFIRMATION_TEMPLATE_ENABLED = 'false';
+    process.env.WHATSAPP_HOST_CONFIRMATION_TEMPLATE_ENABLED = 'false';
     await recordVenueNotificationReceipt('wamid.fixture-4','delivered');
     await recordVenueNotificationReceipt('wamid.fixture-4','read');
     await recordVenueNotificationReceipt('wamid.fixture-4','delivered');

@@ -57,8 +57,23 @@ WHATSAPP_ORGANISER_APPROVAL_TEMPLATE_ENABLED=true
 WHATSAPP_ORGANISER_CANCELLATION_TEMPLATE_ENABLED=true
 ```
 
+The venue-neutral payment-confirmed templates were submitted to Meta on
+13 October 2026. Enable each of these **only after** its matching template is
+shown as Active; until then, Time Cafe keeps using its existing approved
+confirmation templates and other venues' pending confirmations stay queued:
+
+```env
+WHATSAPP_ORGANISER_CONFIRMATION_TEMPLATE_ENABLED=true
+WHATSAPP_HOST_CONFIRMATION_TEMPLATE_ENABLED=true
+```
+
+Their templates are `scene044_booking_confirmed_all_venues` and
+`scene044_host_booking_confirmed_all_venues`. Both have a booking-specific URL
+button. Previously skipped confirmations are not resent automatically, to avoid
+unexpected or duplicate messages.
+
 The queue retains non-Time-Cafe host requests, host withdrawal notices,
-organiser approvals and organiser cancellations while their replacement
+organiser approvals, confirmations and organiser cancellations while their replacement
 templates await approval. Dispatch rechecks current booking status, host access
 and organiser opt-in; superseded events are skipped.
 
