@@ -23,6 +23,17 @@
 # misc
 .DS_Store
 *.pem
+*.jks
+*.keystore
+
+# Android release artifacts and local build state
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/*.aab
+/android/*.apk
+/android/*.idsig
 
 # debug
 npm-debug.log*
