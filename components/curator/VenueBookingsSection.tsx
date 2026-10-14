@@ -41,6 +41,21 @@ export function VenueBookingsSection() {
       setMessage(trial ? `${b.code} is prepared for a ₹10 / five-minute trial.` : `${b.code} approved.`); refresh();
     } catch (e) { setError(e instanceof Error ? e.message : 'Action failed. Please retry.'); } finally { setBusy(false); }
   }
+  async function applyYogaConcession(b: Row) {
+    if (!window.confirm(`Apply the private three-hour rate to ${b.organizerName}'s booking ${b.code}? They will pay ₹5,000; the venue payout is ₹5,000 and SCENE's fee is ₹0. This is a normal booking, not a trial. Other bookings and public prices stay unchanged.`)) return;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch(`/api/admin/venue-bookings/${b.id}/yoga-concession`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingCode: b.code }),
+      });
+      const data = await readCuratorBookingResponse(response, 'Could not apply the private rate. Please retry.');
+      if (data.ok !== true) throw new Error('Could not confirm the rate change. Refresh before trying again.');
+      setMessage(`${b.code} now costs ₹5,000 for three hours. The venue payout is ₹5,000; SCENE's fee is ₹0. Ask the organiser to refresh their booking before paying.`);
+      refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Rate change failed. Please retry.'); }
+    finally { setBusy(false); }
+  }
   async function restore(b: Row) {
     if (!window.confirm(`Restore ${b.code} to organiser and host booking lists? Its previous status and payment history will be retained.`)) return;
     setBusy(true); setError(''); setMessage('');
@@ -67,7 +82,8 @@ export function VenueBookingsSection() {
       <p className="text-sm">{b.trialAmountPaise ? '₹10 live trial · 5 minutes' : b.total === null ? 'Host quote' : `Booking total: ₹${b.total}${b.packageName && b.packageId !== 'hourly' ? ` · ${b.packageName}` : ''}`} · Food tab: ₹{(b.foodTotalPaise / 100).toFixed(2)}</p>
       <p className="text-sm break-all">{b.paidAt ? `Paid ${new Date(b.paidAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} · ${b.paymentId ?? 'Legacy payment'}` : ['confirmed','checked_in','completed'].includes(b.status) ? 'Legacy confirmed booking; no captured-payment record' : 'Not paid'}</p>
       <div className="flex flex-wrap gap-3">
-        {!b.archivedAt && ['time-cafe', 'chennai-yoga-studio'].includes(b.venueSlug) && ['requested','approved'].includes(b.status) && !b.trialAmountPaise && !b.paidAt && !b.paymentId && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, true)}>Prepare ₹10 / 5-minute trial</button>}
+        {!b.archivedAt && b.venueSlug === 'chennai-yoga-studio' && b.durationHours === 3 && b.total === 6600 && ['requested','approved'].includes(b.status) && !b.trialAmountPaise && !b.paidAt && !b.hasPaymentOrder && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => applyYogaConcession(b)}>Apply private ₹5,000 rate</button>}
+        {!b.archivedAt && ['time-cafe', 'chennai-yoga-studio'].includes(b.venueSlug) && ['requested','approved'].includes(b.status) && !b.trialAmountPaise && !b.paidAt && !b.hasPaymentOrder && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, true)}>Prepare ₹10 / 5-minute trial</button>}
         {!b.archivedAt && b.status === 'requested' && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => action(b, false)}>Approve request</button>}
         {b.archivedAt && <button disabled={busy} className="border px-3 py-2 disabled:opacity-50" type="button" onClick={() => restore(b)}>Restore booking</button>}
       </div>

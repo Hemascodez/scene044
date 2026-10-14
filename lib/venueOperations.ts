@@ -3,9 +3,10 @@ import { amountDue } from '@/lib/venues';
 import { BOOKING_COLUMNS, type VenueBooking, type VenueBookingOrder } from '@/lib/venueBookings';
 
 export async function listCuratorBookings(page: number, archived = false) {
-  const { rows } = await query<VenueBooking & { foodTotalPaise: number; paymentId: string | null }>(`SELECT ${BOOKING_COLUMNS},
+  const { rows } = await query<VenueBooking & { foodTotalPaise: number; paymentId: string | null; hasPaymentOrder: boolean }>(`SELECT ${BOOKING_COLUMNS},
     COALESCE((SELECT SUM(COALESCE(unit_price_paise * quantity, amount * 100)) FROM venue_booking_orders o WHERE o.booking_id = b.id), 0)::int AS "foodTotalPaise",
-    (SELECT payment_id FROM venue_booking_payments p WHERE p.booking_id = b.id AND p.paid_at IS NOT NULL LIMIT 1) AS "paymentId"
+    (SELECT payment_id FROM venue_booking_payments p WHERE p.booking_id = b.id AND p.paid_at IS NOT NULL LIMIT 1) AS "paymentId",
+    EXISTS(SELECT 1 FROM venue_booking_payments p WHERE p.booking_id = b.id) AS "hasPaymentOrder"
     FROM venue_bookings b WHERE (archived_at IS NOT NULL) = $2 ORDER BY created_at DESC, id DESC LIMIT 50 OFFSET $1`, [(page - 1) * 50, archived]);
   const count = await query<{ count: number }>('SELECT COUNT(*)::int AS count FROM venue_bookings WHERE (archived_at IS NOT NULL) = $1', [archived]);
   return { bookings: rows, count: count.rows[0].count, page };
@@ -24,6 +25,36 @@ export async function prepareTrial(bookingId: number): Promise<boolean> {
     await client.query('COMMIT'); return updated.rowCount === 1;
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
+}
+
+/** One agreed, real booking concession. Never use the trial payment override for it.
+ * The booking row is locked before checking for a payment order, matching the
+ * lock used when a checkout order is recorded. */
+export async function applyYogaThreeHourConcession(bookingId: number, bookingCode: string): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT id FROM venue_bookings WHERE id = $1 FOR UPDATE', [bookingId]);
+    const updated = await client.query(`UPDATE venue_bookings b
+      SET total = 5000, host_amount = 5000, scene_amount = 0,
+          pricing_model = 'host-commission', hourly_rate = NULL,
+          package_id = 'private-concession', package_name = 'Private 3-hour rate',
+          updated_at = now()
+      WHERE b.id = $1 AND b.code = $2
+        AND b.venue_slug = 'chennai-yoga-studio' AND b.duration_hours = 3
+        AND b.total = 6600 AND b.status IN ('requested', 'approved')
+        AND b.archived_at IS NULL AND b.paid_at IS NULL
+        AND b.trial_amount_paise IS NULL
+        AND NOT EXISTS (SELECT 1 FROM venue_booking_payments p WHERE p.booking_id = b.id)
+      RETURNING b.id`, [bookingId, bookingCode]);
+    await client.query('COMMIT');
+    return updated.rowCount === 1;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export interface MenuItem {

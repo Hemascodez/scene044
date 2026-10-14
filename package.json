@@ -19,6 +19,7 @@
     "test:curator": "node --import tsx scripts/test-curator-draft-validation.ts && node --import tsx scripts/test-admin-event-update.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
     "test:venue-auth": "node --import tsx scripts/test-venue-auth.ts",
+    "test:venue-concession": "node --import tsx scripts/test-yoga-concession.ts",
     "backfill:event-copy": "node --import tsx scripts/backfill-summaries.ts",
     "seed:venues": "node --import tsx scripts/seed-venues.ts",
     "seed:sources": "node --import tsx scripts/seed-sources.ts",

@@ -1,6 +1,6 @@
 import type { VenueBooking } from '@/lib/venueBookings';
 
-export type CuratorBookingRow = VenueBooking & { foodTotalPaise: number; paymentId: string | null };
+export type CuratorBookingRow = VenueBooking & { foodTotalPaise: number; paymentId: string | null; hasPaymentOrder: boolean };
 export interface CuratorBookingList { bookings: CuratorBookingRow[]; count: number; page: number }
 
 /** Never expose JSON parser exceptions, HTML error pages, or backend traces. */
