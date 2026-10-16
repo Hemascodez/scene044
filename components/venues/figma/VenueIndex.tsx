@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { formatRupees, venueFromRate, venueMaxGuests } from '@/lib/venues'
 import type { CatalogVenue } from '@/lib/venueCatalog'
+import { venuePhotoAlt } from '@/lib/venueDiscovery'
 import Carousel from './Carousel'
 import {
   ArrowRight, ChevronLeft, ChevronRight, Coffee, Heart, MapPin, Mic, Projector, ShieldCheck, Star, Users, Wifi, Zap,
@@ -49,7 +50,7 @@ function venueSlides(venue: CatalogVenue, fallback: { src: string; alt: string }
     ? venue.photos
     : [...new Set(venue.spaces.flatMap((space) => [space.image, ...(space.photos ?? [])]).filter(Boolean))]
   return photos.length
-    ? photos.map((src, i) => ({ src, alt: `${venue.name} — photo ${i + 1}` }))
+    ? photos.map((src, i) => ({ src, alt: venuePhotoAlt(venue, i) }))
     : venue.slug === 'time-cafe' ? fallback : []
 }
 

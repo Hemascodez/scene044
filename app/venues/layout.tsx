@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { VenueShell } from "@/components/venues/VenueShell";
+import { VENUES_SEARCH_DESCRIPTION, VENUES_SEARCH_TITLE } from "@/lib/venueDiscovery";
 
 export const metadata: Metadata = {
-  title: "Event Venues in Chennai — SCENE/044",
-  description: "Find thoughtful Chennai venues for tech meetups, workshops, wellness sessions, podcasts, and shoots.",
+  title: VENUES_SEARCH_TITLE,
+  description: VENUES_SEARCH_DESCRIPTION,
 };
 
 /* Bare: the designed venue pages render their own header and footer. Pages

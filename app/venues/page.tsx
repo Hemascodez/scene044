@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Landing from "@/components/venues/figma/Landing";
 import { listPublicVenues } from "@/lib/venueCatalog";
+import { VENUES_SEARCH_DESCRIPTION, VENUES_SEARCH_TITLE } from "@/lib/venueDiscovery";
+import { serializeJsonLd, venueCollectionStructuredData } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const TITLE = "Book Event Venues in Chennai — SCENE/044";
-const DESCRIPTION =
-  "Browse verified Chennai venues for meetups, workshops, podcasts and shoots. Real capacity and rates, request-based booking, pay only after the host approves.";
+const TITLE = VENUES_SEARCH_TITLE;
+const DESCRIPTION = VENUES_SEARCH_DESCRIPTION;
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -16,7 +17,11 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
 };
 
-/** The venue landing page — the approved Figma Make design, verbatim. */
+/** Search-facing copy and structured data; the approved layout is retained. */
 export default async function VenuesLandingPage() {
-  return <Landing venues={await listPublicVenues()} />;
+  const venues = await listPublicVenues();
+  return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(venueCollectionStructuredData(venues)) }} />
+    <Landing venues={venues} />
+  </>;
 }

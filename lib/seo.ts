@@ -3,6 +3,7 @@ import { formatSceneDateLong, formatSceneTime } from "@/lib/client/istTime";
 import { posterFor, eventShortIntro } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
 import type { CatalogVenue } from "@/lib/venueCatalog";
+import { venueSearchDescription, venueSearchIntent, VENUES_SEARCH_DESCRIPTION, VENUES_SEARCH_TITLE } from "@/lib/venueDiscovery";
 
 export const SITE_NAME = "SCENE/044";
 export const SITE_URL = "https://scene044.in";
@@ -67,12 +68,36 @@ export function eventSeoDescription(event: PublicEvent): string {
 
 /** Metadata only: never rewrites the curator's visible copy or pricing. */
 export function venueSeoDescription(venue: CatalogVenue): string {
-  const maxGuests = Math.max(0, ...venue.spaces.map((space) => space.maxGuests));
-  return truncateSeoText(`Book ${venue.name} in ${venue.area}, ${venue.city}${maxGuests ? ` for up to ${maxGuests} guests` : ''}. Compare spaces, pricing and amenities. Request first; pay after host approval.`);
+  return truncateSeoText(venueSearchDescription(venue));
 }
 
 export function venueSeoTitle(venue: CatalogVenue): string {
-  return `${venue.name} — Event Space in ${venue.area}, Chennai | SCENE/044`;
+  const purpose = venueSearchIntent(venue)?.title ?? 'Event Space';
+  return `${venue.name} — ${purpose} in ${venue.area}, ${venue.city} | SCENE/044`;
+}
+
+/** Describe only the live listings actually rendered on the venue landing. */
+export function venueCollectionStructuredData(venues: CatalogVenue[]): Record<string, unknown> {
+  const live = venues.filter(venue => venue.status === 'live');
+  const url = absoluteUrl('/venues');
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    '@id': `${url}#collection`,
+    url,
+    name: VENUES_SEARCH_TITLE,
+    description: VENUES_SEARCH_DESCRIPTION,
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: live.length,
+      itemListElement: live.map((venue, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: venue.name,
+        url: absoluteUrl(venuePath(venue)),
+      })),
+    },
+  };
 }
 
 export function categorySeoDescription(card: FieldCard): string {

@@ -26,6 +26,7 @@ import type { CatalogVenue } from '@/lib/venueCatalog'
 import { venueRoomPhotos } from '@/lib/venueRoomPhotos'
 import { venueMapEmbedUrl } from '@/lib/venueMaps'
 import { isWeekdaysOnlyVenue, venueBookingDateError } from '@/lib/venueAvailability'
+import { venueBookingIntroduction, venuePhotoAlt } from '@/lib/venueDiscovery'
 import ReviewFlow from './ReviewFlow'
 import { submitVenueReviewWithPhotos } from '@/lib/client/venueReviewApi'
 import type { VenueReview } from '@/lib/venueBookings'
@@ -499,7 +500,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   // Photos the host manages in their workspace replace the design art once they
   // add any; venues with an empty gallery still render the approved design.
   const photos = venue.photos.length
-    ? venue.photos.map((src, i) => ({ src, alt: `${venue.name} photo ${i + 1}` }))
+    ? venue.photos.map((src, i) => ({ src, alt: venuePhotoAlt(venue, i) }))
     : isTimeCafe ? gallery : venue.spaces.flatMap(s => venueRoomPhotos(s.image, s.name, [], s.photos))
   // Keep the approved design, but booking facts come from the same
   // catalog record used by the POST and Razorpay handlers.
@@ -810,7 +811,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
               <ShieldCheck className="size-[15px]" /> Verified on-site
             </span>
           </p>
-          <p className="mt-3 text-sm leading-6 text-stone">Explore the spaces and location first. A booking request is not a confirmed booking, and no payment is taken here.</p>
+          <p className="mt-3 text-sm leading-6 text-stone">{venueBookingIntroduction(venue)}</p>
           {weekdaysOnly && <p className="mt-2 text-sm font-medium text-ink">Available for bookings Monday–Friday only.</p>}
           <details className="mt-4 border border-line bg-white p-4">
             <summary className="cursor-pointer text-sm font-medium">View map &amp; exact address</summary>
@@ -924,7 +925,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
             <section aria-labelledby="about-title" className="reveal border-b border-line py-8">
               <h2 id="about-title" className="font-head text-xl">About this space</h2>
               <p className="mt-4 max-w-[640px] text-sm leading-[22.75px] text-stone">
-                {isTimeCafe ? 'Time Cafe is a vibrant, contemporary cafe in Nungambakkam, Chennai, making it an ideal venue for meetups and events thanks to its central accessibility, warm, conversational ambience, and modular seating that smoothly adapts to different group sizes.' : venue.summary}
+                {venue.summary}
               </p>
               {isTimeCafe && <p className="mt-3 max-w-[640px] text-sm leading-[22.75px] text-stone">
                 Paired with a versatile, crowd-pleasing menu spanning artisan coffees to hearty continental bites, it provides organizers with

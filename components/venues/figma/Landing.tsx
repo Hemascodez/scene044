@@ -21,7 +21,17 @@ const heroImg3 = '/venues/figma/hero-carousel-3.jpg'
 const heroImg4 = '/venues/figma/hero-carousel-4.jpg'
 const heroImg5 = '/venues/figma/hero-carousel-5.jpg'
 const heroImg6 = '/venues/figma/hero-carousel-6.jpg'
-const phrases = ['Tech meetup', 'Podcast recording', 'Workshop', 'Networking event', 'Product launch']
+const phrases = [
+  'Tech meetup',
+  'Podcast recording',
+  'Workshop',
+  'Wellness event',
+  'Art event',
+  'Dance workshop',
+  'Movie screening',
+  'Networking event',
+  'Product launch',
+]
 
 function Typewriter() {
   const [text, setText] = useState(phrases[0])
@@ -144,8 +154,8 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
                 className="rise mt-6 text-base leading-7 text-stone md:text-lg md:leading-[29.25px]"
                 style={{ '--d': '160ms' } as React.CSSProperties}
               >
-                No calls, no endless WhatsApp threads. See capacity, pricing, and what’s included up front — then send
-                one clear request and know exactly what happens next.
+                Find workshop venues, meetup spaces and creative studios in Chennai. See capacity, pricing and what’s
+                included up front — then send one clear booking request.
               </p>
               <div className="rise mt-8" style={{ '--d': '240ms' } as React.CSSProperties}>
                 <a

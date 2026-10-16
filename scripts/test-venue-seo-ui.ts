@@ -24,7 +24,7 @@ assert.equal($('a[aria-label="View Fixture Venue"]').attr('class'), 'press inlin
 assert.equal($('article').attr('class'), 'flex w-full min-w-0 flex-col border-[1.5px] border-ink bg-white shadow-hard');
 assert.ok($('img').attr('srcset')?.includes('/_next/image?url=%2Fapi%2Fposter%2F132'));
 assert.equal($('img').attr('sizes'), '(max-width: 768px) 86vw, (max-width: 1024px) 45vw, 400px');
-assert.equal($('img').attr('alt'), 'Fixture Venue — photo 1');
+assert.equal($('img').attr('alt'), 'Fixture Venue, Kilpauk, Chennai — venue photo 1');
 const external = load(renderToStaticMarkup(createElement(ResponsiveVenueImage, { src: 'https://example.com/photo.jpg', alt: 'External photo', className: 'same-class' })));
 assert.equal(external('img').attr('src'), 'https://example.com/photo.jpg');
 assert.equal(external('img').attr('srcset'), undefined, 'external URLs are not proxied');
