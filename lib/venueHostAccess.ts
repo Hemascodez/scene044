@@ -68,11 +68,13 @@ export async function canAccessHostBooking(request: Request, venueSlug: string):
 }
 
 /** The owning venue comes from the server's approved host scope, never a
- * slug supplied by the browser. Curators preview the same Time Cafe workspace. */
+ * slug supplied by the browser. A host login takes precedence over a curator
+ * cookie left in the same browser; curator-only sessions keep their preview. */
 export async function getHostVenueSlug(request: Request): Promise<string | null> {
   if (!await checkHostAccess(request)) return null;
-  if (await checkCuratorAccess(request)) return HOST_VENUE_SLUG;
-  return (await getVenueUserFromRequest(request))?.hostVenueSlug ?? null;
+  const user = await getVenueUserFromRequest(request);
+  if (user?.role === 'Host' && user.hostVenueSlug) return user.hostVenueSlug;
+  return await checkCuratorAccess(request) ? HOST_VENUE_SLUG : null;
 }
 
 export async function listHostVenues(): Promise<HostVenueOption[]> {

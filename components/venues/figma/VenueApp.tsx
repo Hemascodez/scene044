@@ -157,7 +157,10 @@ export function VenueAppProvider({ children }: { children: ReactNode }) {
           const then = pending.current;
           pending.current = null;
           setSubmitting(false);
-          if (p.role === "Host") router.push("/host");
+          if (p.role === "Host") {
+            router.push("/host");
+            router.refresh();
+          }
           else then?.(p);
         }}
       />

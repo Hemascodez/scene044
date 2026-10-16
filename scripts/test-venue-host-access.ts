@@ -6,7 +6,8 @@ import { createRequire } from 'node:module';
 import type { Pool } from 'pg';
 import { NextRequest } from 'next/server';
 import { proxy } from '../proxy';
-import { HOST_ACCESS_MESSAGE, checkHostAccess, isApprovedHostPhone, isSameOriginMutation } from '../lib/venueHostAccess';
+import { HOST_ACCESS_MESSAGE, checkHostAccess, getHostVenueSlug, isApprovedHostPhone, isSameOriginMutation } from '../lib/venueHostAccess';
+import { createCuratorSessionToken, CURATOR_SESSION_COOKIE } from '../lib/auth';
 import { getVenueUserFromRequest, hashVenueSession, VENUE_SESSION_COOKIE } from '../lib/venueUserAuth';
 import { POST as approve, GET as members } from '../app/api/admin/venue-hosts/route';
 import { DELETE as revoke } from '../app/api/admin/venue-hosts/[id]/route';
@@ -141,6 +142,17 @@ async function main() {
     const otherToken = otherLogin.headers.get('set-cookie')!.match(/scene044_venue_session=([a-f0-9]{64})/)![1];
     assert.equal((await (await hostVenue(req('/api/host/venue', 'GET', undefined, otherToken))).json()).venue.slug, 'other-fixture');
     assert.equal((await (await bookings(req('/api/host/bookings', 'GET', undefined, otherToken))).json()).bookings[0].id, 2);
+    // A curator cookie can coexist with a host login during a venue demo.
+    // Both the page scope and every host API must use the selected host venue.
+    const curatorCookie = await createCuratorSessionToken();
+    const mixedSession = (path: string) => new Request(`http://localhost:3000${path}`, {
+      headers: { cookie: `${VENUE_SESSION_COOKIE}=${otherToken}; ${CURATOR_SESSION_COOKIE}=${curatorCookie}` },
+    });
+    assert.equal(await getHostVenueSlug(mixedSession('/host')), 'other-fixture', 'host page keeps the signed-in venue when curator is also logged in');
+    assert.equal((await (await hostVenue(mixedSession('/api/host/venue'))).json()).venue.slug, 'other-fixture');
+    const mixedBookings = (await (await bookings(mixedSession('/api/host/bookings'))).json()).bookings;
+    assert.deepEqual(mixedBookings.map((b: { id: number }) => b.id), [2], 'mixed login lists only the selected venue bookings');
+    assert.equal(await getHostVenueSlug(req('/host', 'GET', undefined, undefined, true)), 'time-cafe', 'curator-only preview retains its default venue');
     assert.equal(await checkHostAccess(req('/api/host/bookings/1/status', 'POST', {}, otherToken), 1), false);
     assert.equal((await (await hostVenue(req('/api/host/venue', 'GET', undefined, hostToken))).json()).venue.slug, 'time-cafe', 'first device remains scoped to Time Cafe');
     await otp(hostPhone);
