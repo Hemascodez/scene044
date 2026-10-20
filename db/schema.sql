@@ -459,7 +459,9 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   -- Requested slot. `duration_hours` drives both the price and the live timer.
   event_date DATE NOT NULL,
   start_time TEXT NOT NULL,
-  duration_hours INT NOT NULL CHECK (duration_hours > 0),
+  -- Public requests remain whole-hour bookings. Private agreed corrections may
+  -- include a half-hour; float8 is decoded as a JS number by pg, not a string.
+  duration_hours DOUBLE PRECISION NOT NULL CHECK (duration_hours > 0),
   people INT NOT NULL CHECK (people > 0),
   event_type TEXT NOT NULL,
   description TEXT NOT NULL,

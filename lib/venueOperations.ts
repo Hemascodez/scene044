@@ -57,6 +57,37 @@ export async function applyYogaThreeHourConcession(bookingId: number, bookingCod
   }
 }
 
+/** Correct one unpaid, approved Yoga booking to its privately agreed 3.5-hour
+ * ₹5,500 rate. The caller must explicitly choose the host payout. Never reprice
+ * a checkout that has already started, or mutate public catalog/package rates. */
+export async function applyYogaPrivateBookingCorrection(bookingId: number, bookingCode: string, hostAmount: number): Promise<boolean> {
+  if (hostAmount !== 5000 && hostAmount !== 5500) throw new Error('Choose the agreed host payout.');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT id FROM venue_bookings WHERE id = $1 FOR UPDATE', [bookingId]);
+    const updated = await client.query(`UPDATE venue_bookings b
+      SET duration_hours = 3.5, total = 5500, hourly_rate = NULL,
+          host_amount = $3, scene_amount = 5500 - $3,
+          pricing_model = CASE WHEN $3 = 5000 THEN 'host-markup' ELSE 'host-commission' END,
+          package_id = 'private-concession', package_name = 'Private 3-hour 30-minute rate',
+          updated_at = now()
+      WHERE b.id = $1 AND b.code = $2 AND b.venue_slug = 'chennai-yoga-studio'
+        AND b.status = 'approved' AND b.total = 6600 AND b.duration_hours IN (3, 4)
+        AND b.archived_at IS NULL AND b.paid_at IS NULL AND b.checked_in_at IS NULL
+        AND b.trial_amount_paise IS NULL AND b.trial_duration_minutes IS NULL
+        AND NOT EXISTS (SELECT 1 FROM venue_booking_payments p WHERE p.booking_id = b.id)
+      RETURNING b.id`, [bookingId, bookingCode, hostAmount]);
+    await client.query('COMMIT');
+    return updated.rowCount === 1;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export interface MenuItem {
   id: string; name: string; category: string; pricePaise: number; available: boolean;
 }

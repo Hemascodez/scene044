@@ -8,6 +8,7 @@ async function main() {
     "utf-8",
   );
   await pool.query(sql);
+  await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-10-20-private-booking-duration.sql'), 'utf8'));
   await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-10-08-multi-venue-host-access.sql'), 'utf8'));
   // New transactional triggers are kept in one migration source, not duplicated
   // in schema.sql. Re-applying is safe and never backfills historical messages.
