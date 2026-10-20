@@ -1,6 +1,7 @@
 "use client";
 
 import type { CuratorDraft } from "@/lib/curatorDraft";
+import type { AddCandidateResult } from "@/lib/curatorAddTarget";
 import type { Category, EventStatus, ExtractedEvent, PriceType } from "@/lib/types";
 
 /**
@@ -147,8 +148,10 @@ export function fetchQueue(
   );
 }
 
-export function fetchPublishedEvents(search = "") {
-  return request<{ events: AdminEvent[] }>(`/api/admin/events?q=${encodeURIComponent(search)}`);
+export function fetchPublishedEvents(search = "", id?: number) {
+  const params = new URLSearchParams({ q: search });
+  if (id !== undefined) params.set("id", String(id));
+  return request<{ events: AdminEvent[] }>(`/api/admin/events?${params.toString()}`);
 }
 
 export function runExtraction(discoveryItemId: number) {
@@ -280,7 +283,7 @@ export function setItemStatus(
 }
 
 export function addCandidate(url: string) {
-  return request<{ reused: boolean; discoveryItemId: number; status?: string }>(
+  return request<AddCandidateResult>(
     "/api/admin/curator/add",
     { method: "POST", body: JSON.stringify({ url }) },
   );

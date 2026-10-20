@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { checkCuratorAccess } from "@/lib/auth";
 import { normalizeDomain, normalizeUrl } from "@/lib/domain";
+import { findCuratorAddTarget } from "@/lib/curatorAddTarget";
 
 /**
  * Creates a curator-originated discovery item from a pasted URL.
@@ -15,14 +16,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { url?: string };
+  let body: { url?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const raw = (body.url ?? "").trim();
+  const raw = typeof body?.url === "string" ? body.url.trim() : "";
   if (!raw) return NextResponse.json({ error: "url is required" }, { status: 400 });
 
   // Reject a non-http scheme outright rather than prefixing it. Blindly
@@ -55,26 +56,15 @@ export async function POST(request: Request) {
   const domain = normalizeDomain(withScheme);
 
   try {
-    // url is UNIQUE — reuse an existing candidate instead of erroring, so
-    // pasting a URL already in the queue just reopens it.
-    const { rows: existing } = await query<{ id: number; status: string }>(
-      "SELECT id, status FROM discovery_items WHERE url = $1",
-      [url],
-    );
-    if (existing[0]) {
-      return NextResponse.json({
-        ok: true,
-        reused: true,
-        discoveryItemId: existing[0].id,
-        status: existing[0].status,
-      });
-    }
+    const existing = await findCuratorAddTarget(url);
+    if (existing) return NextResponse.json({ ok: true, ...existing });
 
     const {
       rows: [created],
     } = await query<{ id: number }>(
       `INSERT INTO discovery_items (title, snippet, url, source_domain, status, origin)
        VALUES ($1, $2, $3, $4, 'curator_pending', 'curator')
+       ON CONFLICT (url) DO NOTHING
        RETURNING id`,
       [
         `Curator-added — ${domain}`,
@@ -84,7 +74,10 @@ export async function POST(request: Request) {
       ],
     );
 
-    return NextResponse.json({ ok: true, reused: false, discoveryItemId: created.id });
+    // Another curator / worker may have inserted this URL concurrently.
+    const target = await findCuratorAddTarget(url);
+    if (!target) throw new Error("Could not load the saved candidate. Please retry.");
+    return NextResponse.json({ ok: true, ...target, reused: !created });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err).slice(0, 500) }, { status: 500 });
   }

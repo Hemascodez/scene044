@@ -8,14 +8,19 @@ import { checkCuratorAccess } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/** Active published events for the curator's "Published" queue. Expired rows
- * stay in the database for history, but leave this list after verification. */
+/** Active published events for the curator's "Published" queue. An explicit
+ * curator-only id lookup can also open an expired event without reviving it. */
 export async function GET(request: NextRequest) {
   if (!(await checkCuratorAccess(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const search = (request.nextUrl.searchParams.get("q") ?? "").trim();
+  const rawId = request.nextUrl.searchParams.get("id");
+  const id = rawId === null ? null : Number(rawId);
+  if (id !== null && (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647)) {
+    return NextResponse.json({ error: "invalid event id" }, { status: 400 });
+  }
 
   try {
     const { rows } = await query(
@@ -32,11 +37,11 @@ export async function GET(request: NextRequest) {
               (SELECT count(*)::int FROM event_sources es WHERE es.event_id = e.id) AS "sourceCount",
               (SELECT count(*)::int FROM event_reports r WHERE r.event_id = e.id AND r.resolved_at IS NULL) AS "openReports"
        FROM events e
-       WHERE e.status <> 'expired'
+       WHERE ($2::integer IS NULL AND e.status <> 'expired' OR e.id = $2::integer)
          AND ($1 = '' OR e.title ILIKE '%' || $1 || '%' OR COALESCE(e.organizer_name,'') ILIKE '%' || $1 || '%')
        ORDER BY e.is_promoted DESC, e.start_at ASC NULLS LAST, e.id DESC
        LIMIT 300`,
-      [search],
+      [search, id],
     );
     return NextResponse.json(
       { ok: true, events: rows },

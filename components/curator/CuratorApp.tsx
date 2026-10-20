@@ -75,6 +75,9 @@ export function CuratorApp() {
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [editEventId, setEditEventId] = useState<number | null>(null);
+  // Keep exact Add-URL targets separate from capped background lists.
+  const [addedCandidate, setAddedCandidate] = useState<{ queue: QueueKey; item: QueueItem } | null>(null);
+  const [addedEvent, setAddedEvent] = useState<AdminEvent | null>(null);
   const [search, setSearch] = useState("");
   const [domainFilter, setDomainFilter] = useState("all");
   const [dirty, setDirty] = useState(false);
@@ -103,11 +106,13 @@ export function CuratorApp() {
     const pending =
       queue === "published"
         ? Promise.all([fetchPublishedEvents(), fetchQueue("pending")]).then(([p, q]) => {
+            if (cancelled) return;
             setPublished(p.events);
             setCounts(q.counts);
           })
         : fetchQueue(queue, { source: sourceFilter || null, category: categoryFilter || null }).then(
             ({ items: rows, counts: c, facets: f }) => {
+              if (cancelled) return;
               setItems(rows);
               setCounts(c);
               setFacets(f ?? { source: {}, category: {} });
@@ -144,18 +149,24 @@ export function CuratorApp() {
     [dirty],
   );
 
-  const domains = useMemo(() => Array.from(new Set(items.map((i) => i.source_domain))).sort(), [items]);
+  const visibleItems = useMemo(() => {
+    if (addedCandidate?.queue !== queue) return items;
+    return [addedCandidate.item, ...items.filter((i) => i.id !== addedCandidate.item.id)];
+  }, [items, queue, addedCandidate]);
+
+  const domains = useMemo(() => Array.from(new Set(visibleItems.map((i) => i.source_domain))).sort(), [visibleItems]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items
+    return visibleItems
       .filter((i) => domainFilter === "all" || i.source_domain === domainFilter)
       .filter(
         (i) => !q || `${i.title ?? ""} ${i.snippet ?? ""} ${i.url}`.toLowerCase().includes(q),
       );
-  }, [items, search, domainFilter]);
+  }, [visibleItems, search, domainFilter]);
 
-  const openItem = openId === null ? null : (items.find((i) => i.id === openId) ?? null);
+  const openItem = openId === null ? null : (visibleItems.find((i) => i.id === openId) ?? null);
+  const editEvent = editEventId === addedEvent?.id ? addedEvent : published.find((event) => event.id === editEventId);
 
   // Keyboard shortcuts, ignored while typing in a field.
   useEffect(() => {
@@ -189,6 +200,14 @@ export function CuratorApp() {
   async function quickAction(item: QueueItem, action: "irrelevant" | "expired" | "rejected" | "reopen") {
     try {
       await setItemStatus(item.id, action);
+      if (addedCandidate?.item.id === item.id) {
+        setAddedCandidate(null);
+        if (action === "reopen") {
+          setAddedCandidate({ queue: "pending", item: { ...item, status: "curator_pending", rejection_reason: null } });
+          setQueue("pending");
+          setOpenId(item.id);
+        }
+      }
       announce(`#${item.id} marked ${action}`);
       reload();
     } catch (err) {
@@ -199,8 +218,13 @@ export function CuratorApp() {
   async function handleAdd(url: string) {
     try {
       const res = await addCandidate(url);
+      // Resolve the event before closing the dialog or claiming it opened.
+      let event: AdminEvent | undefined;
+      if (res.destination === "event") {
+        event = (await fetchPublishedEvents("", res.eventId)).events.find((e) => e.id === res.eventId);
+        if (!event) throw new CuratorApiError("The saved event could not be loaded. Please retry.", 404);
+      }
       setShowAdd(false);
-      announce(res.reused ? "That URL was already in the queue — opened it" : "Created curator candidate");
       /*
        * A source or category filter left active from browsing (LinkedIn,
        * design, whatever) can hide the very item just created if it happens to
@@ -213,9 +237,26 @@ export function CuratorApp() {
       setCategoryFilter("");
       setDomainFilter("all");
       setSearch("");
-      setQueue("pending");
+      setLoadError(null);
+      setDirty(false);
+      setOpenId(null);
+      setEditEventId(null);
+      setAddedCandidate(null);
+      setAddedEvent(null);
+      if (res.destination === "event" && event) {
+        setAddedEvent(event);
+        setQueue("published");
+        setEditEventId(event.id);
+        announce(`Opened existing event #${event.id} (${event.status}). Nothing was republished.`);
+      } else if (res.destination === "queue") {
+        setAddedCandidate({ queue: res.queue, item: res.item });
+        setQueue(res.queue);
+        const reviewable = res.queue === "pending" || res.queue === "needs_correction";
+        if (reviewable) setOpenId(res.discoveryItemId);
+        const label = QUEUES.find((q) => q.key === res.queue)!.label;
+        announce(res.reused ? `Found existing item #${res.discoveryItemId} in ${label}${reviewable ? " — opened for review" : "."}` : "Created curator candidate");
+      }
       reload();
-      setOpenId(res.discoveryItemId);
     } catch (err) {
       announce(err instanceof CuratorApiError ? err.message : "Could not add that URL");
     }
@@ -252,7 +293,7 @@ export function CuratorApp() {
           <AdminWordmark suffix="Curator · internal" />
         </div>
         <div className="flex items-center gap-2">
-          <AdminBtn variant="primary" onClick={() => setShowAdd(true)}>
+          <AdminBtn variant="primary" onClick={() => guard(() => setShowAdd(true))}>
             + Add event
           </AdminBtn>
           <AdminBtn variant="ghost" onClick={() => setShowHelp(true)} title="Keyboard shortcuts (?)">
@@ -317,7 +358,7 @@ export function CuratorApp() {
                   key={q.key}
                   type="button"
                   aria-current={active ? "page" : undefined}
-                  onClick={() => guard(() => { setQueue(q.key); setOpenId(null); setEditEventId(null); })}
+                  onClick={() => guard(() => { setQueue(q.key); setOpenId(null); setEditEventId(null); setAddedCandidate(null); setAddedEvent(null); })}
                   className={`flex shrink-0 items-center justify-between gap-3 border px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.1em] transition-colors lg:shrink ${
                     active
                       ? "border-[#39ff9b] bg-[#0f2a1c] text-[#5effb0]"
@@ -344,7 +385,7 @@ export function CuratorApp() {
         </aside>
 
         <main className="min-h-[70vh]">
-          {loadError ? (
+          {loadError && !openItem && !(queue === "published" && editEventId !== null && editEvent) ? (
             <div className="m-4 border border-[#8a3630] bg-[#2a1310] p-4 lg:m-6">
               <p className="text-sm text-[#ff9a8a]">{loadError}</p>
               <div className="mt-3">
@@ -371,17 +412,19 @@ export function CuratorApp() {
                 onDone={(msg, href) => {
                   announce(msg, href);
                   setOpenId(null);
+                  setAddedCandidate(null);
                   reload();
                 }}
               />
             </div>
           ) : queue === "published" ? (
-            editEventId !== null && published.find((event) => event.id === editEventId) ? (
+            editEventId !== null && editEvent ? (
               <PublishedEventEditor
-                event={published.find((event) => event.id === editEventId)!}
+                key={editEvent.id}
+                event={editEvent}
                 onDirtyChange={setDirty}
                 onCancel={() => guard(() => setEditEventId(null))}
-                onDone={(msg) => { setDirty(false); setEditEventId(null); announce(msg); reload(); }}
+                onDone={(msg) => { setDirty(false); setEditEventId(null); setAddedEvent(null); announce(msg); reload(); }}
               />
             ) : <PublishedList
                 events={published}
@@ -389,7 +432,7 @@ export function CuratorApp() {
                 onStatus={changeEventStatus}
                 onPromote={togglePromoted}
                 onRefresh={reload}
-                onEdit={(event) => { setDirty(false); setEditEventId(event.id); }}
+                onEdit={(event) => { setDirty(false); setAddedEvent(null); setEditEventId(event.id); }}
               />
           ) : (
             <div className="p-4 lg:p-6">
@@ -471,7 +514,7 @@ export function CuratorApp() {
                     ◐
                   </span>
                   <p className="max-w-sm text-sm text-[#8ba295]">
-                    {items.length === 0 ? EMPTY_COPY[queue] : "Nothing matches those filters."}
+                    {visibleItems.length === 0 ? EMPTY_COPY[queue] : "Nothing matches those filters."}
                   </p>
                   {queue === "pending" && items.length === 0 && (
                     <AdminBtn variant="primary" onClick={() => setShowAdd(true)}>
