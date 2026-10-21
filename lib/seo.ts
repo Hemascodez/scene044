@@ -4,6 +4,7 @@ import { posterFor, eventShortIntro } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
 import type { CatalogVenue } from "@/lib/venueCatalog";
 import { venueSearchDescription, venueSearchIntent, VENUES_SEARCH_DESCRIPTION, VENUES_SEARCH_TITLE } from "@/lib/venueDiscovery";
+import { eventCollectionPath, EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE, type EventCollection } from '@/lib/eventDiscovery';
 
 export const SITE_NAME = "SCENE/044";
 export const SITE_URL = "https://scene044.in";
@@ -60,10 +61,15 @@ export function eventSeoDescription(event: PublicEvent): string {
   const when = event.startAt
     ? `${formatSceneDateLong(event.startAt)}, ${formatSceneTime(event.startAt)} IST`
     : "date to be announced";
-  const where = event.isOnline ? "online" : (event.venueName ?? event.city);
+  const where = event.isOnline ? "online" : [event.venueName, event.city].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).join(', ');
   return truncateSeoText(
     `${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary || `${event.title}. See event details and the original registration link on SCENE/044.`}`,
   );
+}
+
+export function eventSeoTitle(event: PublicEvent): string {
+  const location = event.isOnline ? 'Online event' : `${event.city || 'Chennai'} event`;
+  return `${event.title} — ${location} | SCENE/044`;
 }
 
 /** Metadata only: never rewrites the curator's visible copy or pricing. */
@@ -101,9 +107,54 @@ export function venueCollectionStructuredData(venues: CatalogVenue[]): Record<st
 }
 
 export function categorySeoDescription(card: FieldCard): string {
+  const topics: Record<string, string> = {
+    ai: 'AI meetups, machine learning workshops, agent-building sessions and applied AI talks',
+    tech: 'tech events, developer meetups, software engineering talks, hackathons and coding workshops',
+    cybersecurity: 'cybersecurity meetups, AppSec talks, privacy workshops and security community events',
+    'product-design': 'product and UX design meetups, design workshops and product community events',
+    marketing: 'marketing events, growth meetups, brand talks and content community sessions',
+    startups: 'startup events, founder meetups, business networking and entrepreneurship sessions',
+    data: 'data and cloud events, analytics meetups and infrastructure workshops',
+    finance: 'finance events, fintech meetups, payments talks and financial technology workshops',
+  };
   return truncateSeoText(
-    `Discover upcoming ${card.label.toLowerCase()} events in Chennai, including meetups, workshops, conferences and networking opportunities. Updated by SCENE/044.`,
+    `Find upcoming ${topics[card.key] ?? `${card.label.toLowerCase()} events`} in Chennai. Check dates, venues and original registration links on SCENE/044.`,
   );
+}
+
+export function categorySeoHeading(card: FieldCard): string {
+  return `${card.key === 'tech' ? 'Tech & Developer' : card.label} Events in Chennai`;
+}
+
+function eventListingStructuredData(name: string, description: string, path: string, events: PublicEvent[]): Record<string, unknown> {
+  const url = absoluteUrl(path);
+  return {
+    '@context': 'https://schema.org', '@type': 'CollectionPage', '@id': `${url}#collection`,
+    url, name, description, inLanguage: 'en-IN',
+    isPartOf: { '@id': `${SITE_URL}/#website` },
+    mainEntity: {
+      '@type': 'ItemList', numberOfItems: events.length,
+      itemListElement: events.map((event, index) => ({
+        '@type': 'ListItem', position: index + 1, name: event.title, url: absoluteUrl(eventPath(event)),
+      })),
+    },
+  };
+}
+
+export function homeEventStructuredData(events: PublicEvent[]): Record<string, unknown> {
+  return eventListingStructuredData(EVENTS_SEARCH_TITLE, EVENTS_SEARCH_DESCRIPTION, '/', events);
+}
+
+export function eventCollectionStructuredData(collection: EventCollection, events: PublicEvent[]): Record<string, unknown> {
+  return {
+    ...eventListingStructuredData(collection.title, collection.description, eventCollectionPath(collection), events),
+    breadcrumb: {
+      '@type': 'BreadcrumbList', itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Chennai events', item: SITE_URL },
+        { '@type': 'ListItem', position: 2, name: collection.title, item: absoluteUrl(eventCollectionPath(collection)) },
+      ],
+    },
+  };
 }
 
 /** JSON is escaped before insertion in a script tag so source-controlled or
@@ -127,7 +178,7 @@ function eventStatusUrl(status: PublicEventDetail["status"]): string {
 /** Google requires startDate for an Event rich result. Honest undated
  * listings still get a useful page, but no knowingly-invalid Event object. */
 export function eventStructuredData(event: PublicEventDetail): Record<string, unknown> | null {
-  if (!event.startAt) return null;
+  if (!event.startAt || !Number.isFinite(Date.parse(event.startAt))) return null;
 
   const canonicalUrl = absoluteUrl(eventPath(event));
   const location = event.isOnline
@@ -155,7 +206,6 @@ export function eventStructuredData(event: PublicEventDetail): Record<string, un
           url: event.primarySourceUrl,
           price: event.priceType === "free" ? "0" : paidPrice,
           priceCurrency: "INR",
-          availability: "https://schema.org/InStock",
         }
       : undefined;
 
@@ -166,9 +216,10 @@ export function eventStructuredData(event: PublicEventDetail): Record<string, un
     url: canonicalUrl,
     name: event.title,
     description: eventSeoDescription(event),
-    image: [eventImageUrl(event)],
+    // A generic scene/stock image is not an official image of this event.
+    ...(event.posterImageUrl ? { image: [absoluteUrl(event.posterImageUrl)] } : {}),
     startDate: new Date(event.startAt).toISOString(),
-    ...(event.endAt ? { endDate: new Date(event.endAt).toISOString() } : {}),
+    ...(event.endAt && Date.parse(event.endAt) >= Date.parse(event.startAt) ? { endDate: new Date(event.endAt).toISOString() } : {}),
     eventStatus: eventStatusUrl(event.status),
     eventAttendanceMode: event.isOnline
       ? "https://schema.org/OnlineEventAttendanceMode"
@@ -198,25 +249,7 @@ export function eventBreadcrumbStructuredData(event: PublicEvent): Record<string
 }
 
 export function categoryStructuredData(card: FieldCard, events: PublicEvent[]): Record<string, unknown> {
-  const url = absoluteUrl(`/category/${card.key}`);
-  return {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "@id": `${url}#collection`,
-    url,
-    name: `${card.label} events in Chennai`,
-    description: categorySeoDescription(card),
-    mainEntity: {
-      "@type": "ItemList",
-      numberOfItems: events.length,
-      itemListElement: events.map((event, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        name: event.title,
-        url: absoluteUrl(eventPath(event)),
-      })),
-    },
-  };
+  return eventListingStructuredData(categorySeoHeading(card), categorySeoDescription(card), `/category/${card.key}`, events);
 }
 
 /** Imported dining ratings are NOT SCENE booking reviews and must not be

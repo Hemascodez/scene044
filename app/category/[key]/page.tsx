@@ -1,9 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublicEvents, type PublicEvent } from "@/lib/events";
 import { FIELD_CARDS, getFieldCardForKeys } from "@/lib/fieldCards";
 import { stockPosterFor } from "@/lib/stockPosters";
-import { categorySeoDescription, categoryStructuredData, serializeJsonLd } from "@/lib/seo";
+import { categorySeoDescription, categorySeoHeading, categoryStructuredData, serializeJsonLd } from "@/lib/seo";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { SceneFooter, SectionHead } from "@/components/scene/SceneHero";
 import { CategoryFeed } from "@/components/scene/CategoryFeed";
@@ -17,8 +17,8 @@ interface CategoryPageProps {
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { key } = await params;
   const card = getFieldCardForKeys(key);
-  if (!card) return { title: "Field not found — SCENE/044" };
-  const title = `${card.label} Events in Chennai | SCENE/044`;
+  if (!card) return { title: "Field not found — SCENE/044", robots: { index: false, follow: false } };
+  const title = `${categorySeoHeading(card)} | SCENE/044`;
   const description = categorySeoDescription(card);
   const canonical = `/category/${card.key}`;
   const image = stockPosterFor(card.categories[0], 0);
@@ -26,6 +26,9 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
     title,
     description,
     alternates: { canonical },
+    // Combined-interest links remain useful for readers without creating an
+    // indexable page for every permutation of the category filters.
+    ...(card.key.includes(',') ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       type: "website",
       locale: "en_IN",
@@ -48,6 +51,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   const { key } = await params;
   const card = getFieldCardForKeys(key);
   if (!card) notFound();
+  // Next may provide a comma as %2C. Comparing the encoded segment to the
+  // decoded canonical key would redirect that URL back to itself forever.
+  let decodedKey = key;
+  try { decodedKey = decodeURIComponent(key); } catch { /* already validated above */ }
+  if (decodedKey !== card.key) permanentRedirect(`/category/${card.key}`);
   const shownKeys = new Set(card.key.split(","));
 
   let events: PublicEvent[] = [];
@@ -55,6 +63,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     events = await getPublicEvents(card.categories);
   } catch (err) {
     console.error(`CategoryPage(${key}): failed to load events`, err);
+    throw err;
   }
   const description = categorySeoDescription(card);
 
@@ -72,7 +81,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             {card.mark}
           </span>
           <h1 className="mt-3 font-display text-4xl font-black leading-[0.98] tracking-tighter sm:text-5xl">
-            {card.label}
+            {categorySeoHeading(card)}
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-background/80">{description}</p>
         </div>

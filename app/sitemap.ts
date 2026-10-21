@@ -5,6 +5,7 @@ import { absoluteUrl, eventPath, venuePath, SITE_URL as BASE_URL } from "@/lib/s
 import { stockPosterFor } from "@/lib/stockPosters";
 import { listPublicVenues } from "@/lib/venueCatalog";
 import { escapeSitemapUrls } from "@/lib/sitemapXml";
+import { EVENT_COLLECTIONS, eventCollectionPath } from '@/lib/eventDiscovery';
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    ...EVENT_COLLECTIONS.map(collection => ({
+      url: absoluteUrl(eventCollectionPath(collection)),
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    })),
     ...["privacy", "terms", "account/delete"].map((path) => ({
       url: `${BASE_URL}/${path}`,
       changeFrequency: "yearly" as const,

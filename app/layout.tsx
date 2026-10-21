@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { gaInlineScript, gaMeasurementId } from "@/lib/client/analytics";
 import { SITE_URL } from "@/lib/seo";
+import { EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE } from '@/lib/eventDiscovery';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,9 +9,8 @@ export const metadata: Metadata = {
   // to resolve to absolute URLs — WhatsApp/Twitter/LinkedIn crawlers fetch
   // og:image directly and can't resolve a relative path.
   metadataBase: new URL(SITE_URL),
-  title: "Tech Events in Chennai | Meetups, Conferences & Workshops — SCENE/044",
-  description:
-    "Discover upcoming tech events in Chennai, including AI meetups, startup networking, developer conferences, workshops and hackathons. Updated by SCENE/044.",
+  title: EVENTS_SEARCH_TITLE,
+  description: EVENTS_SEARCH_DESCRIPTION,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

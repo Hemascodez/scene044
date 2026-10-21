@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { getPublicEventById, getPublicEvents, type PublicEvent } from "@/lib/events";
-import { eventPath, serializeJsonLd, websiteStructuredData } from "@/lib/seo";
+import { eventPath, homeEventStructuredData, serializeJsonLd, websiteStructuredData } from "@/lib/seo";
 import { SceneApp } from "@/components/scene/SceneApp";
+import { EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE, eventsForCollection, getEventCollection } from '@/lib/eventDiscovery';
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +17,8 @@ function parseDeepLinkEventId(eventParam: string | undefined): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-const HOME_TITLE = "Tech Events in Chennai | Meetups, Conferences & Workshops — SCENE/044";
-const HOME_DESCRIPTION =
-  "Discover upcoming tech events in Chennai, including AI meetups, startup networking, developer conferences, workshops and hackathons. Updated by SCENE/044.";
+const HOME_TITLE = EVENTS_SEARCH_TITLE;
+const HOME_DESCRIPTION = EVENTS_SEARCH_DESCRIPTION;
 
 export const metadata: Metadata = {
   title: HOME_TITLE,
@@ -74,6 +74,9 @@ export default async function Home({ searchParams }: HomeProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(websiteStructuredData()) }}
       />
+      {!fetchFailed && <script type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: serializeJsonLd(homeEventStructuredData(eventsForCollection(events, getEventCollection('this-week')!, new Date()))),
+      }} />}
       <SceneApp events={events} fetchFailed={fetchFailed} />
     </>
   );

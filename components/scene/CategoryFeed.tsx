@@ -14,14 +14,21 @@ import { AlertsBanner } from "@/components/scene/AlertsBanner";
 export function CategoryFeed({
   events,
   fieldLabel = null,
+  emptyTitle = 'Nothing in this field yet',
+  emptyDescription = 'SCENE/044 hasn’t found an upcoming Chennai event here. New ones land as they’re discovered.',
+  prefiltered = false,
 }: {
   events: PublicEvent[];
   /** FIELD_CARDS label, used to preselect the matching alert interest. */
   fieldLabel?: string | null;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  /** A server-rendered discovery page already chose its exact date window. */
+  prefiltered?: boolean;
 }) {
   const upcoming = useMemo(
-    () => events.filter((e) => !isHiddenFromFeed(e)).sort(byPromotedThenSoonest),
-    [events],
+    () => events.filter((e) => prefiltered || !isHiddenFromFeed(e)).sort(byPromotedThenSoonest),
+    [events, prefiltered],
   );
   const interactions = useEventInteractions(upcoming);
 
@@ -37,10 +44,9 @@ export function CategoryFeed({
           >
             044
           </span>
-          <h3 className="mt-4 font-display text-xl font-bold">Nothing in this field yet</h3>
+          <h3 className="mt-4 font-display text-xl font-bold">{emptyTitle}</h3>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            SCENE/044 hasn&apos;t found an upcoming Chennai event here. New ones land as they&apos;re
-            discovered.
+            {emptyDescription}
           </p>
           <Link
             href="/"

@@ -20,6 +20,7 @@ import {
   eventImageUrl,
   eventPath,
   eventSeoDescription,
+  eventSeoTitle,
   eventSlug,
   eventStructuredData,
   serializeJsonLd,
@@ -53,7 +54,7 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
     };
   }
 
-  const title = `${event.title} — Chennai event | SCENE/044`;
+  const title = eventSeoTitle(event);
   const description = eventSeoDescription(event);
   const canonical = eventPath(event);
   const image = eventImageUrl(event);
@@ -68,7 +69,7 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
       siteName: "SCENE/044",
       title,
       description,
-      images: [{ url: image, alt: `Poster for ${event.title}` }],
+      images: [{ url: image, alt: event.posterImageUrl ? `Poster for ${event.title}` : 'SCENE/044 event discovery' }],
     },
     twitter: {
       card: "summary_large_image",

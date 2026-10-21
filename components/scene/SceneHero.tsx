@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FIELD_CARDS } from "@/lib/fieldCards";
 import { Btn, Mono } from "@/components/scene/ui";
 import { Wordmark } from "@/components/scene/SceneHeader";
+import { EVENT_COLLECTIONS, eventCollectionPath } from '@/lib/eventDiscovery';
 
 export function SceneHero({ onExplore }: { onExplore: () => void }) {
   return (
@@ -138,6 +139,14 @@ export function SceneFooter() {
             </a>
           </div>
         </div>
+        <nav aria-label="Find events in Chennai" className="mt-8 border-t-2 border-background/20 pt-5">
+          <Mono className="text-[10px] text-background/50">Find events in Chennai</Mono>
+          <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-3 text-sm text-background/80">
+            {EVENT_COLLECTIONS.map(collection => <li key={collection.key}>
+              <Link href={eventCollectionPath(collection)} className="underline underline-offset-4 hover:text-primary">{collection.label}</Link>
+            </li>)}
+          </ul>
+        </nav>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t-2 border-background/20 pt-5">
           <div className="flex flex-wrap items-center gap-4">
             <Mono className="text-[10px] text-background/50">© 2026 SCENE/044 · Made in Chennai</Mono>
