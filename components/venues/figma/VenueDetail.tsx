@@ -547,13 +547,15 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   // rest keep the plain hourly maths below.
   const space = spaces.find((s) => s.id === spaceId) ?? spaces[0]
   const catalogSpace = venue.spaces.find(s => s.id === space?.dbId)
-  const pricing = catalogSpace?.pricing ?? null
+  const hourlyRate = catalogSpace ? rateForSpace(catalogSpace, eventType) : null
+  const basePricing = catalogSpace?.pricing ?? null
+  const pricing = basePricing && hourlyRate !== null ? { ...basePricing, hourlyRate,
+    packages: basePricing.packages.map(p => ({ ...p, listPrice: hourlyRate * p.hours })) } : null
   const packageId = pricing && packageById(pricing, draft.packageId) ? draft.packageId : HOURLY_ID
   const chosenPackage = pricing ? packageById(pricing, packageId) : null
   // A package fixes the length; hourly respects the venue's minimum.
   const hourlyHours = pricing ? Math.max(draft.hours, pricing.minHours) : draft.hours
   const hours = chosenPackage ? chosenPackage.hours : hourlyHours
-  const hourlyRate = catalogSpace ? rateForSpace(catalogSpace, eventType) : null
   const [saved, setSaved] = useState(false)
   const [photo, setPhoto] = useState<number | null>(null)
   const galleryRef = useRef<HTMLDivElement>(null)

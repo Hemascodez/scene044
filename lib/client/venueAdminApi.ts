@@ -3,7 +3,7 @@
 import type { PartnerRequestStatus, VenueEarnings } from "@/lib/venueCatalog";
 import type { VenueStatus } from "@/lib/venues";
 import { MAX_VENUE_PHOTO_BYTES } from '@/lib/venuePhotoLimits';
-import type { VenuePricing } from '@/lib/venuePricing';
+import type { VenuePricing, SpacePricingConfig } from '@/lib/venuePricing';
 
 /**
  * Thin client over /api/admin/venues* and /api/admin/venue-partners*.
@@ -56,6 +56,8 @@ export interface AdminSpace {
   minimumFoodSpend: number | null;
   sortOrder: number;
   pricing?: VenuePricing | null;
+  /** Only supplied to an authenticated host, never to public listing props. */
+  pricingConfig?: SpacePricingConfig | null;
 }
 
 export interface AdminVenue {

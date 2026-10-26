@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getHostVenueSlug, HOST_ACCESS_MESSAGE } from '@/lib/venueHostAccess';
 import { getCatalogVenue } from '@/lib/venueCatalog';
-import { saveHostPhotos } from '@/lib/venueHostChanges';
+import { saveHostPhotos, saveHostVenueDetails } from '@/lib/venueHostChanges';
+import { parseHostVenueDetails } from '@/lib/venueHostDetails';
+import { getHostCatalogVenue } from '@/lib/venueHostCatalog';
 import { canUseHostPhotos, MAX_VENUE_PHOTOS, parseHostPhotos } from '@/lib/venueHostPhotos';
 
 const headers = { 'Cache-Control': 'no-store' };
@@ -10,7 +12,7 @@ export async function GET(request: Request) {
   try {
     const slug = await getHostVenueSlug(request);
     if (!slug) return NextResponse.json({ error: HOST_ACCESS_MESSAGE }, { status: 403, headers });
-    const venue = await getCatalogVenue(slug);
+    const venue = await getHostCatalogVenue(slug);
     return venue ? NextResponse.json({ ok: true, venue }, { headers })
       : NextResponse.json({ error: 'Your venue could not be found. Contact SCENE/044.' }, { status: 404, headers });
   } catch (error) {
@@ -26,6 +28,13 @@ export async function PATCH(request: Request) {
     let body: unknown;
     try { body = await request.json(); }
     catch { return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400, headers }); }
+    if (body && typeof body === 'object' && !Array.isArray(body) && 'details' in body) {
+      if (Object.keys(body).some(key => key !== 'details')) return NextResponse.json({ error: 'Unsupported venue field.' }, { status: 400, headers });
+      const details = parseHostVenueDetails((body as { details: unknown }).details);
+      if (typeof details === 'string') return NextResponse.json({ error: details }, { status: 400, headers });
+      if (!await saveHostVenueDetails(request, slug, details)) return NextResponse.json({ error: 'Venue not found.' }, { status: 404, headers });
+      return NextResponse.json({ ok: true, venue: await getHostCatalogVenue(slug) }, { headers });
+    }
     if (!body || typeof body !== 'object' || Array.isArray(body) ||
         Object.keys(body).some(key => key !== 'photos')) {
       return NextResponse.json({ error: 'Only venue photos can be changed here.' }, { status: 400, headers });
@@ -37,7 +46,7 @@ export async function PATCH(request: Request) {
     if (!await canUseHostPhotos(venue, photos)) {
       return NextResponse.json({ error: 'Use photos uploaded for your venue.' }, { status: 400, headers });
     }
-    const saved = await saveHostPhotos(request, slug, photos) ? await getCatalogVenue(slug) : null;
+    const saved = await saveHostPhotos(request, slug, photos) ? await getHostCatalogVenue(slug) : null;
     return saved ? NextResponse.json({ ok: true, venue: saved }, { headers })
       : NextResponse.json({ error: 'Venue not found.' }, { status: 404, headers });
   } catch (error) {

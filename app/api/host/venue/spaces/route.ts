@@ -4,6 +4,7 @@ import { getCatalogVenue } from '@/lib/venueCatalog';
 import { parseHostSpaceDetails } from '@/lib/venueHostSpaceValidation';
 import { canUseHostPhotos } from '@/lib/venueHostPhotos';
 import { saveHostSpace } from '@/lib/venueHostChanges';
+import { getHostCatalogVenue } from '@/lib/venueHostCatalog';
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     if (!venue) return NextResponse.json({ error: 'Venue not found.' }, { status: 404 });
     if (!await canUseHostPhotos(venue, details.photos)) return NextResponse.json({ error: 'Use photos uploaded for your venue.' }, { status: 400 });
     const id = await saveHostSpace(request, slug, details, body.requestId);
-    const space = (await getCatalogVenue(slug))?.spaces.find(room => room.rowId === id);
+    const space = (await getHostCatalogVenue(slug))?.spaces.find(room => room.rowId === id);
     return NextResponse.json({ ok: true, space }, { status: 201 });
   } catch (error) {
     console.error('[host venue] create space failed', error);

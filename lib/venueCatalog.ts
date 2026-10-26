@@ -91,7 +91,7 @@ function toSpace(row: SpaceRow): CatalogSpace {
     productionRate: row.productionRate,
     minimumFoodSpend: row.minimumFoodSpend,
     sortOrder: row.sortOrder,
-    pricing: publicSpacePricing(row.communityRate, parseSpacePricing(row.pricingOptions)),
+    pricing: publicSpacePricing(row.communityRate, parseSpacePricing(row.pricingOptions), row.productionRate),
   };
 }
 
@@ -178,8 +178,7 @@ export async function quoteCatalogSpace(venueId: number, spaceKey: string, produ
   if (!rows[0]) throw new BookingPricingError('This space is no longer available.');
   const row = rows[0];
   const config = parseSpacePricing(row.pricingOptions);
-  // Configured package venues share one agreed hourly rate across event types.
-  return quoteSpace(config ? row.communityRate : production ? row.productionRate : row.communityRate, config, duration, packageId);
+  return quoteSpace(production ? row.productionRate : row.communityRate, config, duration, packageId);
 }
 
 export type VenueWritableFields = Partial<{

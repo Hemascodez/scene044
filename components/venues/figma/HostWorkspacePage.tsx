@@ -11,7 +11,7 @@ export default function HostWorkspacePage({ venue }: { venue?: { slug: string; n
   return (
     <HostWorkspace
       venue={venue}
-      hostName={profile?.name?.split(" ")[0] || "Time Cafe"}
+      hostName={profile?.name?.split(" ")[0] || venue?.name || "Host"}
       profile={profile}
       onSaveProfile={saveProfile}
       onAuth={openAuth}

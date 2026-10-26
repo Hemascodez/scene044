@@ -4,6 +4,11 @@ import type { VenueBooking, VenueBookingOrder, VenueReview } from "@/lib/venueBo
 import type { AdminSpace, AdminVenue } from '@/lib/client/venueAdminApi';
 import type { HostSpaceDetails } from '@/lib/venueHostSpaceValidation';
 import { MAX_VENUE_PHOTO_BYTES } from '@/lib/venuePhotoLimits';
+import type { HostVenueDetails } from '@/lib/venueHostDetails';
+
+export function updateHostVenueDetails(details: HostVenueDetails) {
+  return request<{ ok: true; venue: AdminVenue }>('/api/host/venue', { method: 'PATCH', body: JSON.stringify({ details }) });
+}
 
 /**
  * Thin client over /api/host/*.

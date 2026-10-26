@@ -13,6 +13,8 @@ export function HostSpaceEditor({ space, onSaved, onCancel }: { space?: AdminSpa
   const [draft, setDraft] = useState<HostSpaceDetails>(() => ({ name: space?.name ?? '', eyebrow: space?.eyebrow ?? '',
     description: space?.description ?? '', maxGuests: space?.maxGuests ?? 1,
     communityRate: space?.communityRate ?? null, productionRate: space?.productionRate ?? null,
+    amenities: space?.amenities ?? [],
+    packagePricing: { minHours: space?.pricingConfig?.minHours ?? space?.pricing?.minHours ?? 1, packages: space?.pricingConfig?.packages ?? [] },
     photos: [...new Set([space?.image, ...(space?.photos ?? [])].filter((url): url is string => Boolean(url)))] }));
   const [requestId] = useState(() => typeof window !== 'undefined' ? crypto.randomUUID() : '');
   const [busy, setBusy] = useState(false);
@@ -34,7 +36,7 @@ export function HostSpaceEditor({ space, onSaved, onCancel }: { space?: AdminSpa
   }
   async function publish(event: React.FormEvent) {
     event.preventDefault(); setError('');
-    const details = parseHostSpaceDetails(draft);
+    const details = parseHostSpaceDetails({ ...draft, amenities: draft.amenities?.map(item => item.trim()).filter(Boolean) });
     if (typeof details === 'string') { setError(details); requestAnimationFrame(() => errorRef.current?.focus()); return; }
     setBusy(true);
     try { const { space: saved } = await publishHostSpace(details, space?.rowId ?? requestId); onSaved(saved); }
@@ -64,9 +66,22 @@ export function HostSpaceEditor({ space, onSaved, onCancel }: { space?: AdminSpa
           <label className="block text-sm font-semibold">Card label <span className="font-normal">(optional)</span><input maxLength={80} value={draft.eyebrow} onChange={e => update('eyebrow', e.target.value)} className={input} placeholder="Best for meetups" /></label>
           <label className="block text-sm font-semibold">Description<textarea maxLength={2000} rows={3} value={draft.description} onChange={e => update('description', e.target.value)} className={input} /></label>
           <label className="block text-sm font-semibold">Maximum guests *<input required type="number" min={1} max={10000} step={1} value={draft.maxGuests || ''} onChange={e => update('maxGuests', Number(e.target.value))} className={input} /></label>
-          <p className="text-sm text-stone">{space?.pricing ? 'Hourly rates are your agreed host rates. The published price includes SCENE’s markup. Fixed package rates are managed by your curator.' : 'Hourly rates are the price organisers pay. SCENE’s 10% commission is deducted from the host payout, not added to the bill.'}</p>
+          <label className="block text-sm font-semibold">Space amenities · one per line<textarea rows={3} value={(draft.amenities ?? []).join('\n')} onChange={e => update('amenities', e.target.value.split('\n'))} className={input} /></label>
+          <p className="text-sm text-stone">{space?.pricingConfig?.markupBasisPoints ? 'These are your agreed host rates. SCENE’s existing markup is added to published hourly and package prices; you cannot change that agreement here.' : 'Rates are the price organisers pay. SCENE’s 10% commission is deducted from the host payout, not added to the bill.'}</p>
           <label className="block text-sm font-semibold">Community rate · ₹ per hour<input type="number" min={1} max={1000000} step={1} value={draft.communityRate ?? ''} onChange={e => update('communityRate', e.target.value === '' ? null : Number(e.target.value))} className={input} /><span className="mt-1 block text-xs font-normal text-stone">Leave blank for rate on request.</span></label>
           <label className="block text-sm font-semibold">Production rate · ₹ per hour<input type="number" min={1} max={1000000} step={1} value={draft.productionRate ?? ''} onChange={e => update('productionRate', e.target.value === '' ? null : Number(e.target.value))} className={input} /><span className="mt-1 block text-xs font-normal text-stone">For photoshoots and video shoots. Leave blank for rate on request.</span></label>
+          <fieldset className="space-y-3 border border-ink/30 p-3">
+            <legend className="px-1 text-sm font-semibold">Booking options & offers</legend>
+            <label className="block text-sm font-semibold">Minimum hours<input required type="number" min={1} max={24} step={1} className={input} value={draft.packagePricing?.minHours ?? 1} onChange={e => update('packagePricing',{ ...draft.packagePricing!, minHours: Number(e.target.value) })} /></label>
+            <p className="text-xs text-stone">Package prices are fixed totals, not prices per hour. Existing bookings keep the price agreed when requested.</p>
+            {draft.packagePricing?.packages.map((pkg,index) => <div key={pkg.id} className="space-y-2 border border-ink/30 p-3">
+              <label className="block text-sm font-semibold">Offer {index + 1} name<input required maxLength={100} value={pkg.name} className={input} onChange={e => update('packagePricing',{ ...draft.packagePricing!, packages: draft.packagePricing!.packages.map((p,i) => i === index ? { ...p, name:e.target.value } : p) })} /></label>
+              <label className="block text-sm font-semibold">Offer {index + 1} hours<input required type="number" min={draft.packagePricing?.minHours ?? 1} max={24} step={1} value={pkg.hours || ''} className={input} onChange={e => update('packagePricing',{ ...draft.packagePricing!, packages: draft.packagePricing!.packages.map((p,i) => i === index ? { ...p, hours:Number(e.target.value) } : p) })} /></label>
+              <label className="block text-sm font-semibold">Offer {index + 1} total · ₹<input required type="number" min={1} max={10000000} step={1} value={pkg.basePrice || ''} className={input} onChange={e => update('packagePricing',{ ...draft.packagePricing!, packages: draft.packagePricing!.packages.map((p,i) => i === index ? { ...p, basePrice:Number(e.target.value) } : p) })} /></label>
+              <button type="button" className={`${button} bg-white`} onClick={() => update('packagePricing',{ ...draft.packagePricing!, packages:draft.packagePricing!.packages.filter((_,i) => i !== index) })}>Remove offer {index + 1}</button>
+            </div>)}
+            <button type="button" className={`${button} bg-white`} disabled={(draft.packagePricing?.packages.length ?? 0) >= 20} onClick={() => update('packagePricing',{ minHours:draft.packagePricing?.minHours ?? 1, packages:[...(draft.packagePricing?.packages ?? []), { id:`offer-${crypto.randomUUID()}`, name:'', hours:draft.packagePricing?.minHours ?? 1, basePrice:0 }] })}>Add a booking offer</button>
+          </fieldset>
           <button type="button" className={`${button} bg-white`} onClick={() => fileInput.current?.click()}>Add space photos</button>
           <input ref={fileInput} type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="Upload space photos" className="sr-only" onChange={e => void upload(e.target.files)} />
           <p className="text-xs text-stone">At least one photo. First photo = cover. JPEG, PNG or WebP.</p>

@@ -62,10 +62,9 @@ function ShareVenueEmpty({ venuePath, venueName }: { venuePath: string; venueNam
   )
 }
 
-const LOGO_KEY = 'scene044.hostLogo'
-const loadLogo = () => {
+const loadLogo = (key: string) => {
   try {
-    return localStorage.getItem(LOGO_KEY) || null
+    return localStorage.getItem(key) || null
   } catch {
     return null
   }
@@ -178,7 +177,7 @@ const DECLINE_REASONS = [
 
 export default function HostWorkspace({
   venue,
-  hostName = 'Time Cafe',
+  hostName = 'Host',
   profile,
   onSaveProfile,
   onAuth,
@@ -194,17 +193,18 @@ export default function HostWorkspace({
   onLogout?: () => void
 }) {
   const venuePath = venue ? `/venues/${venue.slug}` : VENUE_PATH
+  const logoKey = `scene044.hostLogo.${venue?.slug ?? 'preview'}`
   // Loaded after mount so the server render and the first client render agree.
   const [logo, setLogo] = useState<string | null>(null)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reads localStorage after mount
-    setLogo(loadLogo())
-  }, [])
+    setLogo(loadLogo(logoKey))
+  }, [logoKey])
   const [reviewingOrganiser, setReviewingOrganiser] = useState<{ name: string; event: string } | null>(null)
   const saveLogo = (src: string | null) => {
     setLogo(src)
     try {
-      localStorage.setItem(LOGO_KEY, src ?? '')
+      localStorage.setItem(logoKey, src ?? '')
     } catch {
       /* storage full — keep in memory only */
     }

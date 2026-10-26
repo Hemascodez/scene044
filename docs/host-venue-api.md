@@ -44,7 +44,8 @@ OTP verification locks and checks the matching approval, so an organiser OTP,
 profile edit, query parameter, or another-device login cannot confer access.
 Bookings, QR check-in, menu, reviews, and photos all use that server-owned scope.
 The public host sign-in picker exposes only names/slugs of live venues with
-approved staff, never their phone numbers. Only Time Cafe is currently registered.
+approved staff, never their phone numbers. Each new venue needs a separately
+confirmed host membership; the public contact number is not automatically approved.
 
 Mutation origins accept the canonical SCENE HTTPS domains even when Railway
 provides an internal HTTP URL. Cross-site requests and arbitrary forwarded-host
@@ -89,3 +90,33 @@ acknowledge the feed. No WhatsApp message is sent for these edits (no approved
 venue-edit template exists). Gallery uploads remain drafts until Save changes;
 room photos save immediately. Account profile name/email and private menu edits
 are separate from the venue's public catalog, not public venue metadata edits.
+
+## Public listing and package editing (26 October 2026)
+
+`PATCH /api/host/venue` also accepts `{ details: HostVenueDetails }` for name,
+area, city, address, summary, contact phone, Google Maps link, amenities and
+house policies. The entire payload is allowlisted and bounded; slug, publication
+state, ratings, memberships and financial agreements cannot be edited here.
+Address changes clear the old iframe override so the map follows the new address.
+The save and curator audit record commit together.
+
+Room creation/full editing accepts optional `amenities` and `packagePricing`:
+`{ minHours, packages: [{ id, name, hours, basePrice }] }`. Host GET responses
+include `pricingConfig` on rooms so existing packages can be edited without
+silently deleting them. This config is never added to public catalog responses.
+The server locks the room and preserves the existing markup agreement; supplying
+`markupBasisPoints` through the host form is rejected. Saved bookings and payment
+amounts remain immutable. Production hourly rates remain separate from community
+rates even after packages have been enabled.
+
+Madras Adda's one-time initializer adds a six-hour ₹11,000 offer against its
+₹2,000/hour rate (₹12,000 list price, ₹1,000 saving), with zero customer markup.
+Zero-markup configs use the existing commission model: 10% of the actual
+discounted total to SCENE and the remainder to the host. Yoga Studio's positive
+markup agreement remains unchanged. The initializer runs only for Madras Adda's
+active ₹2,000 rooms without a prior package configuration, and never resets later
+host/curator edits. No historical booking is repriced.
+
+Additional regression:
+`node --import tsx scripts/test-madras-adda.ts`, plus the existing isolated
+package-pricing and host-access suites with `--pglite=/absolute/package/path`.

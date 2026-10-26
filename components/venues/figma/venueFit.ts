@@ -34,6 +34,10 @@ const SIGNALS = {
   props: { label: 'Props & mats', re: /\bprops?\b|\bmats?\b|equipment|supplies|stationery/i },
   tables: { label: 'Work tables', re: /\btables?\b|\bdesks?\b/i },
   creative: { label: 'Art workshops welcomed', re: /art workshop|creative gathering|painting|drawing/i },
+  pottery: { label: 'Pottery events welcomed', re: /pottery|ceramic|clay workshop/i },
+  reading: { label: 'Book readings welcomed', re: /book reading|book club|literary/i },
+  social: { label: 'Social gatherings welcomed', re: /social gathering|community meetup|community gathering/i },
+  discussion: { label: 'Discussion groups welcomed', re: /discussion|conversation|book reading/i },
 } satisfies Record<string, Signal>
 
 type SignalKey = keyof typeof SIGNALS
@@ -50,6 +54,10 @@ const RUBRIC: Partial<Record<(typeof VENUE_EVENT_TYPES)[number], Criterion[]>> =
   'Professional gathering': [cap(15, 2), f('food', 1.5), f('wifi', 1), f('ac', 1), f('quiet', 1), f('restroom', 0.5)],
   'Wellness session': [f('wellness', 3), f('quiet', 1.5), f('light', 1), f('ac', 1), cap(10, 1), f('restroom', 0.5)],
   'Art workshop': [f('creative', 3), f('light', 2), cap(12, 1.5), f('ac', 1), f('wifi', 0.5)],
+  'Pottery workshop': [f('pottery', 3), f('tables', 2), cap(12, 1.5), f('ac', 1), f('restroom', 0.5)],
+  'Book reading': [f('reading', 3), f('quiet', 2), cap(12, 1.5), f('ac', 1), f('sound', 0.5)],
+  'Social gathering': [f('social', 3), cap(15, 2), f('ac', 1), f('sound', 1), f('restroom', 0.5)],
+  'Discussion group': [f('discussion', 3), f('quiet', 2), cap(12, 1.5), f('ac', 1), f('wifi', 0.5)],
   'Dance class': [f('openFloor', 3), f('sound', 2), cap(15, 1.5), f('ac', 1), f('restroom', 0.5)],
   'Dance workshop': [f('openFloor', 3), f('sound', 2), cap(15, 1.5), f('ac', 1), f('restroom', 0.5)],
   // Theatre and acting want a clear floor to move on, quiet to be heard in,
@@ -76,12 +84,31 @@ const ROWS = 5
 
 /** Events that measure the same thing; only the best of each is shown. */
 const FAMILIES: Record<string, string> = {
+  'Book reading': 'conversation',
+  'Discussion group': 'conversation',
   'Dance class': 'movement',
   'Dance workshop': 'movement',
   'Theatre workshop': 'drama',
   'Acting workshop': 'drama',
   Photoshoot: 'shoot',
   'Videography / ad shoot': 'shoot',
+}
+
+// Show the uses the owner actually welcomes ahead of generic suggestions.
+// This affects which five rows appear, never their evidence-based scores.
+const DECLARED_USES: Partial<Record<(typeof VENUE_EVENT_TYPES)[number], RegExp>> = {
+  'Tech meetup': /tech (?:gathering|event|meetup)/i,
+  'Art workshop': /art (?:workshop|event)|painting|drawing/i,
+  'Pottery workshop': /pottery|ceramic|clay workshop/i,
+  'Book reading': /book reading|book club|literary/i,
+  'Discussion group': /discussion group|discussion|conversation/i,
+  'Social gathering': /social gathering|community meetup|community gathering/i,
+  'Wellness session': /wellness session|yoga|meditation/i,
+  'Dance class': /dance (?:class|rehearsal|workshop)/i,
+  'Dance workshop': /dance (?:class|rehearsal|workshop)/i,
+  'Theatre workshop': /theatre|theater/i,
+  'Acting workshop': /acting/i,
+  'Podcast recording': /podcast recording|podcast table|podcast desk/i,
 }
 
 /** Everything the page says about the venue and its rooms, as one string. */
@@ -123,10 +150,10 @@ export function venueFit(venue: CatalogVenue): VenueFit | null {
       shown.length ? shown.join(', ').replace(/^./, (ch) => ch.toUpperCase()) : '',
       missing[0] ? `no ${missing[0]} listed` : '',
     ].filter(Boolean).join('; ')
-    return [{ name, order, score: Math.round((10 * earned) / total), note }]
+    return [{ name, order, declared: DECLARED_USES[name]?.test(text) ?? false, score: Math.round((10 * earned) / total), note }]
   })
 
-  const ranked = scored.sort((a, b) => b.score - a.score || a.order - b.order)
+  const ranked = scored.sort((a, b) => Number(b.declared) - Number(a.declared) || b.score - a.score || a.order - b.order)
   const usedFamilies = new Set<string>()
   const top = ranked
     .filter((r) => {
@@ -137,7 +164,7 @@ export function venueFit(venue: CatalogVenue): VenueFit | null {
       return true
     })
     .slice(0, ROWS)
-  const best = top[0]?.score ?? 0
+  const best = Math.max(...top.map(row => row.score))
   const rows: FitRow[] = top.map((r) => ({
     name: r.name,
     score: r.score,

@@ -8,6 +8,10 @@ export const VENUE_EVENT_TYPES = [
   // Owner request: arts and movement sit with wellness. All book at the
   // community rate (isProductionEvent covers shoots only).
   "Art workshop",
+  "Pottery workshop",
+  "Book reading",
+  "Social gathering",
+  "Discussion group",
   "Dance class",
   "Dance workshop",
   "Theatre workshop",
@@ -224,6 +228,7 @@ export function isProductionEvent(eventType: string) {
 }
 
 export function rateForSpace(space: VenueSpace, eventType: string): number | null {
+  if (space.pricing && isProductionEvent(eventType)) return space.pricing.productionHourlyRate === undefined ? space.pricing.hourlyRate : space.pricing.productionHourlyRate;
   return space.pricing?.hourlyRate ?? (isProductionEvent(eventType) ? space.productionRate : space.communityRate);
 }
 

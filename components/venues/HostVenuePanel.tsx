@@ -11,6 +11,7 @@ import {
 import type { AdminSpace, AdminVenue } from '@/lib/client/venueAdminApi';
 import { HostSpaceEditor } from './HostSpaceEditor';
 import { VenueShare } from './VenueShare';
+import { HostVenueDetailsEditor } from './HostVenueDetailsEditor';
 
 const label = 'font-mono-b text-[10px] uppercase tracking-[0.1em] text-stone';
 const btn = 'press border-[1.5px] border-ink px-3 py-1.5 font-mono-b text-[11px] uppercase tracking-[0.06em] disabled:opacity-50';
@@ -164,6 +165,7 @@ export function HostVenuePanel({ slug }: { slug: string }) {
           {notice}
         </p>
       )}
+      <HostVenueDetailsEditor key={venue.slug} venue={venue} onSaved={saved => { setVenue(saved); setNotice('Venue details published. SCENE has been notified.'); }} />
 
       {/* Gallery */}
       <section className="border-[1.5px] border-ink bg-white shadow-hard">

@@ -9,6 +9,7 @@ export interface BookingPackage {
 }
 export interface VenuePricing {
   hourlyRate: number;
+  productionHourlyRate?: number | null;
   minHours: number;
   packages: BookingPackage[];
 }
@@ -41,11 +42,11 @@ export function parseSpacePricing(value: unknown): SpacePricingConfig | null {
 export function markedUpPrice(base: number, basisPoints: number): number {
   return Math.round(base * (10000 + basisPoints) / 10000);
 }
-export function publicSpacePricing(baseHourlyRate: number | null, config: SpacePricingConfig | null): VenuePricing | null {
+export function publicSpacePricing(baseHourlyRate: number | null, config: SpacePricingConfig | null, productionRate: number | null = baseHourlyRate): VenuePricing | null {
   if (!config || baseHourlyRate === null) return null;
   const hourlyRate = markedUpPrice(baseHourlyRate, config.markupBasisPoints);
   return {
-    hourlyRate, minHours: config.minHours,
+    hourlyRate, productionHourlyRate: productionRate === null ? null : markedUpPrice(productionRate, config.markupBasisPoints), minHours: config.minHours,
     packages: config.packages.map(p => ({ id: p.id, name: p.name, hours: p.hours,
       price: markedUpPrice(p.basePrice, config.markupBasisPoints), listPrice: hourlyRate * p.hours })),
   };
@@ -79,10 +80,13 @@ export function quoteSpace(baseRate: number | null, config: SpacePricingConfig |
   const hourlyRate = baseRate === null ? null : config ? markedUpPrice(baseRate, config.markupBasisPoints) : baseRate;
   // Match the displayed whole-rupee hourly price, including rounding, exactly.
   const total = chosen ? markedUpPrice(chosen.basePrice, config!.markupBasisPoints) : hourlyRate === null ? null : hourlyRate * duration;
-  const sceneAmount = total === null ? null : config ? total - baseTotal! : Math.round(total * 0.1);
+  // A package is not necessarily a markup agreement. Zero-markup packages
+  // retain the normal commission deducted from the displayed customer total.
+  const usesMarkup = Boolean(config && config.markupBasisPoints > 0);
+  const sceneAmount = total === null ? null : usesMarkup ? total - baseTotal! : Math.round(total * 0.1);
   return { hourlyRate,
     total, sceneAmount, hostAmount: total === null ? null : total - sceneAmount!,
-    pricingModel: config ? 'host-markup' : 'host-commission', packageId, packageName: chosen?.name ?? 'Hourly' };
+    pricingModel: usesMarkup ? 'host-markup' : 'host-commission', packageId, packageName: chosen?.name ?? 'Hourly' };
 }
 
 /** Old bookings retain their old 10% agreement. Trials are excluded from earnings. */

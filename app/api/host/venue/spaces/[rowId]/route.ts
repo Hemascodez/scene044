@@ -4,6 +4,7 @@ import { getCatalogVenue } from '@/lib/venueCatalog';
 import { saveHostPhotos, saveHostSpace } from '@/lib/venueHostChanges';
 import { parseHostSpaceDetails } from '@/lib/venueHostSpaceValidation';
 import { canUseHostPhotos } from '@/lib/venueHostPhotos';
+import { getHostCatalogVenue } from '@/lib/venueHostCatalog';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ rowId: string }> }) {
   try {
@@ -22,7 +23,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ro
       if (!venue?.spaces.some(space => space.rowId === id)) return NextResponse.json({ error: 'Room not found.' }, { status: 404 });
       if (!await canUseHostPhotos(venue, details.photos)) return NextResponse.json({ error: 'Use photos uploaded for your venue.' }, { status: 400 });
       const savedId = await saveHostSpace(request, slug, details, id);
-      const space = (await getCatalogVenue(slug))?.spaces.find(room => room.rowId === savedId);
+      const space = (await getHostCatalogVenue(slug))?.spaces.find(room => room.rowId === savedId);
       return space ? NextResponse.json({ ok: true, space }) : NextResponse.json({ error: 'Room not found.' }, { status: 404 });
     }
     const image = body && typeof body === 'object' ? (body as { image?: unknown }).image : undefined;
@@ -34,7 +35,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ro
     if (!venue?.spaces.some(space => space.rowId === id)) return NextResponse.json({ error: 'Room not found.' }, { status: 404 });
     if (!await canUseHostPhotos(venue, [image.trim()])) return NextResponse.json({ error: 'Use a photo uploaded for your venue.' }, { status: 400 });
     const space = await saveHostPhotos(request, slug, image.trim(), id)
-      ? (await getCatalogVenue(slug))?.spaces.find(room => room.rowId === id) : null;
+      ? (await getHostCatalogVenue(slug))?.spaces.find(room => room.rowId === id) : null;
     return space ? NextResponse.json({ ok: true, space })
       : NextResponse.json({ error: 'Room not found.' }, { status: 404 });
   } catch (error) {

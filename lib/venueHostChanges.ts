@@ -1,6 +1,26 @@
 import { pool } from '@/lib/db';
 import { getVenueUserFromRequest } from '@/lib/venueUserAuth';
 import type { HostSpaceDetails } from '@/lib/venueHostSpaceValidation';
+import type { HostVenueDetails } from '@/lib/venueHostDetails';
+import { parseSpacePricing } from '@/lib/venuePricing';
+
+export async function saveHostVenueDetails(request: Request, slug: string, details: HostVenueDetails) {
+  const actor = (await getVenueUserFromRequest(request))?.name || 'SCENE curator';
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query('SELECT name,area,city,address,summary,phone,map_url,amenities,policies FROM venues WHERE slug=$1 FOR UPDATE', [slug]);
+    if (!rows.length) { await client.query('ROLLBACK'); return false; }
+    await client.query(`UPDATE venues SET name=$2,area=$3,city=$4,address=$5,summary=$6,phone=$7,map_url=$8,
+      map_embed_url=CASE WHEN address IS DISTINCT FROM $5 THEN NULL ELSE map_embed_url END,
+      amenities=$9,policies=$10,updated_at=now() WHERE slug=$1`,
+      [slug,details.name,details.area,details.city,details.address || null,details.summary,details.phone || null,details.mapUrl || null,details.amenities,details.policies]);
+    await client.query('INSERT INTO venue_host_changes(venue_slug,actor_name,field,before_value,after_value) VALUES($1,$2,$3,$4::jsonb,$5::jsonb)',
+      [slug,actor,'Venue details',JSON.stringify(rows[0]),JSON.stringify(details)]);
+    await client.query('COMMIT'); return true;
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+}
 
 /** Save and alert together: neither can succeed without the other. The caller
  * has authenticated and validated photo ownership; the UPDATE is venue-scoped. */
@@ -45,6 +65,12 @@ export async function saveHostSpace(request: Request, slug: string, details: Hos
     const { rows } = old.length
       ? await client.query(`UPDATE venue_spaces SET name=$3,eyebrow=$4,description=$5,capacity=$6,max_guests=$7,image=$8,photos=$9,community_rate=$10,production_rate=$11,updated_at=now() WHERE venue_id=$1 AND id=$2 RETURNING id`, [venueId,target,...values])
       : await client.query(`INSERT INTO venue_spaces(venue_id,space_key,name,eyebrow,description,capacity,max_guests,image,photos,community_rate,production_rate,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,(SELECT COALESCE(max(sort_order),0)+1 FROM venue_spaces WHERE venue_id=$1)) RETURNING id`, [venueId,`room-${target}`,...values]);
+    if (details.amenities !== undefined) await client.query('UPDATE venue_spaces SET amenities=$3 WHERE venue_id=$1 AND id=$2', [venueId,rows[0].id,details.amenities]);
+    if (details.packagePricing !== undefined) {
+      const current = parseSpacePricing(old[0]?.pricing_options);
+      const config = { ...details.packagePricing, markupBasisPoints: current?.markupBasisPoints ?? 0 };
+      await client.query('UPDATE venue_spaces SET pricing_options=$3::jsonb,pricing_initialized=true WHERE venue_id=$1 AND id=$2', [venueId,rows[0].id,JSON.stringify(config)]);
+    }
     await client.query('INSERT INTO venue_host_changes(venue_slug,actor_name,field,before_value,after_value) VALUES($1,$2,$3,$4::jsonb,$5::jsonb)',
       [slug,actor,`${details.name} ${old.length ? 'space updated' : 'space added'}`,JSON.stringify(old[0] ?? null),JSON.stringify(details)]);
     await client.query('COMMIT');

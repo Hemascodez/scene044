@@ -65,6 +65,16 @@ async function main() {
     await sql("INSERT INTO venue_spaces(venue_id,space_key,name,max_guests,community_rate,production_rate) VALUES(1,'yoga-wellness-studio','Studio',25,2000,2000),(2,'first-floor','First floor',30,2000,2000)");
     const migration = readFileSync(new URL('../db/migrations/2026-10-12-venue-package-pricing.sql', import.meta.url), 'utf8');
     await db.exec(migration); await db.exec(migration);
+    await sql("INSERT INTO venues(id,slug,name,area,status) VALUES(3,'madras-adda','Madras Adda','Mylapore','live')");
+    await sql("INSERT INTO venue_spaces(venue_id,space_key,name,max_guests,community_rate,production_rate) VALUES(3,'event-room','Madras Adda Event Room',20,2000,2000)");
+    const madrasMigration = readFileSync(new URL('../db/migrations/2026-10-26-madras-adda-pricing.sql', import.meta.url), 'utf8');
+    await db.exec(madrasMigration); await db.exec(madrasMigration);
+    const madras = (await getCatalogVenue('madras-adda'))!;
+    assert.equal(madras.spaces[0].pricing?.hourlyRate,2000,'no customer markup');
+    assert.deepEqual(madras.spaces[0].pricing?.packages.map(p=>[p.price,p.listPrice]),[[11000,12000]]);
+    const commissionPackages = parseSpacePricing({minHours:2,markupBasisPoints:0,packages:[{id:'six-hours',name:'Six-hour booking',hours:6,basePrice:11000}]})!;
+    assert.deepEqual(quoteSpace(2000,commissionPackages,6,'six-hours'),{hourlyRate:2000,total:11000,hostAmount:9900,sceneAmount:1100,pricingModel:'host-commission',packageId:'six-hours',packageName:'Six-hour booking'});
+    assert.equal(quoteSpace(2000,commissionPackages,2).sceneAmount,400,'hourly and package commission agree');
     const venue = (await getCatalogVenue('chennai-yoga-studio'))!;
     assert.equal(venueFromRate(venue), 2200);
     assert.equal(rateForSpace(venue.spaces[0], 'Art workshop'), 2200);
@@ -128,6 +138,17 @@ async function main() {
     const legacy = await submit(req('/api/venue-bookings',{...base,venueSlug:'time-cafe',spaceId:'first-floor',packageId:'hourly',duration:1,expectedTotal:2000}));
     assert.equal(legacy.status,200);
     assert.equal((await legacy.json()).total,2000);
+    const madrasRequest = await submit(req('/api/venue-bookings',{...base,venueSlug:'madras-adda',spaceId:'event-room',eventType:'Pottery workshop',packageId:'six-hours',duration:6,expectedTotal:11000}));
+    assert.equal(madrasRequest.status,200);
+    const madrasBooking = await madrasRequest.json();
+    const snapshot = (await getBookingByCheckinToken(madrasBooking.token))!;
+    assert.deepEqual(bookingFinancials(snapshot),{total:11000,sceneFee:1100,payout:9900});
+    assert.equal(snapshot.durationHours,6);
+    assert.equal(snapshot.pricingModel,'host-commission');
+    await sql('UPDATE venue_spaces SET pricing_options=$1::jsonb WHERE venue_id=3',[JSON.stringify({...commissionPackages,packages:[{...commissionPackages.packages[0],basePrice:10500}]})]);
+    await db.exec(madrasMigration);
+    assert.equal((await getCatalogVenue('madras-adda'))?.spaces[0].pricing?.packages[0].price,10500,'later host/curator edits survive deploy');
+    assert.equal((await getBookingByCheckinToken(madrasBooking.token))?.total,11000,'saved concession is never repriced');
     console.log('PASS: database prices, packages, minimum, tampering/stale-price guards, private settlement snapshots, saved drafts, full Razorpay payment (stubbed), payout accounting, immutable pricing and package QR duration; Time Cafe unchanged.');
   } finally {
     globalThis.fetch=previousFetch;globalThis.__pgPool=previousPool;
