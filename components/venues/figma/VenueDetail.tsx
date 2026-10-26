@@ -14,6 +14,7 @@ import { bookingCreated } from '@/lib/client/venueBookingStore'
 import { trackBookingRequest } from '@/lib/client/bookingAnalytics'
 import { useVenueBookingDraft } from '@/lib/client/useVenueBookingDraft'
 import { amountDue, rateForSpace, VENUE_EVENT_TYPES, venueSearchHref } from '@/lib/venues'
+import { VenueMap } from '../VenueMap'
 import { matchingSpaces, type VenueSearchValues } from '@/lib/venueSearch'
 import { publishedVenueReviews } from '@/lib/venueTestimonials'
 import { ChandruTestimonial } from './ChandruTestimonial'
@@ -818,7 +819,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
           <details className="mt-4 border border-line bg-white p-4">
             <summary className="cursor-pointer text-sm font-medium">View map &amp; exact address</summary>
             <p className="mt-3 text-sm">{venue.address || `${venue.area}, ${venue.city}`}</p>
-            <iframe title={`Location of ${venue.name}`} src={venueMapEmbedUrl(venue)} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="mt-4 block h-60 w-full border-0" />
+            <VenueMap title={`Location of ${venue.name}`} src={venueMapEmbedUrl(venue)} className="mt-4 block h-60 w-full border-0" />
           </details>
         </header>
 
@@ -1024,12 +1025,9 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
               <h2 id="where-title" className="font-head text-xl">Where you will be</h2>
               <p className="mt-1 text-sm text-stone">{venue.address || [venue.area, venue.city].join(', ')}</p>
               <div className="relative mt-5 overflow-hidden border-[1.5px] border-ink bg-sand">
-                <iframe
+                <VenueMap
                   title={`Google Map showing ${venue.name}, ${venue.area}`}
                   src={venueMapEmbedUrl(venue)}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  allowFullScreen
                   className="block h-[260px] w-full border-0 sm:h-[320px]"
                 />
                 <a

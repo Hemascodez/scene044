@@ -1,12 +1,13 @@
 -- One-time, scoped agreement. Never reprice saved bookings or overwrite later
 -- host/curator edits. The customer pays the normal rate; commission is deducted.
 UPDATE venue_spaces s
-SET pricing_options = '{"minHours":2,"markupBasisPoints":0,"packages":[{"id":"six-hours","name":"Six-hour booking","hours":6,"basePrice":11000}]}'::jsonb,
+SET pricing_options = '{"minHours":2,"markupBasisPoints":0,"packages":[{"id":"half-day","name":"Half-day","hours":4,"basePrice":7000},{"id":"full-day","name":"Full-day","hours":8,"basePrice":12000}]}'::jsonb,
     pricing_initialized = true, updated_at = now()
 FROM venues v
 WHERE s.venue_id = v.id AND v.slug = 'madras-adda'
   AND s.retired_at IS NULL AND s.community_rate = 2000
-  AND s.pricing_options IS NULL AND NOT s.pricing_initialized;
+  AND ((s.pricing_options IS NULL AND NOT s.pricing_initialized)
+    OR s.pricing_options = '{"minHours":2,"markupBasisPoints":0,"packages":[{"id":"six-hours","name":"Six-hour booking","hours":6,"basePrice":11000}]}'::jsonb);
 
 -- User-confirmed uses, not invented equipment or a manually boosted score.
 UPDATE venues SET summary =

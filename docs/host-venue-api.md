@@ -109,14 +109,27 @@ The server locks the room and preserves the existing markup agreement; supplying
 amounts remain immutable. Production hourly rates remain separate from community
 rates even after packages have been enabled.
 
-Madras Adda's one-time initializer adds a six-hour ₹11,000 offer against its
-₹2,000/hour rate (₹12,000 list price, ₹1,000 saving), with zero customer markup.
+Madras Adda's initializer uses Yoga Studio's base packages: four hours ₹7,000
+(₹8,000 list price, ₹1,000 saving), eight hours ₹12,000 (₹16,000 list price,
+₹4,000 saving), and ₹2,000/hour with a two-hour minimum and zero customer markup.
 Zero-markup configs use the existing commission model: 10% of the actual
 discounted total to SCENE and the remainder to the host. Yoga Studio's positive
 markup agreement remains unchanged. The initializer runs only for Madras Adda's
-active ₹2,000 rooms without a prior package configuration, and never resets later
-host/curator edits. No historical booking is repriced.
+active ₹2,000 rooms without a prior package configuration, or the exact initial
+six-hour example configuration replaced after the owner's clarification. It
+never resets later host/curator edits. No historical booking is repriced.
 
 Additional regression:
 `node --import tsx scripts/test-madras-adda.ts`, plus the existing isolated
 package-pricing and host-access suites with `--pglite=/absolute/package/path`.
+
+The owner's later explicit Madras Adda suitability assessment is displayed
+separately as SCENE's 9/10 assessment (not customer reviews) for tech, art,
+social gatherings, podcast/interview recording and book readings. It does not
+invent equipment, soundproofing or review history, and excludes dance from the
+recommended uses. Other venues retain the catalog-derived scoring.
+
+Map embeds retain the existing layout and Google address URL. `VenueMap` starts
+the iframe near the viewport, shows loading feedback and exposes a retry after
+12 seconds; the external Google Maps link remains available. Cross-origin map
+content cannot be inspected to guarantee Google's availability.

@@ -4,7 +4,8 @@
  *
  * 1. Scores are derived per venue in ./venueFit.ts from what the venue's own
  *    page lists, so the panel renders for every venue. Don't gate it back to
- *    Time Cafe or replace it with hand-entered numbers; improve the rubric in
+ *    Time Cafe or replace it with hand-entered numbers unless explicitly
+ *    requested by the owner; label curator assessments separately. Improve the rubric in
  *    venueFit.ts instead, and keep each row's evidence note.
  * 2. The scroll motion. useInView, CountUp, FitBar and the gauge's dasharray
  *    transition are what run it; `.bar-fill.run` in app/globals.css depends on
@@ -223,7 +224,9 @@ export function EventFit({ venue, verifiedOnSite = false }: {
         })}
       </ul>
       <p className="relative -mt-4 font-body text-[13px] leading-[18px] text-[#9b97b1]">
-        Scored from the rooms, capacity and amenities listed on this page. A missing item means it isn&apos;t listed yet — ask the host.
+        {fit.source === 'curator'
+          ? 'SCENE’s venue suitability assessment, not a customer-review score. Confirm your setup, equipment and noise requirements with the host.'
+          : <>Scored from the rooms, capacity and amenities listed on this page. A missing item means it isn&apos;t listed yet — ask the host.</>}
       </p>
     </section>
   )

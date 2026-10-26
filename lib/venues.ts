@@ -17,6 +17,7 @@ export const VENUE_EVENT_TYPES = [
   "Theatre workshop",
   "Acting workshop",
   "Podcast recording",
+  "Interview recording",
   "Photoshoot",
   "Videography / ad shoot",
   "Other professional event",

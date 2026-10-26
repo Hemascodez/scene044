@@ -106,7 +106,9 @@ for (const file of ['Landing.tsx', 'VenueDetail.tsx', 'VenueIndex.tsx']) {
     const pattern = new RegExp(`${attribute}=(?:"[^"\\n]*"|'[^'\\n]*'|\\{[^\\n]*\\})`, 'g');
     assert.deepEqual(after.match(pattern), before.match(pattern), `${file}: ${attribute} must stay unchanged`);
   }
-  const tags = (source: string) => source.match(/<\/?[A-Za-z][\w.]*(?=[\s/>])/g);
+  // The owner's map-loading fix wraps the existing iframe with loading/retry
+  // behavior; retain the same layout slot and still reject unrelated changes.
+  const tags = (source: string) => source.replace(/<(\/?)VenueMap(?=[\s/>])/g,'<$1iframe').match(/<\/?[A-Za-z][\w.]*(?=[\s/>])/g);
   assert.deepEqual(tags(after), tags(before), `${file}: no new sections or controls`);
 }
 console.log('PASS: local booking intent, honest restrictions, catalog facts, safe schema, crawlable links and unchanged design');

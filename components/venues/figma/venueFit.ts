@@ -65,6 +65,7 @@ const RUBRIC: Partial<Record<(typeof VENUE_EVENT_TYPES)[number], Criterion[]>> =
   'Theatre workshop': [f('openFloor', 3), f('quiet', 1.5), f('props', 1.5), cap(15, 1.5), f('restroom', 0.5), f('ac', 0.5)],
   'Acting workshop': [f('openFloor', 3), f('quiet', 2), f('props', 1), cap(12, 1.5), f('ac', 0.5), f('restroom', 0.5)],
   'Podcast recording': [f('quiet', 3), f('mic', 2), f('recording', 1.5), f('power', 1), f('ac', 0.5)],
+  'Interview recording': [f('quiet', 3), f('mic', 2), f('recording', 1.5), f('power', 1), f('ac', 0.5)],
   Photoshoot: [f('light', 3), f('outdoor', 1.5), f('flexible', 1), f('power', 1), f('ac', 0.5)],
   'Videography / ad shoot': [f('light', 2), f('power', 2), f('quiet', 1.5), f('flexible', 1), f('ac', 0.5)],
   'Networking event': [cap(25, 2.5), f('food', 2), f('sound', 1), f('outdoor', 1), f('flexible', 1)],
@@ -73,6 +74,7 @@ const RUBRIC: Partial<Record<(typeof VENUE_EVENT_TYPES)[number], Criterion[]>> =
 
 export type FitRow = { name: string; score: number; note: string; bestMatch: boolean }
 export type VenueFit = {
+  source: 'catalog' | 'curator'
   overall: number
   verdict: 'Great fit' | 'Good fit' | 'Fair fit' | 'Limited fit'
   headline: string
@@ -86,6 +88,8 @@ const ROWS = 5
 const FAMILIES: Record<string, string> = {
   'Book reading': 'conversation',
   'Discussion group': 'conversation',
+  'Podcast recording': 'recording',
+  'Interview recording': 'recording',
   'Dance class': 'movement',
   'Dance workshop': 'movement',
   'Theatre workshop': 'drama',
@@ -109,6 +113,7 @@ const DECLARED_USES: Partial<Record<(typeof VENUE_EVENT_TYPES)[number], RegExp>>
   'Theatre workshop': /theatre|theater/i,
   'Acting workshop': /acting/i,
   'Podcast recording': /podcast recording|podcast table|podcast desk/i,
+  'Interview recording': /interview recording|film interviews|shoot interviews/i,
 }
 
 /** Everything the page says about the venue and its rooms, as one string. */
@@ -122,6 +127,20 @@ function corpus(venue: CatalogVenue) {
 
 export function venueFit(venue: CatalogVenue): VenueFit | null {
   if (!venue.spaces.length) return null
+  // Explicit SCENE curator assessment supplied by the owner on 26 Oct 2026.
+  // Keep this separate from the automatic checklist and from customer reviews;
+  // a suitability score must not invent microphones, soundproofing or supplies.
+  if (venue.slug === 'madras-adda') {
+    const rows: FitRow[] = [
+      { name:'Tech meetup',score:9,note:'SCENE assessment for small tech gatherings; Wi-Fi, projector and speakers are listed.',bestMatch:true },
+      { name:'Art workshop',score:9,note:'SCENE assessment for art and pottery workshops; confirm work surfaces, materials and cleanup with the host.',bestMatch:true },
+      { name:'Social gathering',score:9,note:'SCENE assessment for casual gatherings and discussions in a small-group setting.',bestMatch:false },
+      { name:'Podcast & interview recording',score:9,note:'SCENE assessment for conversational podcasts and interview shoots; confirm ambient noise and recording equipment with the host.',bestMatch:false },
+      { name:'Book reading',score:9,note:'SCENE assessment for book readings and small reading-group sessions.',bestMatch:false },
+    ]
+    return { source:'curator',overall:9,verdict:'Great fit',headline:'A strong fit for small creative and community events',
+      summary:`SCENE’s suitability assessment · up to ${venueMaxGuests(venue) ?? 20} guests. Best for tech, arts, conversations and book readings; not recommended for dance workshops.`,rows }
+  }
   const text = corpus(venue)
   const has = (k: SignalKey) => SIGNALS[k].re.test(text)
   const maxGuests = venueMaxGuests(venue) ?? 0
@@ -139,7 +158,7 @@ export function venueFit(venue: CatalogVenue): VenueFit | null {
         if (has(c.fact)) {
           earned += c.weight
           evidence.push(SIGNALS[c.fact].label)
-        } else if (c.weight >= 1.5) missing.push(SIGNALS[c.fact].label.toLowerCase())
+        } else if (c.weight >= 1.5 && c.fact !== 'food') missing.push(SIGNALS[c.fact].label.toLowerCase())
       } else {
         earned += c.weight * Math.min(1, maxGuests / c.guests)
         if (maxGuests) evidence.push(`up to ${maxGuests} guests`)
@@ -185,5 +204,5 @@ export function venueFit(venue: CatalogVenue): VenueFit | null {
     .slice(0, 2)
     .map((r) => r.name.toLowerCase())
     .join(' and ')}.`
-  return { overall, verdict, headline, summary, rows }
+  return { source:'catalog',overall, verdict, headline, summary, rows }
 }
