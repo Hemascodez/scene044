@@ -21,6 +21,7 @@ import { summarizeEvent } from "@/lib/summarize";
 import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS, snippetLooksPast, stripSnippetMetadataPrefix } from "@/lib/eventDates";
 import { safeFetchText } from "@/lib/safeFetch";
 import type { ExtractionMeta } from "@/lib/types";
+import { eventCityError } from "@/lib/eventLocations";
 
 /**
  * The discovery pipeline, independent of any HTTP runtime.
@@ -436,6 +437,16 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         continue;
       }
 
+      const cityError = eventCityError(extractedEvent);
+      if (cityError) {
+        await markDiscoveryItem(item.id, "curator_pending", cityError, {
+          sourceMethod: extractedEvent.sourceMethod, confidence: extractedEvent.confidence,
+          dateEvidence: extractedEvent.dateEvidence, venueEvidence: extractedEvent.venueEvidence,
+        }, null);
+        needsReview++;
+        continue;
+      }
+
       const cat = await categorizeEvent({
         title: extractedEvent.title,
         summary: extractedEvent.summary,
@@ -553,7 +564,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
           extractedEvent.registrationDeadline ?? null,
           editorial.registrationNote,
           editorial.gist,
-          extractedEvent.city ?? "Chennai",
+          extractedEvent.city ?? "",
         ],
       );
 

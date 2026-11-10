@@ -16,6 +16,7 @@ import {
   type AdminEvent,
 } from "@/lib/client/curatorApi";
 import { PerksEditor, PosterField, TagsEditor } from "@/components/curator/CandidateReview";
+import { EventCityField } from "@/components/curator/EventCityField";
 import {
   AdminBtn,
   AdminLabel,
@@ -118,7 +119,7 @@ export function PublishedEventEditor({
         isOnline: draft.isOnline,
         venueName: draft.isOnline ? null : draft.venueName.trim() || null,
         venueAddress: draft.isOnline ? null : draft.venueAddress.trim() || null,
-        city: draft.city ?? "Chennai",
+        city: draft.city ?? "",
         organizerName: draft.organizerName.trim() || null,
         posterImageUrl: draft.posterImageUrl.trim() || null,
         priceType: draft.priceType || null,
@@ -182,6 +183,9 @@ export function PublishedEventEditor({
             </Field>
           </div>
 
+          <EventCityField value={draft.city ?? ""} isOnline={draft.isOnline} venueName={draft.venueName}
+            venueAddress={draft.venueAddress} onChange={value => set("city", value)} />
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Start date (IST)" required><TextInput type="date" value={draft.startDate} onChange={(e) => set("startDate", e.target.value)} /></Field>
             <Field label="Start time (IST)"><TextInput type="time" value={draft.startTime} onChange={(e) => set("startTime", e.target.value)} /></Field>
@@ -193,7 +197,6 @@ export function PublishedEventEditor({
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Venue name"><TextInput value={draft.venueName} onChange={(e) => set("venueName", e.target.value)} /></Field>
               <Field label="Venue address"><TextInput value={draft.venueAddress} onChange={(e) => set("venueAddress", e.target.value)} /></Field>
-              <Field label="City" required hint="Events outside Chennai appear in Intercity automatically."><TextInput value={draft.city ?? "Chennai"} onChange={(e) => set("city", e.target.value)} maxLength={80} /></Field>
             </div>
           )}
 

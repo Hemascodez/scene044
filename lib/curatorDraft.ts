@@ -1,5 +1,5 @@
 import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/lib/types";
-import { normalizeEventCity } from "@/lib/eventLocations";
+import { eventCityError } from "@/lib/eventLocations";
 
 /**
  * The shape a curator edits and the server persists to
@@ -60,7 +60,7 @@ export function emptyCuratorDraft(): CuratorDraft {
     isOnline: false,
     venueName: "",
     venueAddress: "",
-    city: "Chennai",
+    city: "",
     organizerName: "",
     registrationUrl: "",
     posterImageUrl: "",
@@ -110,9 +110,8 @@ export function validateDraftForPublish(draft: CuratorDraft): string[] {
   if (!draft.isOnline && !draft.venueName.trim() && !draft.venueAddress.trim()) {
     errors.push("Venue or address required for in-person events");
   }
-  if (!draft.isOnline && !normalizeEventCity(draft.city ?? "Chennai")) {
-    errors.push("Enter a city for in-person events (city name only)");
-  }
+  const cityError = eventCityError(draft);
+  if (cityError) errors.push(cityError);
   const start = draftToInstant(draft.startDate, draft.startTime);
   const end = draftToInstant(draft.endDate, draft.endTime);
   if (draft.startDate && !start) errors.push("Start date is not a valid date");

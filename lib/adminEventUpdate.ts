@@ -1,6 +1,6 @@
 import { normalizeUrl } from "@/lib/domain";
 import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/lib/types";
-import { normalizeEventCity } from "@/lib/eventLocations";
+import { eventCityError, normalizeEventCity } from "@/lib/eventLocations";
 
 const EDITABLE_STATUSES: EventStatus[] = ["live", "updated", "postponed", "cancelled", "expired"];
 
@@ -77,9 +77,8 @@ export function normalizeAdminEventUpdate(input: unknown): AdminEventUpdateResul
     return fail("venue or address required for in-person events");
   }
   const city = normalizeEventCity(body.city);
-  if (body.city !== undefined && !body.isOnline && !city) {
-    return fail("a valid city name is required for in-person events");
-  }
+  const cityError = eventCityError({ city: body.city, isOnline: body.isOnline, venueName, venueAddress });
+  if (cityError) return fail(cityError);
 
   const summary = cleanNullable(body.summary);
   if (summary && summary.split(/\s+/).length > 100) return fail("description must be 100 words or fewer");

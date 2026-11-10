@@ -4,7 +4,7 @@ import { safeFetchText } from "@/lib/safeFetch";
 import { normalizeDomain, normalizeUrl } from "@/lib/domain";
 import { findCheapEventDate, isPastEvent, eventDateRangeNeedsReview } from "@/lib/eventDates";
 import type { ExtractedEvent, PriceType } from "@/lib/types";
-import { normalizeEventCity } from "@/lib/eventLocations";
+import { cityFromEventLocation, normalizeEventCity } from "@/lib/eventLocations";
 
 const PAGE_TEXT_MAX_CHARS = 6000;
 const MIN_TITLE_LENGTH = 3;
@@ -350,7 +350,7 @@ function mapSchemaEventToExtractedEvent(node: Record<string, unknown>): Extracte
 
   const { isOnline, venueName, venueAddress } = extractVenueInfo(node);
   const location = node.location as { address?: { addressLocality?: unknown } } | null;
-  const city = !isOnline ? normalizeEventCity(location?.address?.addressLocality) : null;
+  const city = !isOnline ? normalizeEventCity(location?.address?.addressLocality) ?? cityFromEventLocation(venueName, venueAddress) : null;
   const organizerName = extractOrganizerName(node.organizer);
   const posterImageUrl = extractImageUrl(node.image);
   const { priceType, priceNote } = extractPriceInfo(node);
@@ -765,7 +765,7 @@ async function extractViaLlm(
     isOnline: input.is_online,
     venueName: nullIfBlank(input.venue_name),
     venueAddress: nullIfBlank(input.venue_address),
-    city: input.is_online ? null : normalizeEventCity(input.city),
+    city: input.is_online ? null : normalizeEventCity(input.city) ?? cityFromEventLocation(input.venue_name, input.venue_address),
     organizerName: nullIfBlank(input.organizer_name),
     posterImageUrl: nullIfBlank(input.poster_image_url),
     // Anything other than the two known values collapses to "unknown" rather

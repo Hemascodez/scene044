@@ -20,6 +20,7 @@ const valid = {
   startAt: "2026-09-20T04:30:00.000Z",
   endAt: "2026-09-20T06:30:00.000Z",
   isOnline: false,
+  city: "Chennai",
   venueName: "Chennai Trade Centre",
   venueAddress: "Nandambakkam, Chennai",
   organizerName: "Scene 044",

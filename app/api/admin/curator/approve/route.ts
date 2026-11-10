@@ -4,7 +4,7 @@ import { checkCuratorAccess } from "@/lib/auth";
 import { normalizeUrl } from "@/lib/domain";
 import { findDuplicateEvent, DEDUP_HIGH_CONFIDENCE_THRESHOLD } from "@/lib/dedup";
 import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/lib/types";
-import { normalizeEventCity } from "@/lib/eventLocations";
+import { eventCityError, normalizeEventCity } from "@/lib/eventLocations";
 
 /** Lifecycle states a curator may publish into. `expired` is excluded — there
  *  is no reason to publish something already over. */
@@ -98,10 +98,9 @@ export async function POST(request: Request) {
   if (!body.title || typeof body.title !== "string" || !body.title.trim()) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
-  const city = normalizeEventCity(body.city === undefined ? "Chennai" : body.city);
-  if (!body.isOnline && !city) {
-    return NextResponse.json({ error: "a valid city name is required for in-person events" }, { status: 400 });
-  }
+  const city = normalizeEventCity(body.city);
+  const cityError = eventCityError(body);
+  if (cityError) return NextResponse.json({ error: cityError }, { status: 400 });
   const eventStatus: EventStatus = body.status ?? "live";
   if (!PUBLISHABLE_STATUSES.includes(eventStatus)) {
     return NextResponse.json(

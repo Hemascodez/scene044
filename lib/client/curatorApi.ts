@@ -154,6 +154,10 @@ export function fetchPublishedEvents(search = "", id?: number) {
   return request<{ events: AdminEvent[] }>(`/api/admin/events?${params.toString()}`);
 }
 
+export function fetchEventCities() {
+  return request<{ cities: string[] }>("/api/admin/events/cities");
+}
+
 export function runExtraction(discoveryItemId: number) {
   return request<PreviewResult>(`/api/admin/curator/preview?id=${discoveryItemId}`);
 }

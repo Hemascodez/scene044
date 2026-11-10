@@ -147,6 +147,9 @@ export function SceneFooter() {
             </li>)}
           </ul>
         </nav>
+        <nav aria-label="Events beyond Chennai" className="mt-5">
+          <Link href="/?tab=intercity#feed" className="inline-flex min-h-11 items-center text-sm text-background/80 underline underline-offset-4 hover:text-primary">Intercity events across India →</Link>
+        </nav>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t-2 border-background/20 pt-5">
           <div className="flex flex-wrap items-center gap-4">
             <Mono className="text-[10px] text-background/50">© 2026 SCENE/044 · Made in Chennai</Mono>

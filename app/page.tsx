@@ -4,11 +4,12 @@ import { getPublicEventById, getPublicEvents, type PublicEvent } from "@/lib/eve
 import { eventPath, homeEventStructuredData, serializeJsonLd, websiteStructuredData } from "@/lib/seo";
 import { SceneApp } from "@/components/scene/SceneApp";
 import { EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE, eventsForCollection, getEventCollection } from '@/lib/eventDiscovery';
+import { normalizeEventCity } from '@/lib/eventLocations';
 
 export const dynamic = "force-dynamic";
 
 interface HomeProps {
-  searchParams: Promise<{ event?: string }>;
+  searchParams: Promise<{ event?: string; tab?: string; city?: string }>;
 }
 
 function parseDeepLinkEventId(eventParam: string | undefined): number | null {
@@ -42,7 +43,8 @@ export const metadata: Metadata = {
 };
 
 export default async function Home({ searchParams }: HomeProps) {
-  const deepLinkEventId = parseDeepLinkEventId((await searchParams).event);
+  const params = await searchParams;
+  const deepLinkEventId = parseDeepLinkEventId(params.event);
 
   // Preserve every previously shared `/?event=123` link while consolidating
   // it into the event's permanent, descriptive canonical URL.
@@ -77,7 +79,7 @@ export default async function Home({ searchParams }: HomeProps) {
       {!fetchFailed && <script type="application/ld+json" dangerouslySetInnerHTML={{
         __html: serializeJsonLd(homeEventStructuredData(eventsForCollection(events, getEventCollection('this-week')!, new Date()))),
       }} />}
-      <SceneApp events={events} fetchFailed={fetchFailed} />
+      <SceneApp events={events} fetchFailed={fetchFailed} initialFeedTab={params.tab} initialCity={normalizeEventCity(params.city)} />
     </>
   );
 }

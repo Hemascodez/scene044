@@ -28,6 +28,8 @@ import {
 } from "@/lib/client/curatorApi";
 import { relativeChecked } from "@/lib/client/istTime";
 import { EventCard } from "@/components/scene/EventCard";
+import { EventCityField } from "@/components/curator/EventCityField";
+import { cityFromEventLocation, eventFeedDestination } from "@/lib/eventLocations";
 import { PosterCropper } from "@/components/curator/PosterCropper";
 import {
   AdminBtn,
@@ -80,7 +82,7 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     endAt: draftToInstant(draft.endDate, draft.endTime),
     isOnline: draft.isOnline,
     venueName: draft.venueName || null,
-    city: draft.city ?? "Chennai",
+    city: draft.city ?? "",
     organizerName: draft.organizerName || null,
     posterImageUrl: draft.posterImageUrl || null,
     priceType: draft.priceType || null,
@@ -139,6 +141,7 @@ export function CandidateReview({
   const [rejectNote, setRejectNote] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const cityEdited = useRef(Boolean(item.curator_draft?.city));
 
   const linkedIn = isLinkedIn(item.source_domain);
   const errors = validateDraftForPublish(draft);
@@ -148,6 +151,7 @@ export function CandidateReview({
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   function set<K extends keyof CuratorDraft>(key: K, value: CuratorDraft[K]) {
+    if (key === "city") cityEdited.current = true;
     setDraft((d) => ({ ...d, [key]: value }));
     setDirty(true);
   }
@@ -190,7 +194,7 @@ export function CandidateReview({
         isOnline: e.isOnline,
         venueName: e.venueName ?? prev.venueName,
         venueAddress: e.venueAddress ?? prev.venueAddress,
-        city: e.city ?? prev.city,
+        city: cityEdited.current ? prev.city : e.city ?? cityFromEventLocation(e.venueName, e.venueAddress) ?? prev.city ?? "",
         organizerName: e.organizerName ?? prev.organizerName,
         // Keep a curator-entered poster over an auto-found one.
         posterImageUrl: prev.posterImageUrl || e.posterImageUrl || "",
@@ -316,7 +320,7 @@ export function CandidateReview({
         venueAddress: draft.venueAddress.trim() || null,
         organizerName: draft.organizerName.trim() || null,
         posterImageUrl: draft.posterImageUrl.trim() || null,
-        city: draft.city ?? "Chennai",
+        city: draft.city ?? "",
         priceType: draft.priceType || null,
         priceNote: draft.priceNote.trim() || null,
         primarySourceUrl: draft.registrationUrl.trim() || null,
@@ -327,7 +331,7 @@ export function CandidateReview({
       onDone(
         res.status === "duplicate"
           ? `Merged into existing event #${res.eventId} — source added, no second card created`
-          : `Published “${draft.title.trim()}” to the public feed`,
+          : `Published “${draft.title.trim()}” · ${eventFeedDestination(draft.city, draft.isOnline)}`,
         eventPath({ id: res.eventId, title: draft.title.trim() }),
       );
     } catch (err) {
@@ -607,6 +611,9 @@ export function CandidateReview({
                 </Field>
               </div>
 
+              <EventCityField value={draft.city ?? ""} isOnline={draft.isOnline} venueName={draft.venueName}
+                venueAddress={draft.venueAddress} onChange={value => set("city", value)} />
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Start date (IST)" required>
                   <TextInput type="date" value={draft.startDate} onChange={(e) => set("startDate", e.target.value)} />
@@ -636,9 +643,6 @@ export function CandidateReview({
                   </Field>
                   <Field label="Venue address">
                     <TextInput value={draft.venueAddress} onChange={(e) => set("venueAddress", e.target.value)} />
-                  </Field>
-                  <Field label="City" required hint="City name only. Events outside Chennai appear in Intercity automatically.">
-                    <TextInput value={draft.city ?? "Chennai"} onChange={(e) => set("city", e.target.value)} placeholder="e.g. Bengaluru, Coimbatore or Mumbai" maxLength={80} />
                   </Field>
                 </>
               )}

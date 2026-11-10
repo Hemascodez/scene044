@@ -49,22 +49,26 @@ export function TabbedFeed({
   has,
   onToggleSave,
   lastViewedId,
+  initialPreset = "this_week",
+  initialCity = null,
 }: {
   events: PublicEvent[];
   has: (id: number) => boolean;
   onToggleSave: (id: number) => void;
   lastViewedId: number | null;
+  initialPreset?: string;
+  initialCity?: string | null;
 }) {
   // "This week" is the view visitors land on — found by key rather than
   // hardcoded to an index, so a future reorder of PRESETS can't silently
   // change what opens by default.
   const [active, setActive] = useState(() => {
-    const i = PRESETS.findIndex((p) => p.key === "this_week");
+    const i = PRESETS.findIndex((p) => p.key === initialPreset);
     return i === -1 ? 0 : i;
   });
   const [query, setQuery] = useState("");
   const [now] = useState(() => new Date());
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(() => normalizeEventCity(initialCity));
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Search narrows the pool before it splits into panels, so the tab counts
@@ -97,6 +101,22 @@ export function TabbedFeed({
    */
   function goTo(index: number) {
     setActive(index);
+    syncLocation(PRESETS[index].key, selectedCity);
+  }
+
+  function syncLocation(preset: string, nextCity: string | null) {
+    if (window.location.pathname !== "/") return;
+    const url = new URL(window.location.href);
+    if (preset === "this_week") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", preset);
+    if (preset === "intercity" && nextCity) url.searchParams.set("city", nextCity);
+    else url.searchParams.delete("city");
+    window.history.replaceState(window.history.state, "", url);
+  }
+
+  function selectCity(nextCity: string | null) {
+    setSelectedCity(nextCity);
+    syncLocation("intercity", nextCity);
   }
 
   // Keep the selected pill visible inside the horizontally scrolling tab bar.
@@ -214,7 +234,7 @@ export function TabbedFeed({
                       const count = option.city === null ? option.count : panel.items.filter((event) => normalizeEventCity(event.city) === option.city).length;
                       return (
                         <button key={option.city ?? "all"} type="button" aria-pressed={selected}
-                          onClick={() => setSelectedCity(option.city)}
+                          onClick={() => selectCity(option.city)}
                           className={`inline-flex min-h-11 items-center gap-2 border-2 border-foreground px-3 py-2 font-mono text-xs transition-colors ${selected ? "bg-foreground text-background" : "bg-card hover:bg-secondary"}`}>
                           {option.city ?? "All cities"}
                           <span className={selected ? "text-background/80" : "text-muted-foreground"}>{count}</span>

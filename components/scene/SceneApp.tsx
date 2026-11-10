@@ -16,9 +16,13 @@ import { isChennaiDiscoveryEvent } from "@/lib/eventLocations";
 export function SceneApp({
   events,
   fetchFailed = false,
+  initialFeedTab,
+  initialCity,
 }: {
   events: PublicEvent[];
   fetchFailed?: boolean;
+  initialFeedTab?: string;
+  initialCity?: string | null;
 }) {
   const [view, setView] = useState<"discover" | "saved">("discover");
   const feedRef = useRef<HTMLElement>(null);
@@ -85,6 +89,8 @@ export function SceneApp({
               ) : (
                 <TabbedFeed
                   events={upcoming}
+                  initialPreset={initialFeedTab}
+                  initialCity={initialCity}
                   has={interactions.isSaved}
                   onToggleSave={interactions.toggleSaved}
                   lastViewedId={interactions.lastViewedId}

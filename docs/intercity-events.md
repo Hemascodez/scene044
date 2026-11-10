@@ -14,14 +14,25 @@ organizer names and audience tags are never used to guess an event's city.
 ## Publishing
 
 Choose the city in the curator review form, or edit it on a published event.
-The city is stored in the existing `events.city` column. Old saved drafts
-without a city retain the former Chennai default. Existing published records
+The city is stored in the existing `events.city` column. New and old saved
+drafts require an explicit city; Chennai is never silently assumed. The city
+field offers existing cities and common suggestions, accepts new city names,
+and previews the destination (Chennai, Intercity → city, or Online). A detected
+venue city can be accepted with one click. Mismatches between an explicit
+venue city and the selected city block publishing in both the form and API.
+Existing published records
 are not rewritten; correct their city through the editor where necessary.
 City changes also update the event card and the existing event SEO metadata.
 
-Structured extraction reads `location.address.addressLocality`. Text
+Structured extraction reads `location.address.addressLocality`, with explicit
+city segments in the venue name/address as a fallback. Text
 extraction may return a city only when it is explicitly stated in the venue
-location. The curator can review and correct it before publishing.
+location. The curator can review and correct it before publishing. The pipeline
+sends unknown cities for curator review instead of filling in Chennai.
+
+`/?tab=intercity#feed` opens Intercity directly. Adding `&city=Bengaluru` narrows
+to that city. Selecting a tab/city updates the shareable URL. Chennai discovery
+pages and the footer link to Intercity so it is reachable beyond the home feed.
 
 The scheduled crawler still targets Chennai; this change does not expand
 paid searches or automatically publish events throughout India. Curator
