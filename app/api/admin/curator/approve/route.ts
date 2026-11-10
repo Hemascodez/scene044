@@ -4,6 +4,7 @@ import { checkCuratorAccess } from "@/lib/auth";
 import { normalizeUrl } from "@/lib/domain";
 import { findDuplicateEvent, DEDUP_HIGH_CONFIDENCE_THRESHOLD } from "@/lib/dedup";
 import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/lib/types";
+import { normalizeEventCity } from "@/lib/eventLocations";
 
 /** Lifecycle states a curator may publish into. `expired` is excluded — there
  *  is no reason to publish something already over. */
@@ -31,6 +32,7 @@ interface ApproveBody {
   isOnline: boolean;
   venueName: string | null;
   venueAddress: string | null;
+  city?: string;
   organizerName: string | null;
   posterImageUrl: string | null;
   priceType?: PriceType | null;
@@ -95,6 +97,10 @@ export async function POST(request: Request) {
   }
   if (!body.title || typeof body.title !== "string" || !body.title.trim()) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
+  }
+  const city = normalizeEventCity(body.city === undefined ? "Chennai" : body.city);
+  if (!body.isOnline && !city) {
+    return NextResponse.json({ error: "a valid city name is required for in-person events" }, { status: 400 });
   }
   const eventStatus: EventStatus = body.status ?? "live";
   if (!PUBLISHABLE_STATUSES.includes(eventStatus)) {
@@ -181,6 +187,7 @@ export async function POST(request: Request) {
       startAt: body.startAt ?? null,
       isOnline: !!body.isOnline,
       venueName: body.venueName ?? null,
+      city,
       organizerName: body.organizerName ?? null,
       category: body.category,
       url: item.url,
@@ -202,8 +209,8 @@ export async function POST(request: Request) {
     const {
       rows: [eventRow],
     } = await query<{ id: number }>(
-      `INSERT INTO events (title, summary, gist, highlights, tags, is_promoted, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'curator',$18,$19, now()) RETURNING id`,
+      `INSERT INTO events (title, summary, gist, highlights, tags, is_promoted, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, city, last_verified_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'curator',$18,$19,$20, now()) RETURNING id`,
       [
         body.title.trim(),
         body.summary ?? null,
@@ -224,6 +231,7 @@ export async function POST(request: Request) {
         normalizeUrl(destinationUrl),
         relevance,
         eventStatus,
+        city ?? "",
       ],
     );
 

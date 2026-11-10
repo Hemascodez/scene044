@@ -80,7 +80,7 @@ function draftToPublicEvent(draft: CuratorDraft, item: QueueItem): PublicEvent {
     endAt: draftToInstant(draft.endDate, draft.endTime),
     isOnline: draft.isOnline,
     venueName: draft.venueName || null,
-    city: "Chennai",
+    city: draft.city ?? "Chennai",
     organizerName: draft.organizerName || null,
     posterImageUrl: draft.posterImageUrl || null,
     priceType: draft.priceType || null,
@@ -190,6 +190,7 @@ export function CandidateReview({
         isOnline: e.isOnline,
         venueName: e.venueName ?? prev.venueName,
         venueAddress: e.venueAddress ?? prev.venueAddress,
+        city: e.city ?? prev.city,
         organizerName: e.organizerName ?? prev.organizerName,
         // Keep a curator-entered poster over an auto-found one.
         posterImageUrl: prev.posterImageUrl || e.posterImageUrl || "",
@@ -265,6 +266,7 @@ export function CandidateReview({
       startAt: draftToInstant(draft.startDate, draft.startTime),
       isOnline: draft.isOnline,
       venueName: draft.venueName || null,
+      city: draft.city,
       organizerName: draft.organizerName || null,
       category: draft.category as Category,
       url: draft.registrationUrl.trim() || item.url,
@@ -314,6 +316,7 @@ export function CandidateReview({
         venueAddress: draft.venueAddress.trim() || null,
         organizerName: draft.organizerName.trim() || null,
         posterImageUrl: draft.posterImageUrl.trim() || null,
+        city: draft.city ?? "Chennai",
         priceType: draft.priceType || null,
         priceNote: draft.priceNote.trim() || null,
         primarySourceUrl: draft.registrationUrl.trim() || null,
@@ -631,8 +634,11 @@ export function CandidateReview({
                       placeholder="e.g. TIDEL Park Auditorium"
                     />
                   </Field>
-                  <Field label="Venue address" hint="Free text — used for Chennai-area matching">
+                  <Field label="Venue address">
                     <TextInput value={draft.venueAddress} onChange={(e) => set("venueAddress", e.target.value)} />
+                  </Field>
+                  <Field label="City" required hint="City name only. Events outside Chennai appear in Intercity automatically.">
+                    <TextInput value={draft.city ?? "Chennai"} onChange={(e) => set("city", e.target.value)} placeholder="e.g. Bengaluru, Coimbatore or Mumbai" maxLength={80} />
                   </Field>
                 </>
               )}

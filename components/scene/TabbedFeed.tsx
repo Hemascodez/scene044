@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicEvent } from "@/lib/events";
 import { classifyDateBucket } from "@/lib/client/istTime";
-import { matchesSearch } from "@/lib/client/sceneEvent";
+import { isHiddenFromFeed, matchesSearch } from "@/lib/client/sceneEvent";
+import { intercityCityOptions, isChennaiDiscoveryEvent, isIntercityEvent, normalizeEventCity } from "@/lib/eventLocations";
 import { EventCard } from "@/components/scene/EventCard";
 import { Btn, Mono } from "@/components/scene/ui";
 import { LottiePlayer } from "@/components/ui/LottiePlayer";
@@ -31,6 +32,7 @@ const PRESETS: Preset[] = [
       return bucket === "today" || bucket === "this_week" || bucket === "this_weekend";
     },
   },
+  { key: "intercity", label: "Intercity", hint: "Discover something worth the trip · IST", test: isIntercityEvent },
   { key: "upcoming", label: "Upcoming in Chennai", hint: "Soonest first · IST", test: () => true },
   {
     key: "free",
@@ -61,12 +63,25 @@ export function TabbedFeed({
     return i === -1 ? 0 : i;
   });
   const [query, setQuery] = useState("");
+  const [now] = useState(() => new Date());
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Search narrows the pool before it splits into panels, so the tab counts
   // always describe what the visitor is actually looking at.
-  const pool = useMemo(() => events.filter((e) => matchesSearch(e, query)), [events, query]);
-  const panels = useMemo(() => PRESETS.map((p) => ({ preset: p, items: pool.filter(p.test) })), [pool]);
+  const upcoming = useMemo(() => events.filter((event) => !isHiddenFromFeed(event, now)
+    && (!event.endAt || Date.parse(event.endAt) > now.getTime())), [events, now]);
+  const cities = useMemo(() => intercityCityOptions(upcoming), [upcoming]);
+  // Retain the city across tabs/searches, but recover if its last event disappears.
+  const city = cities.some((option) => option.city === selectedCity) ? selectedCity : null;
+  const pool = useMemo(() => upcoming.filter((e) => matchesSearch(e, query)), [upcoming, query]);
+  const panels = useMemo(() => PRESETS.map((p) => ({
+    preset: p,
+    items: pool.filter((event) => (p.key === "intercity" || isChennaiDiscoveryEvent(event)) && p.test(event)),
+  })), [pool]);
+  const activePanel = panels[active];
+  const shownItems = activePanel.items.filter((event) => activePanel.preset.key !== "intercity"
+    || !city || normalizeEventCity(event.city) === city);
 
   /*
    * Tabs change only when a tab is tapped.
@@ -86,14 +101,16 @@ export function TabbedFeed({
 
   // Keep the selected pill visible inside the horizontally scrolling tab bar.
   useEffect(() => {
-    tabRefs.current[active]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    tabRefs.current[active]?.scrollIntoView({ behavior: reducedMotion ? "instant" : "smooth", inline: "center", block: "nearest" });
   }, [active]);
 
   // Arrow-key navigation, which the tablist role promises.
   function onTabKeyDown(e: React.KeyboardEvent) {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
-    const next = e.key === "ArrowRight" ? Math.min(active + 1, panels.length - 1) : Math.max(active - 1, 0);
+    const next = e.key === "Home" ? 0 : e.key === "End" ? panels.length - 1
+      : e.key === "ArrowRight" ? (active + 1) % panels.length : (active - 1 + panels.length) % panels.length;
     goTo(next);
     tabRefs.current[next]?.focus();
   }
@@ -108,7 +125,7 @@ export function TabbedFeed({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search events"
-          placeholder="Search title, organizer, venue, area…"
+          placeholder="Search title, organizer, venue, city…"
           className="w-full bg-transparent py-1 text-sm placeholder:text-muted-foreground focus:outline-none"
         />
         {query && (
@@ -123,7 +140,7 @@ export function TabbedFeed({
       </div>
 
       <p aria-live="polite" className="sr-only">
-        {panels[active]?.items.length ?? 0} events in {panels[active]?.preset.label}
+        {shownItems.length} events in {activePanel.preset.label}{city && activePanel.preset.key === "intercity" ? `, ${city}` : ""}
       </p>
 
       <div className="sticky top-14 z-30 -mx-4 mt-4 bg-background/95 px-4 py-2 backdrop-blur lg:top-16">
@@ -158,7 +175,7 @@ export function TabbedFeed({
                   aria-controls={`panel-${panel.preset.key}`}
                   tabIndex={on ? 0 : -1}
                   onClick={() => goTo(i)}
-                  className={`flex shrink-0 items-center gap-2 border-2 border-foreground px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+                  className={`flex min-h-11 shrink-0 items-center gap-2 border-2 border-foreground px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] transition-colors ${
                     on ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
                   }`}
                 >
@@ -186,24 +203,46 @@ export function TabbedFeed({
             aria-labelledby={`tab-${panel.preset.key}`}
             className="w-full min-w-0"
           >
+            {panel.preset.key === "intercity" && (
+              <div className="mb-6 border-2 border-foreground bg-card p-4">
+                <h3 className="font-display text-xl font-bold">Discover something worth the trip.</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Explore curated events beyond Chennai. Choose a city to see what’s coming up.</p>
+                {cities.length > 0 && (
+                  <div role="group" aria-label="Filter intercity events by city" className="mt-4 flex flex-wrap gap-2">
+                    {[{ city: null, count: panel.items.length }, ...cities].map((option) => {
+                      const selected = city === option.city;
+                      const count = option.city === null ? option.count : panel.items.filter((event) => normalizeEventCity(event.city) === option.city).length;
+                      return (
+                        <button key={option.city ?? "all"} type="button" aria-pressed={selected}
+                          onClick={() => setSelectedCity(option.city)}
+                          className={`inline-flex min-h-11 items-center gap-2 border-2 border-foreground px-3 py-2 font-mono text-xs transition-colors ${selected ? "bg-foreground text-background" : "bg-card hover:bg-secondary"}`}>
+                          {option.city ?? "All cities"}
+                          <span className={selected ? "text-background/80" : "text-muted-foreground"}>{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mb-4 flex items-baseline justify-between gap-2 border-b-2 border-dashed border-foreground/25 pb-2">
               <Mono className="text-[11px]">
-                <span className="text-primary-ink">{panel.items.length}</span> event
-                {panel.items.length === 1 ? "" : "s"}
+                <span className="text-primary-ink">{shownItems.length}</span> event
+                {shownItems.length === 1 ? "" : "s"}{panel.preset.key === "intercity" && city ? ` in ${city}` : ""}
               </Mono>
               <Mono className="text-[10px] text-muted-foreground">{panel.preset.hint}</Mono>
             </div>
 
-            {panel.items.length === 0 ? (
+            {shownItems.length === 0 ? (
               <PanelEmpty
                 query={query}
                 label={panel.preset.label}
                 onClear={() => setQuery("")}
-                onUpcoming={() => goTo(0)}
+                onUpcoming={() => goTo(PRESETS.findIndex((preset) => preset.key === "upcoming"))}
               />
             ) : (
               <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
-                {panel.items.map((event, i) => (
+                {shownItems.map((event, i) => (
                   <EventCard
                     key={event.id}
                     event={event}
@@ -226,10 +265,10 @@ export function TabbedFeed({
             type="button"
             aria-label={`Go to ${panel.preset.label}`}
             onClick={() => goTo(i)}
-            className={`h-1.5 transition-all ${
-              i === active ? "w-6 bg-primary-ink" : "w-1.5 bg-muted-foreground/40"
-            }`}
-          />
+            className="flex min-h-11 min-w-11 items-center justify-center"
+          >
+            <span className={`h-1.5 transition-all ${i === active ? "w-6 bg-primary-ink" : "w-1.5 bg-muted-foreground/40"}`} />
+          </button>
         ))}
       </div>
     </div>
@@ -264,7 +303,9 @@ function PanelEmpty({
       </h3>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
         {searching
-          ? "Try a broader term — an organizer, a field like “AI”, or a Chennai neighbourhood."
+          ? "Try a broader term — an organizer, a field like “AI”, or a city."
+          : label === "Intercity"
+            ? "We’re adding events across India. Check back soon to discover upcoming events beyond Chennai."
           : label === "Free to attend"
             ? "No event has been confirmed free yet. We only list one here when the source says so outright — never by assuming."
             : "This lane is empty for now. Freshly discovered events land here as SCENE/044 finds them."}

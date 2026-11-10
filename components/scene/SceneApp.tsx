@@ -11,6 +11,7 @@ import { TabbedFeed } from "@/components/scene/TabbedFeed";
 import { EventCard } from "@/components/scene/EventCard";
 import { ReturnPrompt } from "@/components/scene/ReturnPrompt";
 import { Btn, Mono } from "@/components/scene/ui";
+import { isChennaiDiscoveryEvent } from "@/lib/eventLocations";
 
 export function SceneApp({
   events,
@@ -29,7 +30,7 @@ export function SceneApp({
   );
   // Wrapped, not passed by reference: `.filter` would hand the array index in
   // as the optional `now` argument.
-  const newlyDiscovered = useMemo(() => upcoming.filter((e) => isNewlyDiscovered(e)), [upcoming]);
+  const newlyDiscovered = useMemo(() => upcoming.filter((e) => isChennaiDiscoveryEvent(e) && isNewlyDiscovered(e)), [upcoming]);
   const savedEvents = useMemo(
     () => events.filter((e) => interactions.savedIds.includes(e.id)).sort(bySoonest),
     [events, interactions.savedIds],
@@ -38,6 +39,7 @@ export function SceneApp({
   const counts = useMemo(() => {
     const byCategory = new Map<string, number>();
     for (const event of upcoming) {
+      if (!isChennaiDiscoveryEvent(event)) continue;
       byCategory.set(event.category, (byCategory.get(event.category) ?? 0) + 1);
     }
     return Object.fromEntries(
@@ -80,8 +82,6 @@ export function SceneApp({
             <div className="mt-6">
               {fetchFailed ? (
                 <FetchFailed />
-              ) : upcoming.length === 0 ? (
-                <NoUpcoming />
               ) : (
                 <TabbedFeed
                   events={upcoming}
@@ -200,20 +200,6 @@ function SavedView({
         </div>
       )}
     </main>
-  );
-}
-
-function NoUpcoming() {
-  return (
-    <div className="flex flex-col items-center justify-center border-2 border-dashed border-foreground bg-card p-12 text-center">
-      <span className="font-display text-6xl font-black tracking-tighter text-muted-foreground/30" aria-hidden>
-        044
-      </span>
-      <h3 className="mt-4 font-display text-xl font-bold">No upcoming events right now</h3>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        Check back soon — new Chennai events are added as SCENE/044 finds them.
-      </p>
-    </div>
   );
 }
 

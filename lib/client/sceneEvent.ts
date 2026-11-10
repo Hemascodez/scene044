@@ -1,6 +1,7 @@
 import type { PublicEvent } from "@/lib/events";
 import { stockPosterFor } from "@/lib/stockPosters";
 import { formatSceneDate, formatSceneTime, isPastEvent } from "@/lib/client/istTime";
+import { normalizeEventCity } from "@/lib/eventLocations";
 
 /**
  * The status the card actually renders, which is not the same as the database
@@ -57,10 +58,13 @@ export function byPromotedThenSoonest(a: PublicEvent, b: PublicEvent): number {
 export function matchesSearch(event: PublicEvent, rawQuery: string): boolean {
   const q = rawQuery.trim().toLowerCase();
   if (!q) return true;
+  const city = normalizeEventCity(rawQuery);
+  if (!event.isOnline && city && city === normalizeEventCity(event.city)) return true;
   return [
     event.title,
     event.organizerName,
     event.venueName,
+    event.city,
     event.summary,
     event.primarySourceDomain,
     ...event.tags,

@@ -7,6 +7,7 @@ import { categorySeoDescription, categorySeoHeading, categoryStructuredData, ser
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { SceneFooter, SectionHead } from "@/components/scene/SceneHero";
 import { CategoryFeed } from "@/components/scene/CategoryFeed";
+import { isChennaiDiscoveryEvent } from "@/lib/eventLocations";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   let events: PublicEvent[] = [];
   try {
-    events = await getPublicEvents(card.categories);
+    events = (await getPublicEvents(card.categories)).filter(isChennaiDiscoveryEvent);
   } catch (err) {
     console.error(`CategoryPage(${key}): failed to load events`, err);
     throw err;

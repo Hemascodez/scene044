@@ -698,7 +698,7 @@ function PublishedList({
   const list = events.filter(
     (e) =>
       !q ||
-      `${e.title} ${e.organizerName ?? ""} ${e.venueName ?? ""} ${e.primarySourceUrl}`
+      `${e.title} ${e.organizerName ?? ""} ${e.venueName ?? ""} ${e.city} ${e.primarySourceUrl}`
         .toLowerCase()
         .includes(q.toLowerCase()),
   );
@@ -778,7 +778,7 @@ function PublishedList({
                   {event.startAt
                     ? `${formatSceneDate(event.startAt)} ${formatSceneTime(event.startAt)}`
                     : "no date"}{" "}
-                  · {event.isOnline ? "Online" : (event.venueName ?? "no venue")}
+                  · {event.isOnline ? "Online" : [event.venueName ?? "no venue", event.city].filter(Boolean).join(" · ")}
                 </p>
                 <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-[#5f7568]">
                   {event.lastVerifiedAt ? `Verified ${relativeChecked(event.lastVerifiedAt)}` : "Never re-verified"}

@@ -2,6 +2,7 @@ import type { PublicEvent } from '@/lib/events';
 import type { Category } from '@/lib/types';
 import { classifyDateBucket, formatSceneDateLong, getISTParts } from '@/lib/client/istTime';
 import { byPromotedThenSoonest, isHiddenFromFeed } from '@/lib/client/sceneEvent';
+import { isChennaiDiscoveryEvent } from '@/lib/eventLocations';
 
 export const EVENTS_SEARCH_TITLE = 'Events in Chennai This Week | Meetups & Workshops — SCENE/044';
 export const EVENTS_SEARCH_DESCRIPTION = 'Find events in Chennai this week: tech and AI meetups, startup networking, design workshops and finance events. Check dates, venues and registration links.';
@@ -63,6 +64,7 @@ export function eventsForCollection(events: readonly PublicEvent[], collection: 
   const weekendStart = midnight + saturdayOffset * dayMs;
 
   return events.filter(event => {
+    if (!isChennaiDiscoveryEvent(event)) return false;
     if (isHiddenFromFeed(event, now)) return false;
     if (collection.categories && !collection.categories.includes(event.category)) return false;
     if (collection.freeOnly && event.priceType !== 'free') return false;

@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     startAt?: string | null;
     isOnline?: boolean;
     venueName?: string | null;
+    city?: string | null;
     organizerName?: string | null;
     category?: string;
     url?: string;
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
       startAt: body.startAt ?? null,
       isOnline: !!body.isOnline,
       venueName: body.venueName ?? null,
+      city: body.city,
       organizerName: body.organizerName ?? null,
       category: body.category as Category,
       url: body.url ?? "",

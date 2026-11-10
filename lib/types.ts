@@ -126,6 +126,8 @@ export interface ExtractedEvent {
   isOnline: boolean;
   venueName: string | null;
   venueAddress: string | null;
+  /** Only the city stated in the event's location, never inferred from its copy. */
+  city?: string | null;
   organizerName: string | null;
   posterImageUrl: string | null;
   priceType: PriceType | null; // null = not stated on the page

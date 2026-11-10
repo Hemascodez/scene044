@@ -163,6 +163,7 @@ export function checkDuplicate(input: {
   startAt: string | null;
   isOnline: boolean;
   venueName: string | null;
+  city?: string;
   organizerName: string | null;
   category: Category;
   url: string;
@@ -185,6 +186,7 @@ export function publishEvent(input: {
   startAt: string | null;
   endAt: string | null;
   isOnline: boolean;
+  city: string;
   venueName: string | null;
   venueAddress: string | null;
   organizerName: string | null;
@@ -212,6 +214,7 @@ export function updatePublishedEvent(input: {
   startAt: string | null;
   endAt: string | null;
   isOnline: boolean;
+  city: string;
   venueName: string | null;
   venueAddress: string | null;
   organizerName: string | null;

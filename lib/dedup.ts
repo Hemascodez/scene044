@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 import { normalizeUrl } from "@/lib/domain";
 import type { Category, DuplicateMatch } from "@/lib/types";
+import { normalizeEventCity } from "@/lib/eventLocations";
 
 // Provisional/tunable — watch real data for a few days before adjusting.
 export const DEDUP_HIGH_CONFIDENCE_THRESHOLD = 0.8;
@@ -119,6 +120,7 @@ export interface DedupCandidate {
   startAt: string | null;
   isOnline: boolean;
   venueName: string | null;
+  city?: string | null;
   organizerName: string | null;
   category: Category;
   url: string;
@@ -130,6 +132,7 @@ interface CandidateRow {
   start_at: string | null;
   is_online: boolean;
   venue_name: string | null;
+  city?: string | null;
   organizer_name: string | null;
   primary_source_url: string;
 }
@@ -193,7 +196,7 @@ export async function findDuplicateEvent(
    * date window and title similarity do the real discriminating work.
    */
   const { rows: candidates } = await query<CandidateRow>(
-    `SELECT id, title, start_at, is_online, venue_name, organizer_name, primary_source_url
+    `SELECT id, title, start_at, is_online, venue_name, city, organizer_name, primary_source_url
      FROM events
      WHERE status IN ('live', 'updated', 'pending_review')
        AND NOT EXISTS (SELECT 1 FROM event_aliases a WHERE a.duplicate_id = events.id)
@@ -204,7 +207,10 @@ export async function findDuplicateEvent(
   );
 
   let best: DuplicateMatch | null = null;
+  const candidateCity = normalizeEventCity(candidate.city);
   for (const row of candidates) {
+    const rowCity = normalizeEventCity(row.city);
+    if (!candidate.isOnline && !row.is_online && candidateCity && rowCity && candidateCity !== rowCity) continue;
     const { rows: sourceRows } = await query<{ source_url: string }>(
       "SELECT source_url FROM event_sources WHERE event_id = $1",
       [row.id],

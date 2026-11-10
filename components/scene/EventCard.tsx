@@ -8,6 +8,7 @@ import { countdown, formatSceneDate, formatSceneTime, relativeChecked } from "@/
 import { deriveSceneStatus, isNewlyDiscovered, posterFor } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory } from "@/lib/fieldCards";
 import { FreshnessDot, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
+import { normalizeEventCity } from "@/lib/eventLocations";
 
 export function EventCard({
   event,
@@ -35,6 +36,7 @@ export function EventCard({
   const showImage = !posterFailed;
   const fieldLabel = getFieldCardForCategory(event.category)?.label ?? event.category;
   const href = eventPath(event);
+  const city = normalizeEventCity(event.city);
 
   return (
     <article
@@ -197,10 +199,10 @@ export function EventCard({
                 ) : event.venueName ? (
                   <>
                     {event.venueName}
-                    <span className="text-muted-foreground"> · {event.city}</span>
+                    {city && <span className="text-muted-foreground"> · {city}</span>}
                   </>
                 ) : (
-                  <span className="italic text-muted-foreground">Venue not announced</span>
+                  <span className="italic text-muted-foreground">{city ? `${city} · Venue not announced` : "Venue not announced"}</span>
                 )}
               </span>
             </span>

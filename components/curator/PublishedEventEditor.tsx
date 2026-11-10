@@ -52,6 +52,7 @@ function eventToDraft(event: AdminEvent): CuratorDraft {
     isOnline: event.isOnline,
     venueName: event.venueName ?? "",
     venueAddress: event.venueAddress ?? "",
+    city: event.city,
     organizerName: event.organizerName ?? "",
     registrationUrl: event.primarySourceUrl,
     posterImageUrl: event.posterImageUrl ?? "",
@@ -117,6 +118,7 @@ export function PublishedEventEditor({
         isOnline: draft.isOnline,
         venueName: draft.isOnline ? null : draft.venueName.trim() || null,
         venueAddress: draft.isOnline ? null : draft.venueAddress.trim() || null,
+        city: draft.city ?? "Chennai",
         organizerName: draft.organizerName.trim() || null,
         posterImageUrl: draft.posterImageUrl.trim() || null,
         priceType: draft.priceType || null,
@@ -191,6 +193,7 @@ export function PublishedEventEditor({
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Venue name"><TextInput value={draft.venueName} onChange={(e) => set("venueName", e.target.value)} /></Field>
               <Field label="Venue address"><TextInput value={draft.venueAddress} onChange={(e) => set("venueAddress", e.target.value)} /></Field>
+              <Field label="City" required hint="Events outside Chennai appear in Intercity automatically."><TextInput value={draft.city ?? "Chennai"} onChange={(e) => set("city", e.target.value)} maxLength={80} /></Field>
             </div>
           )}
 

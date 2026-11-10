@@ -1,5 +1,6 @@
 import { normalizeUrl } from "@/lib/domain";
 import { CATEGORIES, type Category, type EventStatus, type PriceType } from "@/lib/types";
+import { normalizeEventCity } from "@/lib/eventLocations";
 
 const EDITABLE_STATUSES: EventStatus[] = ["live", "updated", "postponed", "cancelled", "expired"];
 
@@ -16,6 +17,7 @@ export interface NormalizedAdminEventUpdate {
   isOnline: boolean;
   venueName: string | null;
   venueAddress: string | null;
+  city: string | null;
   organizerName: string | null;
   posterImageUrl: string | null;
   priceType: PriceType | null;
@@ -74,6 +76,10 @@ export function normalizeAdminEventUpdate(input: unknown): AdminEventUpdateResul
   if (!body.isOnline && !venueName && !venueAddress) {
     return fail("venue or address required for in-person events");
   }
+  const city = normalizeEventCity(body.city);
+  if (body.city !== undefined && !body.isOnline && !city) {
+    return fail("a valid city name is required for in-person events");
+  }
 
   const summary = cleanNullable(body.summary);
   if (summary && summary.split(/\s+/).length > 100) return fail("description must be 100 words or fewer");
@@ -122,6 +128,7 @@ export function normalizeAdminEventUpdate(input: unknown): AdminEventUpdateResul
       isOnline: body.isOnline,
       venueName: body.isOnline ? null : venueName,
       venueAddress: body.isOnline ? null : venueAddress,
+      city,
       organizerName: cleanNullable(body.organizerName),
       posterImageUrl,
       priceType: priceType as PriceType | null,

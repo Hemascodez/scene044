@@ -460,6 +460,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         startAt: extractedEvent.startAt,
         isOnline: extractedEvent.isOnline,
         venueName: extractedEvent.venueName,
+        city: extractedEvent.city,
         organizerName: extractedEvent.organizerName,
         category: cat.category,
         url: item.url,
@@ -531,8 +532,8 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
       const {
         rows: [eventRow],
       } = await query<{ id: number }>(
-        `INSERT INTO events (title, summary, highlights, registration_deadline, registration_note, gist, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, last_verified_at)
-         VALUES ($1,$2,$15,$16,$17,$18,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto',$14,'live', now()) RETURNING id`,
+        `INSERT INTO events (title, summary, highlights, registration_deadline, registration_note, gist, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, city, last_verified_at)
+         VALUES ($1,$2,$15,$16,$17,$18,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto',$14,'live',$19, now()) RETURNING id`,
         [
           extractedEvent.title,
           editorial.eventIntro,
@@ -552,6 +553,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
           extractedEvent.registrationDeadline ?? null,
           editorial.registrationNote,
           editorial.gist,
+          extractedEvent.city ?? "Chennai",
         ],
       );
 

@@ -4,6 +4,7 @@ import { safeFetchText } from "@/lib/safeFetch";
 import { normalizeDomain, normalizeUrl } from "@/lib/domain";
 import { findCheapEventDate, isPastEvent, eventDateRangeNeedsReview } from "@/lib/eventDates";
 import type { ExtractedEvent, PriceType } from "@/lib/types";
+import { normalizeEventCity } from "@/lib/eventLocations";
 
 const PAGE_TEXT_MAX_CHARS = 6000;
 const MIN_TITLE_LENGTH = 3;
@@ -41,6 +42,7 @@ const EXTRACT_TOOL: OpenAI.Responses.FunctionTool = {
       is_online: { type: "boolean" },
       venue_name: { type: ["string", "null"] },
       venue_address: { type: ["string", "null"] },
+      city: { type: ["string", "null"], description: "The city explicitly stated in the event's venue/location. Null if online or unstated. Do not use an organizer's city or infer from the title or description." },
       organizer_name: { type: ["string", "null"] },
       poster_image_url: { type: ["string", "null"] },
       price_type: {
@@ -80,6 +82,7 @@ interface ExtractToolInput {
   is_online: boolean;
   venue_name?: string | null;
   venue_address?: string | null;
+  city?: string | null;
   organizer_name?: string | null;
   poster_image_url?: string | null;
   price_type?: "free" | "paid" | null;
@@ -346,6 +349,8 @@ function mapSchemaEventToExtractedEvent(node: Record<string, unknown>): Extracte
   const endAt = nullUnlessParsableDate(node.endDate);
 
   const { isOnline, venueName, venueAddress } = extractVenueInfo(node);
+  const location = node.location as { address?: { addressLocality?: unknown } } | null;
+  const city = !isOnline ? normalizeEventCity(location?.address?.addressLocality) : null;
   const organizerName = extractOrganizerName(node.organizer);
   const posterImageUrl = extractImageUrl(node.image);
   const { priceType, priceNote } = extractPriceInfo(node);
@@ -360,6 +365,7 @@ function mapSchemaEventToExtractedEvent(node: Record<string, unknown>): Extracte
     venueName,
     venueAddress,
     organizerName,
+    city,
     posterImageUrl,
     priceType,
     priceNote,
@@ -759,6 +765,7 @@ async function extractViaLlm(
     isOnline: input.is_online,
     venueName: nullIfBlank(input.venue_name),
     venueAddress: nullIfBlank(input.venue_address),
+    city: input.is_online ? null : normalizeEventCity(input.city),
     organizerName: nullIfBlank(input.organizer_name),
     posterImageUrl: nullIfBlank(input.poster_image_url),
     // Anything other than the two known values collapses to "unknown" rather
