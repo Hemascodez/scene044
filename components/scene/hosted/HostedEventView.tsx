@@ -12,6 +12,7 @@ import { EventGlance } from "@/components/scene/EventGlance";
 import { Flipbook } from "@/components/scene/hosted/Flipbook";
 import { HostedPageActions } from "@/components/scene/hosted/HostedPageActions";
 import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration";
+import { ReadersEnrolled } from "@/components/scene/hosted/ReadersEnrolled";
 import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
 import { Mono } from "@/components/scene/ui";
 import { Quote } from "@/components/venues/figma/icons";
@@ -68,7 +69,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
             <span aria-hidden> · </span>
             {event.venueName ?? event.city}
             <span aria-hidden> · </span>
-            by {hosted.hostName}
+            {hosted.hostPerson ? `Hosted by ${hosted.hostPerson} · ${hosted.hostName}` : `by ${hosted.hostName}`}
           </p>
         </div>
       </section>
@@ -94,6 +95,8 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
         )}
 
         <EventGlance gist={event.gist} facts={hostedGlanceFacts(event)} bullets={[]} />
+
+        <ReadersEnrolled event={event} api={api} registerAnchorId="register" />
 
         <HostedRegistration event={event} api={api} anchorId="register" />
 

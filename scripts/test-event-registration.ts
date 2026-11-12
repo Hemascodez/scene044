@@ -92,6 +92,13 @@ async function main() {
     return true;
   });
 
+  // Live seats for the enrolled card; 404 means the backend has no live count yet.
+  stubFetch(200, { registeredCount: 15, capacity: 20 });
+  assert.deepEqual(await api.getSeats(), { registeredCount: 15, capacity: 20 });
+  assert.equal(calls.at(-1)!.url, "/api/events/42/seats");
+  stubFetch(404, { error: "Not found" });
+  assert.equal(await api.getSeats(), null);
+
   stubFetch(404, { error: "Not found" });
   assert.equal(await api.getTicket("missing"), null);
   assert.equal(calls.at(-1)!.url, "/api/events/42/tickets/missing");
@@ -119,6 +126,7 @@ async function main() {
   assert.deepEqual(await mock.getTicket(verified.ticketToken), verified.ticket);
   assert.equal((await mock.getTicket("mock-existing"))?.status, "confirmed");
   assert.equal(await mock.getTicket("nope"), null);
+  assert.deepEqual(await mock.getSeats(), { registeredCount: 14, capacity: 20 }, "the mock never invents joins");
   // A fresh mock (a page reload in the dev preview) still knows the ticket.
   assert.deepEqual(await mockRegistrationApi().getTicket(verified.ticketToken), verified.ticket);
 

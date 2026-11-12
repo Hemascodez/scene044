@@ -256,7 +256,11 @@ export function HostedRegistration({
       <section
         id={anchorId}
         aria-labelledby="hosted-registration-title"
-        className="scroll-mt-20 border-2 border-foreground bg-card p-4 shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-6"
+        className={`scroll-mt-20 ${
+          !checkingTicket && state.step === "idle"
+            ? "" // the Reader pass is its own dark card
+            : "border-2 border-foreground bg-card p-4 shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-6"
+        }`}
       >
         <h2 id="hosted-registration-title" className="sr-only">
           Registration
@@ -363,7 +367,7 @@ export function HostedRegistration({
                   />
                 </div>
                 <TermsConsent />
-                <PassFooter />
+                <PassFooter dark={false} />
               </div>
             ) : state.step === "confirming" ? (
               <div role="status" aria-live="polite">
@@ -435,7 +439,15 @@ function TermsConsent() {
   return (
     <p className="mt-3 text-center text-xs text-muted-foreground">
       By paying, you agree to the{" "}
-      <a href="#terms" className="font-semibold text-foreground underline underline-offset-2 hover:text-primary-ink">
+      <a
+        href="#terms"
+        onClick={() => {
+          // The terms sit in a collapsed card; open it so the link lands on them.
+          const details = document.getElementById("terms");
+          if (details instanceof HTMLDetailsElement) details.open = true;
+        }}
+        className="font-semibold text-foreground underline underline-offset-2 hover:text-primary-ink"
+      >
         Terms &amp; conditions
       </a>
       .

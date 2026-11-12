@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import type { GoodToKnowGroup, GoodToKnowIcon } from "@/lib/hostedEvents";
 import { venueMapEmbedUrl } from "@/lib/venueMaps";
 import { VenueMap } from "@/components/venues/VenueMap";
-import { Check, Clock, Coffee, MapPin, QrCode, Seating, Sparkle, Users } from "@/components/venues/figma/icons";
+import { Check, ChevronDown, Clock, Coffee, MapPin, QrCode, Seating, Sparkle, Users } from "@/components/venues/figma/icons";
 
 /**
  * "Good to know", "Where you will be" and "Before you book" for hosted
@@ -127,11 +127,28 @@ export function HostedWhere({ venueName, address, city }: { venueName: string; a
   );
 }
 
+/**
+ * "Before you book" as a collapsible card (native <details>, so keyboard and
+ * screen readers work without extra code). Closed by default; the "Terms &
+ * conditions" link on the registration card opens it.
+ */
 export function HostedTerms({ terms, refundPolicy }: { terms: string[]; refundPolicy: string }) {
   return (
-    <section id="terms" aria-labelledby="terms-title" className="scroll-mt-24 border-t border-line pt-10">
-      <h2 id="terms-title" className="font-head text-xl">Before you book</h2>
-      <div className="mt-5 grid gap-8 sm:grid-cols-[1.6fr_1fr]">
+    <section aria-labelledby="terms-title" className="border-t border-line pt-10">
+      <details id="terms" className="group scroll-mt-24 border-[1.5px] border-ink bg-white shadow-hard-sm">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
+          <span>
+            <h2 id="terms-title" className="font-head text-xl">Before you book</h2>
+            <span className="mt-1 block text-sm text-stone">Terms &amp; conditions · Refunds</span>
+          </span>
+          <span
+            aria-hidden="true"
+            className="grid size-9 shrink-0 place-items-center border-[1.5px] border-ink transition-transform duration-200 group-open:rotate-180"
+          >
+            <ChevronDown className="size-4" />
+          </span>
+        </summary>
+        <div className="grid gap-8 border-t border-line p-4 sm:grid-cols-[1.6fr_1fr] sm:p-5">
         <div>
           <h3 className="font-mono-b text-xs tracking-[0.96px] uppercase">Terms &amp; conditions</h3>
           <ul className="mt-3 space-y-2">
@@ -146,7 +163,8 @@ export function HostedTerms({ terms, refundPolicy }: { terms: string[]; refundPo
           <h3 className="font-mono-b text-xs tracking-[0.96px] uppercase">Refunds</h3>
           <p className="mt-3 text-sm leading-[22.75px] text-stone">{refundPolicy}</p>
         </div>
-      </div>
+        </div>
+      </details>
     </section>
   );
 }

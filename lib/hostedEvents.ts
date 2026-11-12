@@ -11,7 +11,10 @@ import type { PublicEventDetail } from "@/lib/events";
 export type RegistrationState = "open" | "sold_out" | "closed";
 
 export interface HostedEventInfo {
+  /** The organising community, e.g. "Chapter Lounge". */
   hostName: string;
+  /** The person hosting on the day, e.g. "Sadhana". */
+  hostPerson: string | null;
   /** Always from the server. The client never sends or derives an amount. */
   pricePaise: number;
   capacity: number;
@@ -133,6 +136,7 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
   gist: "Two unhurried hours to read whatever you're reading, with refreshments and good company.",
   hosted: {
     hostName: "Chapter Lounge",
+    hostPerson: "Sadhana",
     pricePaise: 29900,
     capacity: 20,
     registeredCount: 14,

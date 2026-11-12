@@ -143,3 +143,79 @@ export function playTicketPrint(timing: PrintTiming = PRINT_TIMING): void {
     // Never let sound break the confirmation.
   }
 }
+
+// ------------------------------------------------------------- swipe sounds
+
+/**
+ * The Reader pass design's swipe sounds: a filtered-noise whoosh whose
+ * loudness and pitch follow how fast and how far the thumb moves, and a
+ * rising burst when the swipe completes. Started from the pointerdown (a
+ * real gesture), which also unlocks the ticket printer's sound later.
+ */
+let whoosh: { source: AudioBufferSourceNode; filter: BiquadFilterNode; gain: GainNode } | null = null;
+
+export function startSwipeWhoosh(): void {
+  primeTicketSound();
+  try {
+    if (!context || whoosh) return;
+    const source = context.createBufferSource();
+    source.buffer = noiseBuffer(context, 2);
+    source.loop = true;
+    const filter = context.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 600;
+    filter.Q.value = 0.9;
+    const gain = context.createGain();
+    gain.gain.value = 0;
+    source.connect(filter).connect(gain).connect(context.destination);
+    source.start();
+    whoosh = { source, filter, gain };
+  } catch {
+    whoosh = null;
+  }
+}
+
+/** `velocity` in px/ms, `progress` 0–1 along the track. */
+export function setSwipeWhoosh(velocity: number, progress: number): void {
+  if (!whoosh || !context) return;
+  const t = context.currentTime;
+  whoosh.gain.gain.setTargetAtTime(Math.min(0.4, velocity * 0.25), t, 0.04);
+  whoosh.filter.frequency.setTargetAtTime(Math.min(6000, 500 + velocity * 1300 + progress * 1800), t, 0.05);
+}
+
+export function stopSwipeWhoosh(): void {
+  if (!whoosh || !context) return;
+  const { source, gain } = whoosh;
+  whoosh = null;
+  try {
+    const t = context.currentTime;
+    gain.gain.setTargetAtTime(0, t, 0.05);
+    source.stop(t + 0.3);
+  } catch {
+    // already stopped
+  }
+}
+
+export function playSwipeBurst(): void {
+  primeTicketSound();
+  try {
+    if (!context || context.state !== "running") return;
+    const t = context.currentTime;
+    const source = context.createBufferSource();
+    source.buffer = noiseBuffer(context, 0.5);
+    const filter = context.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.Q.value = 1.1;
+    filter.frequency.setValueAtTime(500, t);
+    filter.frequency.exponentialRampToValueAtTime(6000, t + 0.4);
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.45, t + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    source.connect(filter).connect(gain).connect(context.destination);
+    source.start(t);
+    source.stop(t + 0.5);
+  } catch {
+    // Never let sound break the swipe.
+  }
+}

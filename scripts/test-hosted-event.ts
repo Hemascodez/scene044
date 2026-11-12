@@ -40,11 +40,13 @@ assert.match(terms[9], /^These Terms & Conditions are subject to change/);
 assert.equal(refundPolicy, "Tickets once booked cannot be exchanged or refunded.");
 
 const facts = hostedGlanceFacts(CHAPTER_LOUNGE_FIXTURE);
-assert.deepEqual(facts.map((fact) => fact.label), ["When", "Where", "Price", "Bring"]);
+assert.deepEqual(facts.map((fact) => fact.label), ["When", "Where", "Host", "Price", "Bring"]);
 assert.equal(facts[0].value, "Sun, 22 Nov · 11:00 am – 1:00 pm");
 assert.equal(facts[1].value, "Madras Adda");
 assert.equal(facts[1].hint, "Mylapore, Chennai");
-assert.equal(facts[2].value, "₹299 · refreshments included");
-assert.equal(facts[3].value, "Any book, poetry or your Kindle");
+assert.equal(facts[2].value, "Sadhana · Chapter Lounge");
+assert.equal(facts[3].value, "₹299 · refreshments included");
+assert.equal(facts[4].value, "Any book, poetry or your Kindle");
+assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.hostPerson, "Sadhana");
 
 console.log("PASS hosted event seat summary and glance facts");

@@ -249,6 +249,7 @@ export function hostedGlanceFacts(event: HostedEventDetail): GlanceFact[] {
   return [
     when,
     { label: "Where", value: event.venueName ?? event.city, ...(event.venueAddress ? { hint: event.venueAddress } : {}) },
+    { label: "Host", value: event.hosted.hostPerson ? `${event.hosted.hostPerson} · ${event.hosted.hostName}` : event.hosted.hostName },
     { label: "Price", value: `${formatRupees(event.hosted.pricePaise)} · refreshments included` },
     { label: "Bring", value: "Any book, poetry or your Kindle" },
   ];

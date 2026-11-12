@@ -45,6 +45,8 @@ export interface RegistrationApi {
     razorpay_signature: string;
   }): Promise<{ ticket: Ticket; ticketToken: string }>;
   getTicket(token: string): Promise<Ticket | null>;
+  /** Live seat count for the enrolled card; null when the backend has none (404). */
+  getSeats(): Promise<{ registeredCount: number; capacity: number } | null>;
 }
 
 export class RegistrationError extends Error {
@@ -151,6 +153,15 @@ export function httpRegistrationApi(eventId: number): RegistrationApi {
       const { body } = await request<{ ticket: Ticket; ticketToken: string }>(`${base}/registrations/verify`, postJson(input));
       return body;
     },
+    async getSeats() {
+      try {
+        const { body } = await request<{ registeredCount: number; capacity: number }>(`${base}/seats`);
+        return { registeredCount: body.registeredCount, capacity: body.capacity };
+      } catch (error) {
+        if (error instanceof RegistrationError && error.status === 404) return null;
+        throw error;
+      }
+    },
     async getTicket(token) {
       try {
         const { body } = await request<{ ticket: Ticket }>(`${base}/tickets/${encodeURIComponent(token)}`);
@@ -238,6 +249,10 @@ export function mockRegistrationApi(): RegistrationApi {
       tickets.set(ticketToken, ticket);
       saveMockTickets(tickets);
       return { ticket, ticketToken };
+    },
+    async getSeats() {
+      // Fixed, like the fixture: the dev preview never invents people joining.
+      return { registeredCount: 14, capacity: 20 };
     },
     async getTicket(token) {
       await wait(200);
