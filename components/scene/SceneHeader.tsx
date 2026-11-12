@@ -1,18 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { SceneLogo, type SceneLogoVariant } from "@/components/brand/SceneLogo";
 
-export function Wordmark({ size = "text-xl" }: { size?: string }) {
-  return (
-    <span className="flex items-baseline gap-0.5">
-      <span className={`font-display ${size} font-black tracking-tighter`}>SCENE</span>
-      <span
-        className={`bg-primary px-1.5 font-display ${size} font-black tracking-tighter text-primary-foreground`}
-      >
-        /044
-      </span>
-    </span>
-  );
+export function Wordmark({ size = "text-xl",variant="light" }: { size?: string;variant?:SceneLogoVariant }) {
+  return <SceneLogo variant={variant} className={size==='text-lg'?'h-10 w-auto':'h-8 w-auto sm:h-9'}/>;
 }
 
 export function SceneHeader({
@@ -38,7 +30,7 @@ export function SceneHeader({
       </a>
 
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
-        <button type="button" onClick={onDiscover} className="group" aria-label="SCENE/044 — home">
+        <button type="button" onClick={onDiscover} className="group" aria-label="SCENE — home">
           <Wordmark />
         </button>
 
@@ -84,7 +76,7 @@ export function SceneHeaderStatic() {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
-        <Link href="/" aria-label="SCENE/044 — home">
+        <Link href="/" aria-label="SCENE — home">
           <Wordmark />
         </Link>
         <Link

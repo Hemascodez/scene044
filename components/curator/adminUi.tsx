@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, type ReactNode } from "react";
+import { SceneLogo } from "@/components/brand/SceneLogo";
 
 /**
  * Scoped dark-admin primitives.
@@ -168,11 +169,8 @@ export function Divider() {
 
 export function AdminWordmark({ suffix }: { suffix?: string }) {
   return (
-    <div className="flex items-baseline gap-0.5">
-      <span className="font-display text-lg font-black tracking-tighter text-[#e9efe7]">SCENE</span>
-      <span className="bg-[#39ff9b] px-1.5 font-display text-lg font-black tracking-tighter text-[#04160d]">
-        /044
-      </span>
+    <div className="flex flex-wrap items-center gap-0.5">
+      <SceneLogo variant="dark" className="h-9 w-auto"/>
       {suffix && (
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8ba295]">{suffix}</span>
       )}

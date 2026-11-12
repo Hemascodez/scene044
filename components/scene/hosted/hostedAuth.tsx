@@ -20,7 +20,7 @@ export interface HostedProfile {
 interface HostedAuthValue {
   profile: HostedProfile | null;
   /** Runs `then` now if signed in, else after the guest signs in. */
-  requireAuth: (then: (profile: HostedProfile) => void) => void;
+  requireAuth: (then: (profile: HostedProfile) => void,force?:boolean) => void;
 }
 
 const Ctx = createContext<HostedAuthValue | null>(null);
@@ -33,7 +33,7 @@ export function useHostedAuth(): HostedAuthValue {
 
 const SIGN_IN_COPY = {
   title: "Sign in to get your pass",
-  body: "We'll send a one-time code to your WhatsApp. Your ticket and reminders come there too.",
+  body: "We'll send a one-time code to your WhatsApp. Your ticket will be in My bookings; WhatsApp ticket updates are optional.",
 };
 
 function toHosted(profile: Profile): HostedProfile {
@@ -46,8 +46,8 @@ export function VenueAuthBridge({ children }: { children: ReactNode }) {
   const value = useMemo<HostedAuthValue>(
     () => ({
       profile: profile ? toHosted(profile) : null,
-      requireAuth: (then) => {
-        if (profile) then(toHosted(profile));
+      requireAuth: (then,force=false) => {
+        if (profile && !force) then(toHosted(profile));
         else requireAuth((p) => then(toHosted(p)), SIGN_IN_COPY);
       },
     }),

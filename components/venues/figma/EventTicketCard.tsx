@@ -43,7 +43,7 @@ export function EventTicketCard({ t, i, past = false }: { t: MyEventTicket; i: n
           {t.posterImageUrl ? (
             <img src={t.posterImageUrl} alt={`Poster for ${t.title}`} className="size-full object-cover" />
           ) : (
-            <div className="grid size-full place-items-center font-mono-b text-xs text-stone">SCENE/044</div>
+            <div className="grid size-full place-items-center font-mono-b text-xs text-stone">SCENE</div>
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col">

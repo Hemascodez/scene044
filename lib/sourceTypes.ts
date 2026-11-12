@@ -68,6 +68,7 @@ export function classifySourceType(domain: string): SourceType {
  * category maps to today; those events currently land in `startups` or `tech`.
  */
 export const CATEGORY_FILTER_LABELS: Record<Category, string> = {
+  arts: "Arts",
   ai: "AI",
   tech: "Development",
   design: "Design",

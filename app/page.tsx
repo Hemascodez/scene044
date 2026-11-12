@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_IN",
     url: "/",
-    siteName: "SCENE/044",
+    siteName: "SCENE",
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     images: [{ url: "/stock/tech-1.jpg", alt: "Chennai's technology event scene" }],

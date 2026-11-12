@@ -5,7 +5,7 @@ import DevMyBookings from "@/components/venues/figma/DevMyBookings";
 
 /** Dev-only preview of My bookings with a hosted-event ticket. Never served in production. */
 export const metadata: Metadata = {
-  title: "My bookings preview — SCENE/044",
+  title: "My bookings preview — SCENE",
   robots: { index: false, follow: false },
 };
 

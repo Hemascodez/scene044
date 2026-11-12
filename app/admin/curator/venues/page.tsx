@@ -6,7 +6,7 @@ import { VenueCuratorApp } from "@/components/curator/VenueCuratorApp";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Venue curator — SCENE/044",
+  title: "Venue curator — SCENE",
   robots: { index: false, follow: false },
 };
 

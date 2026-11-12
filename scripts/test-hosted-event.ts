@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { CHAPTER_LOUNGE_FIXTURE, formatRupees, seatSummary } from "../lib/hostedEvents";
+import { CHAPTER_LOUNGE_FIXTURE, formatRupees, seatSummary, isSceneHostedEvent } from "../lib/hostedEvents";
 import { hostedGlanceFacts } from "../lib/client/sceneEvent";
 
 const END = "2026-11-22T07:30:00.000Z"; // 1:00 pm IST
@@ -26,6 +26,12 @@ assert.equal(seatSummary(hosted, END, BEFORE, "live").state, "open");
 
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.pricePaise, 29900);
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.capacity, 20);
+assert.equal(CHAPTER_LOUNGE_FIXTURE.category,'arts');
+assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.registeredCount,0,'real event starts with zero registrations');
+assert.equal(isSceneHostedEvent({hostedPricePaise:29900}),true);
+assert.equal(isSceneHostedEvent({}),false,'external Arts events are not automatically SCENE hosted');
+assert.equal(isSceneHostedEvent({hostedPricePaise:null}),false);
+assert.equal(isSceneHostedEvent({hostedPricePaise:NaN}),false);
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.gallery.length, 7);
 assert.ok(CHAPTER_LOUNGE_FIXTURE.hosted.gallery.every((photo) => photo.alt.trim().length > 0), "every gallery photo has alt text");
 

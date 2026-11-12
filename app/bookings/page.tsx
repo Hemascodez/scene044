@@ -3,7 +3,7 @@ import { VenueShell } from "@/components/venues/VenueShell";
 import MyBookingsPage from "@/components/venues/figma/MyBookingsPage";
 
 export const metadata: Metadata = {
-  title: "My venue bookings — SCENE/044",
+  title: "My venue bookings — SCENE",
   robots: { index: false, follow: false },
 };
 

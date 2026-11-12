@@ -12,6 +12,7 @@ import {
 } from "@/lib/whatsappDigest";
 import { sendWhatsappText } from "@/lib/whatsappSend";
 import { recordVenueNotificationReceipt } from '@/lib/venueNotifications';
+import { recordEventNotificationReceipt, stopEventWhatsappUpdates } from '@/lib/eventNotifications';
 import {
   categoriesFromMessage,
   isWhatsappStop,
@@ -140,6 +141,8 @@ export async function POST(request: NextRequest) {
           });
           await recordVenueNotificationReceipt(providerMessageId, providerStatus,
             typeof status.biz_opaque_callback_data === 'string' ? status.biz_opaque_callback_data : undefined, deliveryError(status));
+          await recordEventNotificationReceipt(providerMessageId,providerStatus,
+            typeof status.biz_opaque_callback_data==='string' ? status.biz_opaque_callback_data : undefined);
         }
 
         const messages = (value?.messages ?? []) as Record<string, unknown>[];
@@ -152,9 +155,10 @@ export async function POST(request: NextRequest) {
           // otherwise reactivates an unsubscribed row by design.
           if (isWhatsappStop(body)) {
             const subscriber = await unsubscribeWhatsappByPhone(from);
+            await stopEventWhatsappUpdates(from);
             const confirmation = sendWhatsappText(
               from,
-              "You've been unsubscribed from SCENE/044 WhatsApp updates. You won't receive future event digests.",
+              "You've been unsubscribed from SCENE WhatsApp updates. You won't receive future event digests.",
             );
             const sheetSync = subscriber ? syncSubscriberToSheet(subscriber) : Promise.resolve(false);
             await Promise.all([confirmation, sheetSync]);

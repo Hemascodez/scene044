@@ -13,7 +13,7 @@ import { venueMapEmbedUrl } from "@/lib/venueMaps";
 import { venueBookingDateError } from "@/lib/venueAvailability";
 
 export const metadata: Metadata = {
-  title: "Search Chennai Event Spaces — SCENE/044",
+  title: "Search Chennai Event Spaces — SCENE",
   description: "Compare event spaces by capacity, location and hourly rates before sending a request.",
   alternates: { canonical: "/venues/search" },
 };

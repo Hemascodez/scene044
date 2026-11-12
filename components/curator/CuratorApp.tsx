@@ -302,6 +302,7 @@ export function CuratorApp() {
           <AdminLink href="/admin/curator/venues" variant="ghost" newTab={false}>
             Venues →
           </AdminLink>
+          <AdminLink href="/admin/curator/hosting" variant="ghost" newTab={false}>Event hosting →</AdminLink>
           <AdminLink href="/" variant="ghost" newTab={false}>
             Public site ↗
           </AdminLink>
@@ -727,7 +728,7 @@ function PublishedList({
       ) : list.length === 0 ? (
         <div className="border border-dashed border-[#2c4236] p-12 text-center">
           <span className="font-display text-4xl font-black text-[#25382e]" aria-hidden>
-            044
+            SCENE
           </span>
           <p className="mt-3 text-sm text-[#8ba295]">
             Nothing published yet. Review a pending candidate and publish it — it appears in the public feed

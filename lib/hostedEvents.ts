@@ -1,7 +1,7 @@
 import type { PublicEventDetail } from "@/lib/events";
 
 /**
- * Events SCENE/044 hosts itself, where the event page takes the registration
+ * Events SCENE hosts itself, where the event page takes the registration
  * and payment instead of linking out. The backend attaches `hosted` to the
  * event detail (see docs/hosted-event-backend-contract.md); everything here is
  * shape and display logic only.
@@ -44,6 +44,11 @@ export interface GoodToKnowGroup {
 }
 
 export type HostedEventDetail = PublicEventDetail & { hosted: HostedEventInfo };
+
+/** Hosting is a booking format, not a topic: an Arts event can also be SCENE hosted. */
+export function isSceneHostedEvent(event: {hostedPricePaise?:number|null}):boolean {
+  return typeof event.hostedPricePaise === 'number' && Number.isSafeInteger(event.hostedPricePaise) && event.hostedPricePaise > 0;
+}
 
 export interface SeatSummary {
   state: RegistrationState | "ended";
@@ -122,7 +127,7 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
   tags: [],
   isPromoted: false,
   registrationNote: null,
-  category: "marketing",
+  category: "arts",
   startAt: "2026-11-22T05:30:00.000Z",
   endAt: "2026-11-22T07:30:00.000Z",
   isOnline: false,
@@ -146,7 +151,7 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
     hostPerson: "Sadhana",
     pricePaise: 29900,
     capacity: 20,
-    registeredCount: 14,
+    registeredCount: 0,
     registrationState: "open",
     description: CHAPTER_LOUNGE_DESCRIPTION,
     // In flipbook page order (I–VII), as in the "Previous events book flip" design.

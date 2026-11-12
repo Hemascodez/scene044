@@ -137,20 +137,20 @@ export function EventReminderCard({
         <button
           type="button"
           onClick={onRequestSend}
-          disabled={sending}
+          disabled={sending || template.available===false || template.audience===0 || Boolean(template.lastSentAt) || Boolean(sent)}
           aria-live="polite"
           className={`${styles.btn} relative mt-4 flex h-[58px] w-full items-center justify-center gap-2.5 overflow-hidden bg-[linear-gradient(135deg,#ff8a77,#ff5a43)] font-display text-[17px] font-bold text-[#1a0a08] shadow-[0_10px_22px_-10px_rgba(255,45,22,.8),inset_0_1px_0_rgba(255,255,255,.35)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-progress`}
         >
           {sending && <span aria-hidden="true" className={`${styles.sendingFill} absolute inset-0 bg-[linear-gradient(135deg,#86efac,#4ade80)]`} />}
           <svg className="relative" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z" /></svg>
-          <span className="relative">{sending ? 'Sending…' : sent ? 'Send again on WhatsApp' : 'Send on WhatsApp'}</span>
+          <span className="relative">{sending ? 'Queueing…' : sent || template.lastSentAt ? 'Reminder already queued' : template.available===false ? 'Awaiting setup' : template.audience===0 ? 'No opted-in guests yet' : 'Send on WhatsApp'}</span>
         </button>
 
         <div className="mt-3 flex min-h-7 items-center justify-center">
           {sent && !sending && (
             <span className={`${styles.banner} inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.08em]`} style={{ background: 'rgba(74,222,128,.14)', borderColor: 'rgba(74,222,128,.5)', color: '#86efac' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5" /></svg>
-              SENT TO {sent.sent} GUESTS
+              {sent.pending ? `QUEUED FOR ${sent.pending} GUESTS` : `SENT TO ${sent.sent} GUESTS`}
             </span>
           )}
         </div>

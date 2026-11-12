@@ -9,6 +9,7 @@ interface VerifyOtpBody {
   email?: unknown;
   role?: unknown;
   venue?: unknown;
+  eventId?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -26,7 +27,10 @@ export async function POST(request: Request) {
   }
   const name = typeof body.name === "string" ? body.name.trim() : undefined;
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : undefined;
-  if (body.role === 'Host' && (typeof body.venue !== 'string' || !body.venue.trim() || body.venue.length > 150)) {
+  if (body.role === 'Host' && body.eventId !== undefined && (!Number.isSafeInteger(body.eventId) || Number(body.eventId)<=0 || body.venue)) {
+    return NextResponse.json({error:'Select your event.'},{status:400});
+  }
+  if (body.role === 'Host' && body.eventId === undefined && (typeof body.venue !== 'string' || !body.venue.trim() || body.venue.length > 150)) {
     return NextResponse.json({ error: 'Select your venue.' }, { status: 400 });
   }
   if ((name && (name.length < 2 || name.length > 120)) || (email && (email.length > 300 || !/^\S+@\S+\.\S+$/.test(email)))) {
@@ -40,6 +44,7 @@ export async function POST(request: Request) {
       email,
       role: body.role === "Host" ? "Host" : "Organiser",
       venue: typeof body.venue === "string" ? body.venue : undefined,
+      eventId:body.role === 'Host' && typeof body.eventId === 'number' ? body.eventId : undefined,
     });
   } catch (err) {
     console.error("whatsapp verify-otp: failed", err);

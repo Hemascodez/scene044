@@ -160,7 +160,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
     try {
       const sent = await api.sendReminder(event.id, template.id)
       setSentByTemplate((all) => ({ ...all, [template.id]: sent }))
-      showToast(`Sent "${sent.templateName}" to ${sent.sent} guests on WhatsApp.`)
+      showToast(sent.pending ? `Queued "${sent.templateName}" for ${sent.pending} guests. Delivery status will update here.` : `Sent "${sent.templateName}" to ${sent.sent} guests on WhatsApp.`)
       void refresh()
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not send this reminder.')
@@ -204,7 +204,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
               {event?.posterImageUrl ? (
                 <img src={event.posterImageUrl} alt="" className="size-10 shrink-0 rounded border-[1.5px] border-ink object-cover shadow-hard-sm" />
               ) : (
-                <span className="grid size-10 shrink-0 place-items-center rounded border-[1.5px] border-ink bg-paper font-mono-b text-[10px] shadow-hard-sm">044</span>
+                <span className="grid size-10 shrink-0 place-items-center rounded border-[1.5px] border-ink bg-paper font-mono-b text-[10px] shadow-hard-sm">SCENE</span>
               )}
               <div className="min-w-0">
                 <p className="truncate font-head text-base leading-tight text-ink">{event?.title ?? 'Your event'}</p>
@@ -379,7 +379,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                   onRefresh={() => void refresh()}
                   onToken={async (text) => {
                     const token = parseTicketQr(text, window.location.hostname)
-                    if (!token) return 'That is not a SCENE/044 ticket QR. Point at the reader’s ticket.'
+                    if (!token) return 'That is not a SCENE ticket QR. Point at the reader’s ticket.'
                     return checkIn({ token })
                   }}
                 />
@@ -481,8 +481,8 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                 <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {([
                     ['Collected', formatRupees(money.grossPaise), 'text-ink'],
-                    ['Razorpay fees', formatRupees(money.feesPaise), 'text-stone'],
-                    ['Net to you', formatRupees(money.netPaise), 'text-moss'],
+                    ['Razorpay fees', money.feesKnown===false ? 'Processing' : formatRupees(money.feesPaise), 'text-stone'],
+                    ['Net after fees', money.feesKnown===false ? 'Processing' : formatRupees(money.netPaise), 'text-moss'],
                     ['Payments', String(money.paymentsCount), 'text-ink'],
                   ] as const).map(([label, value, tone]) => (
                     <div key={label} className="border-[1.5px] border-ink bg-white p-5 shadow-hard">
@@ -491,6 +491,11 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                     </div>
                   ))}
                 </dl>
+                {(money.reviewCount ?? 0) > 0 && (
+                  <p role="status" className="border-[1.5px] border-flame/40 bg-flame/10 p-4 text-sm text-ink">
+                    {money.reviewCount} captured payment{money.reviewCount === 1 ? '' : 's'} need SCENE support before a ticket can be issued. These are not confirmed bookings or available payouts.
+                  </p>
+                )}
                 <section aria-labelledby="payments-heading">
                   <h2 id="payments-heading" className="border-b border-line pb-3 font-head text-xl text-ink">Payments</h2>
                   <ul className="mt-4 space-y-3">
@@ -522,7 +527,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
         <Dialog
           size="sm"
           title={`Send to ${confirming.audience} guests on WhatsApp?`}
-          description={`"${confirming.name}" goes to every confirmed reader for ${event?.title ?? 'this event'}. This can't be undone.`}
+          description={`"${confirming.name}" goes to confirmed guests who opted in to WhatsApp for ${event?.title ?? 'this event'}. This can't be undone.`}
           onClose={() => !sending && setConfirming(null)}
         >
           <p className="border-[1.5px] border-line bg-paper p-3 font-mono text-xs leading-5 text-ink">{confirming.preview}</p>

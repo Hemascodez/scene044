@@ -3,7 +3,7 @@ import { VenueShell } from "@/components/venues/VenueShell";
 import EventHostWorkspace from "@/components/venues/figma/EventHostWorkspace";
 
 export const metadata: Metadata = {
-  title: "Event workspace — SCENE/044",
+  title: "Event workspace — SCENE",
   robots: { index: false, follow: false },
 };
 
@@ -11,9 +11,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * The organiser's event workspace. Access is enforced by the /api/host/events
- * endpoints (approved event-host numbers). Note: proxy.ts currently admits
- * only curators and venue hosts under /host — see
- * docs/hosted-event-backend-contract.md for the change the backend must make.
+ * endpoints and proxy (approved event-host numbers). Venue permissions remain
+ * separate; event hosts never gain venue booking access from this page.
  */
 export default function HostEventsPage() {
   return (

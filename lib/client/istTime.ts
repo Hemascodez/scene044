@@ -125,7 +125,7 @@ export function countdown(iso: string, now: Date = new Date()): string {
   return `in ${minutes}m`;
 }
 
-/** "3 hrs ago" — when SCENE/044 last re-checked the listing. */
+/** "3 hrs ago" — when SCENE last re-checked the listing. */
 export function relativeChecked(iso: string, now: Date = new Date()): string {
   const mins = Math.round((now.getTime() - Date.parse(iso)) / 60_000);
   if (mins < 1) return "just now";

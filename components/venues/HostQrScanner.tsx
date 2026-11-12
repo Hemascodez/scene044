@@ -39,7 +39,7 @@ export function HostQrScanner({ onRefresh, onToken, label = 'Scan booking QR' }:
           if (!['scene044.in', 'www.scene044.in', window.location.hostname].includes(url.hostname)) throw new Error();
           const match = /^\/host\/checkin\/([a-f0-9]{48})$/.exec(url.pathname);
           if (!match) throw new Error(); token = match[1];
-        } catch { setMessage('That is not a SCENE/044 booking QR. Point at the organiser’s booking pass.'); return; }
+        } catch { setMessage('That is not a SCENE booking QR. Point at the organiser’s booking pass.'); return; }
         processing.current = true; generation.current++; scan.stop(); controls.current = null; setRunning(false);
         try {
           const { booking } = await checkInBooking({ token });

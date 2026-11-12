@@ -11,15 +11,15 @@ interface Props { params: Promise<{ collection: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const collection = getEventCollection((await params).collection);
-  if (!collection) return { title: 'Page not found — SCENE/044', robots: { index: false, follow: false } };
-  const title = `${collection.title} | SCENE/044`;
+  if (!collection) return { title: 'Page not found — SCENE', robots: { index: false, follow: false } };
+  const title = `${collection.title} | SCENE`;
   const description = truncateSeoText(collection.description);
   const canonical = eventCollectionPath(collection);
   return {
     title, description, alternates: { canonical },
     openGraph: {
-      type: 'website', locale: 'en_IN', siteName: 'SCENE/044', url: canonical, title, description,
-      images: [{ url: '/stock/tech-1.jpg', alt: 'Chennai event discovery on SCENE/044' }],
+      type: 'website', locale: 'en_IN', siteName: 'SCENE', url: canonical, title, description,
+      images: [{ url: '/stock/tech-1.jpg', alt: 'Chennai event discovery on SCENE' }],
     },
     twitter: { card: 'summary_large_image', title, description, images: ['/stock/tech-1.jpg'] },
   };

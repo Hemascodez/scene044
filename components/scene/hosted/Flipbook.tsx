@@ -190,7 +190,7 @@ function Cover() {
           Readings
         </div>
         <div style={{ marginTop: 20, width: 130, height: 1, background: GOLD }} />
-        <div style={{ marginTop: 14, fontWeight: 600, fontSize: 13, letterSpacing: ".3em", color: GOLD }}>SCENE/044</div>
+        <div style={{ marginTop: 14, fontWeight: 600, fontSize: 13, letterSpacing: ".3em", color: GOLD }}>SCENE</div>
       </div>
     </div>
   );
@@ -225,7 +225,7 @@ function EndPage() {
           Be part of the memories.
         </div>
         <div style={{ marginTop: 20, width: 120, height: 1, background: GOLD_DARK }} />
-        <div style={{ marginTop: 16, fontWeight: 600, fontSize: 13, letterSpacing: ".3em", color: INK_BROWN }}>SCENE/044</div>
+        <div style={{ marginTop: 16, fontWeight: 600, fontSize: 13, letterSpacing: ".3em", color: INK_BROWN }}>SCENE</div>
       </div>
       <div className={styles.shadeL} />
     </div>

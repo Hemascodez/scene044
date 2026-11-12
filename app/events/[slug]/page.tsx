@@ -40,6 +40,7 @@ export const dynamic = "force-dynamic";
 
 interface EventPageProps {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ticket?:string}>;
 }
 
 // Metadata and page rendering ask for the same row. React's request cache keeps
@@ -52,7 +53,7 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
   const event = id === null ? null : await getEvent(id);
   if (!event) {
     return {
-      title: "Event not found — SCENE/044",
+      title: "Event not found — SCENE",
       robots: { index: false, follow: false },
     };
   }
@@ -64,15 +65,16 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
   return {
     title,
     description,
+    ...(event.hosted ? {referrer:'no-referrer' as const} : {}),
     alternates: { canonical },
     openGraph: {
       type: "website",
       locale: "en_IN",
       url: canonical,
-      siteName: "SCENE/044",
+      siteName: "SCENE",
       title,
       description,
-      images: [{ url: image, alt: event.posterImageUrl ? `Poster for ${event.title}` : 'SCENE/044 event discovery' }],
+      images: [{ url: image, alt: event.posterImageUrl ? `Poster for ${event.title}` : 'SCENE event discovery' }],
     },
     twitter: {
       card: "summary_large_image",
@@ -83,14 +85,17 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
   };
 }
 
-export default async function EventPage({ params }: EventPageProps) {
+export default async function EventPage({ params,searchParams }: EventPageProps) {
   const { slug } = await params;
   const id = eventIdFromSlug(slug);
   if (id === null) notFound();
 
   const event = await getEvent(id);
   if (!event) notFound();
-  if (slug !== eventSlug(event)) permanentRedirect(eventPath(event));
+  if (slug !== eventSlug(event)) {
+    const ticket=(await searchParams)?.ticket;
+    permanentRedirect(eventPath(event)+(event.hosted && typeof ticket==='string' && /^[a-f0-9]{64}$/.test(ticket) ? `?ticket=${ticket}` : ''));
+  }
 
   const field = getFieldCardForCategory(event.category);
   const fieldName = field?.label ?? event.category;
@@ -264,7 +269,7 @@ export default async function EventPage({ params }: EventPageProps) {
               {event.otherSourceDomains.length > 0 && ` · also on ${event.otherSourceDomains.join(", ")}`}
               <span aria-hidden> · </span>
               {event.lastVerifiedAt
-                ? `Checked ${relativeChecked(event.lastVerifiedAt)} by SCENE/044`
+                ? `Checked ${relativeChecked(event.lastVerifiedAt)} by SCENE`
                 : "Not re-checked since discovery"}
             </p>
 

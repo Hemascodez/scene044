@@ -4,7 +4,7 @@ import { classifyDateBucket, formatSceneDateLong, getISTParts } from '@/lib/clie
 import { byPromotedThenSoonest, isHiddenFromFeed } from '@/lib/client/sceneEvent';
 import { isChennaiDiscoveryEvent } from '@/lib/eventLocations';
 
-export const EVENTS_SEARCH_TITLE = 'Events in Chennai This Week | Meetups & Workshops — SCENE/044';
+export const EVENTS_SEARCH_TITLE = 'Events in Chennai This Week | Meetups & Workshops — SCENE';
 export const EVENTS_SEARCH_DESCRIPTION = 'Find events in Chennai this week: tech and AI meetups, startup networking, design workshops and finance events. Check dates, venues and registration links.';
 
 export interface EventCollection {

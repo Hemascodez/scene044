@@ -82,7 +82,7 @@ export function EventCard({
           ) : (
             <div className="flex size-full flex-col items-center justify-center bg-secondary">
               <span className="font-display text-4xl font-black tracking-tighter text-muted-foreground/40">
-                044
+                SCENE
               </span>
               <Mono className="text-[9px] text-muted-foreground">No poster</Mono>
             </div>
@@ -116,7 +116,7 @@ export function EventCard({
             <span className="absolute left-0 top-0 m-1.5 flex flex-col items-start gap-1">
               {event.hostedPricePaise != null && (
                 <span className="bg-primary-ink px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
-                  Hosted · {formatRupees(event.hostedPricePaise)}
+                  SCENE hosted · {formatRupees(event.hostedPricePaise)}
                 </span>
               )}
               {event.isPromoted && (

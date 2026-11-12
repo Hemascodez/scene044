@@ -6,7 +6,7 @@ import { getHostVenueSlug } from '@/lib/venueHostAccess';
 import { getCatalogVenue } from '@/lib/venueCatalog';
 
 export const metadata: Metadata = {
-  title: "Host view — SCENE/044",
+  title: "Host view — SCENE",
   robots: { index: false, follow: false },
 };
 

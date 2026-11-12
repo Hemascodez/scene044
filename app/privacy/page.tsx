@@ -4,8 +4,8 @@ import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { SceneFooter } from "@/components/scene/SceneHero";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — SCENE/044",
-  description: "How SCENE/044 handles event, venue, booking and account information.",
+  title: "Privacy Policy — SCENE",
+  description: "How SCENE handles event, venue, booking and account information.",
 };
 
 const CONTACT_EMAIL = "uhema2011@gmail.com";
@@ -16,17 +16,18 @@ export default function PrivacyPage() {
       <SceneHeaderStatic />
       <main className="mx-auto max-w-2xl px-4 py-12 lg:px-6">
         <h1 className="font-display text-4xl font-black leading-tight tracking-tighter">Privacy Policy</h1>
-        <p className="mt-2 font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground">Last updated 13 October 2026</p>
+        <p className="mt-2 font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground">Last updated 12 November 2026</p>
         <div className="prose-scene mt-8 space-y-8 text-sm leading-relaxed">
           <section>
             <h2 className="font-display text-xl font-bold">Who we are</h2>
-            <p className="mt-2">SCENE/044 helps people discover Chennai events and request physical event spaces. You can browse listings without signing in. You need a verified account to request and manage a venue booking. Contact us about privacy at <a className="underline underline-offset-2" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
+            <p className="mt-2">SCENE helps people discover Chennai events and request physical event spaces. You can browse listings without signing in. You need a verified account to request and manage a venue booking. Contact us about privacy at <a className="underline underline-offset-2" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
           </section>
           <section>
             <h2 className="font-display text-xl font-bold">Information we handle</h2>
             <ul className="mt-2 list-disc space-y-1.5 pl-5">
               <li><strong>Account and verification:</strong> name, Indian mobile number, optional email, account role, verified sign-in sessions and, if you add one, a profile photo.</li>
               <li><strong>Venue requests and bookings:</strong> selected space and time, guest count, event type, message, optional social or website link, booking status, check-in and order history. We keep a booking reference and records of payments and refunds where applicable.</li>
+              <li><strong>SCENE-hosted event registrations:</strong> selected event, name, email, verified mobile number, ticket and payment references, optional WhatsApp consent, waitlist and check-in status. Approved hosts of that event can view and export its guest list. Keep ticket links private: anyone holding a valid ticket link can view that pass.</li>
               <li><strong>Host and partner details:</strong> approved host numbers, venue listing information, photos, pricing, and venue submissions you choose to send us.</li>
               <li><strong>Reviews:</strong> your rating, written feedback, optional photos and the name shown with your review, subject to review moderation.</li>
               <li><strong>Alerts:</strong> your phone number and chosen interests if you opt in to WhatsApp updates, or your email and preferences if you subscribe to email alerts.</li>
@@ -39,7 +40,7 @@ export default function PrivacyPage() {
           </section>
           <section>
             <h2 className="font-display text-xl font-bold">Services involved</h2>
-            <p className="mt-2">Railway hosts our application and database. Meta/WhatsApp delivers verification codes and booking or alert messages. Razorpay processes venue payments; we receive payment references and status, not your full card details. Google Analytics measures use of the website, and Google Maps loads only when you open a venue map. A host who chooses to scan a check-in QR grants the browser camera access for that scan; the video feed is not stored by SCENE/044. External event registration pages and payment providers have their own privacy practices.</p>
+            <p className="mt-2">Railway hosts our application and database. Meta/WhatsApp delivers verification codes and booking or alert messages. Razorpay processes venue and SCENE-hosted event payments; we receive payment references and status, not your full card details. Event ticket updates and reminders on WhatsApp are optional. Google Analytics measures use of the website, and Google Maps loads when you open a map. A host who chooses to scan a check-in QR grants the browser camera access for that scan; the video feed is not stored by SCENE. External event registration pages and payment providers have their own privacy practices.</p>
           </section>
           <section>
             <h2 className="font-display text-xl font-bold">Security and retention</h2>
@@ -47,7 +48,7 @@ export default function PrivacyPage() {
           </section>
           <section>
             <h2 className="font-display text-xl font-bold">Your choices and deletion</h2>
-            <p className="mt-2">You can edit your account information in your profile. You can stop optional WhatsApp alerts by replying to opt out, and email alerts through their unsubscribe link. To ask for access, correction or deletion of your account and associated data, visit <Link href="/account/delete" className="underline underline-offset-2">Delete your SCENE/044 account</Link> or email <a className="underline underline-offset-2" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. We will verify account ownership and explain any records we must retain.</p>
+            <p className="mt-2">You can edit your account information in your profile. You can stop optional WhatsApp alerts by replying to opt out, and email alerts through their unsubscribe link. To ask for access, correction or deletion of your account and associated data, visit <Link href="/account/delete" className="underline underline-offset-2">Delete your SCENE account</Link> or email <a className="underline underline-offset-2" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. We will verify account ownership and explain any records we must retain.</p>
           </section>
           <section>
             <h2 className="font-display text-xl font-bold">Contact</h2>

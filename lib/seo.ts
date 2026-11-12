@@ -6,7 +6,7 @@ import type { CatalogVenue } from "@/lib/venueCatalog";
 import { venueSearchDescription, venueSearchIntent, VENUES_SEARCH_DESCRIPTION, VENUES_SEARCH_TITLE } from "@/lib/venueDiscovery";
 import { eventCollectionPath, EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE, type EventCollection } from '@/lib/eventDiscovery';
 
-export const SITE_NAME = "SCENE/044";
+export const SITE_NAME = "SCENE";
 export const SITE_URL = "https://scene044.in";
 
 /** Stable human-readable URL. The id is authoritative, so title edits only
@@ -63,13 +63,13 @@ export function eventSeoDescription(event: PublicEvent): string {
     : "date to be announced";
   const where = event.isOnline ? "online" : [event.venueName, event.city].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).join(', ');
   return truncateSeoText(
-    `${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary || `${event.title}. See event details and the original registration link on SCENE/044.`}`,
+    `${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary || `${event.title}. See event details and the original registration link on SCENE.`}`,
   );
 }
 
 export function eventSeoTitle(event: PublicEvent): string {
   const location = event.isOnline ? 'Online event' : `${event.city || 'Chennai'} event`;
-  return `${event.title} — ${location} | SCENE/044`;
+  return `${event.title} — ${location} | SCENE`;
 }
 
 /** Metadata only: never rewrites the curator's visible copy or pricing. */
@@ -79,7 +79,7 @@ export function venueSeoDescription(venue: CatalogVenue): string {
 
 export function venueSeoTitle(venue: CatalogVenue): string {
   const purpose = venueSearchIntent(venue)?.title ?? 'Event Space';
-  return `${venue.name} — ${purpose} in ${venue.area}, ${venue.city} | SCENE/044`;
+  return `${venue.name} — ${purpose} in ${venue.area}, ${venue.city} | SCENE`;
 }
 
 /** Describe only the live listings actually rendered on the venue landing. */
@@ -116,9 +116,10 @@ export function categorySeoDescription(card: FieldCard): string {
     startups: 'startup events, founder meetups, business networking and entrepreneurship sessions',
     data: 'data and cloud events, analytics meetups and infrastructure workshops',
     finance: 'finance events, fintech meetups, payments talks and financial technology workshops',
+    arts: 'arts events, book clubs, reading circles, literature sessions and creative workshops',
   };
   return truncateSeoText(
-    `Find upcoming ${topics[card.key] ?? `${card.label.toLowerCase()} events`} in Chennai. Check dates, venues and original registration links on SCENE/044.`,
+    `Find upcoming ${topics[card.key] ?? `${card.label.toLowerCase()} events`} in Chennai. Check dates, venues and original registration links on SCENE.`,
   );
 }
 

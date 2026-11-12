@@ -90,7 +90,7 @@ async function main() {
     event(id, "ai", `2026-09-${9 + id}T12:30:00Z`, null, `🚀 ${"Very long title ".repeat(30)} ${id}`),
   );
   const block = buildDigestEventBlock(longEvents, "Hema", "AI & Machine Learning");
-  const rendered = `Hi Hema, here are your Chennai tech picks for this week:\n\n${block}\n\nSee more AI & Machine Learning events using the button below.\n\nYou subscribed to SCENE/044 updates. Reply STOP to unsubscribe.`;
+  const rendered = `Hi Hema, here are your Chennai tech picks for this week:\n\n${block}\n\nSee more AI & Machine Learning events using the button below.\n\nYou subscribed to SCENE updates. Reply STOP to unsubscribe.`;
   check("all five events remain represented after truncation", block.split("\n").length, 5);
   check("every digest event is a bullet", block.split("\n").every((line) => line.startsWith("• ")), true);
   check("rendered body respects Meta's 1024-character limit", Array.from(rendered).length <= META_TEMPLATE_BODY_LIMIT, true);

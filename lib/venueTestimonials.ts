@@ -23,7 +23,7 @@ export function publishedVenueReviews(reviews: readonly VenueReview[]): VenueRev
 }
 
 /**
- * The landing page's "What changed when they found SCENE/044" section.
+ * The landing page's "What changed when they found SCENE" section.
  *
  * Owner-supplied editorial content, taken verbatim from the approved Figma
  * frame (Scene workflows Main, node 230:1286) — the quotes, names, roles,
@@ -74,7 +74,7 @@ export const LANDING_TESTIMONIALS = [
     outcome: "Less back and forth",
     rating: "4.8",
     quote:
-      "With SCENE/044, I could see the capacity, pricing and what was included before reaching out. I sent the event details once, and the host could decide if it worked for them. It took a lot of the back-and-forth out of planning.",
+      "With SCENE, I could see the capacity, pricing and what was included before reaching out. I sent the event details once, and the host could decide if it worked for them. It took a lot of the back-and-forth out of planning.",
     name: "Elanchezhiyan Ragavan",
     role: "Founder",
     org: "SocialZog",
@@ -85,10 +85,10 @@ export const LANDING_TESTIMONIALS = [
 /** The header chips and summary line of that same section. Owner-supplied. */
 export const LANDING_TESTIMONIAL_SUMMARY = {
   eyebrow: "Real experiences. Both sides.",
-  heading: "What changed when they found SCENE/044",
-  intro: "90+ events brought to life. 30+ venue owners hosted through SCENE/044. 100% verified reviews.",
+  heading: "What changed when they found SCENE",
+  intro: "90+ events brought to life. 30+ venue owners hosted through SCENE. 100% verified reviews.",
   chips: ["No more venue hunt", "Easy to organise", "Smooth from start", "More context, less chaos"],
-  badge: "SCENE / 044 · 4.9★",
+  badge: "SCENE · 4.9★",
   rating: "4.96 out of 5",
   ratingNote: "· Based on 48 verified Chennai’s Tech happenings.",
 } as const;

@@ -18,7 +18,7 @@ const SEARCH_INTENTS: Record<string, { title: string; uses: string }> = {
   },
 };
 
-export const VENUES_SEARCH_TITLE = 'Workshop & Small Event Venues in Chennai | SCENE/044';
+export const VENUES_SEARCH_TITLE = 'Workshop & Small Event Venues in Chennai | SCENE';
 export const VENUES_SEARCH_DESCRIPTION =
   'Find workshop venues, meetup spaces and art, dance and wellness studios in Chennai. Compare photos, capacity and rates. Pay after host approval.';
 

@@ -9,6 +9,7 @@ import { REGISTER_OPEN_EVENT } from "@/components/scene/hosted/RegisterBar";
 import { useHostedAuth } from "@/components/scene/hosted/hostedAuth";
 import type { HostedEventDetail } from "@/lib/hostedEvents";
 import styles from "@/components/scene/hosted/ReadersEnrolled.module.css";
+import { hostedCardSolid } from "@/components/scene/hosted/hostedCard";
 
 /**
  * "Readers enrolled" bookshelf, from the owner's design, in SCENE fonts and
@@ -30,10 +31,11 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
         : httpRegistrationApi(event.id),
     [apiKind, event.id, event.hosted.registeredCount, event.hosted.capacity],
   );
-  const { requireAuth } = useHostedAuth();
+  const { requireAuth,profile } = useHostedAuth();
   const [waitlisted, setWaitlisted] = useState(false);
   const [waitBusy, setWaitBusy] = useState(false);
   const [waitError, setWaitError] = useState("");
+  useEffect(()=>{let active=true;void api.getWaitlist().then(value=>{if(active)setWaitlisted(value);}).catch(()=>{});return()=>{active=false};},[api,profile?.phone]);
   const [seats, setSeats] = useState({ booked: event.hosted.registeredCount, capacity: event.hosted.capacity });
   const [live, setLive] = useState(false);
   const [joined, setJoined] = useState(0);
@@ -106,7 +108,7 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
           setShown(result.registeredCount);
           clearTimeout(hideJoined);
           hideJoined = setTimeout(() => active && setJoined(0), 4200);
-        } else if (lastCount.current !== null) {
+        } else if (lastCount.current !== null || inView) {
           setShown(result.registeredCount);
         }
         lastCount.current = result.registeredCount;
@@ -122,7 +124,7 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
       clearInterval(id);
       clearTimeout(hideJoined);
     };
-  }, [api]);
+  }, [api,inView]);
 
   const slots = shelfSlots(seats);
   const display = reduceMotion ? seats.booked : shown;
@@ -156,7 +158,7 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
     <section
       ref={sectionRef}
       aria-labelledby="enrolled-title"
-      className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-5 text-white sm:p-7"
+      className={`relative overflow-hidden border-2 border-foreground p-5 text-white sm:p-7 ${hostedCardSolid}`}
     >
       <div
         aria-hidden="true"

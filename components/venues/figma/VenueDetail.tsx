@@ -613,10 +613,10 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const hostName = `${venue.name} team`
 
   useEffect(() => {
-    document.title = `${venue.name} · SCENE/044`
+    document.title = `${venue.name} · SCENE`
     title.current?.focus({ preventScroll: true })
     return () => {
-      document.title = 'SCENE/044'
+      document.title = 'SCENE'
     }
   }, [venue.name])
 
@@ -720,7 +720,7 @@ export default function VenueDetail({ venue, publishedReviews = [], search, init
   const share = async () => {
     const url = window.location.href
     try {
-      if (navigator.share) await navigator.share({ title: `${venue.name} · SCENE/044`, url })
+      if (navigator.share) await navigator.share({ title: `${venue.name} · SCENE`, url })
       else {
         await navigator.clipboard.writeText(url)
         setCopied(true)

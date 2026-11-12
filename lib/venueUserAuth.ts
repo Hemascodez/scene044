@@ -12,6 +12,8 @@ export interface VenueUser {
   role: "Organiser" | "Host";
   venue: string | null;
   hostVenueSlug?: string | null;
+  hostEventId?: number | null;
+  hostEventTitle?: string | null;
 }
 
 export function normalizeIndianPhone(raw: string): string | null {
@@ -28,6 +30,7 @@ export function publicVenueProfile(user: VenueUser) {
     email: user.email ?? undefined,
     role: user.role,
     venue: user.venue ?? undefined,
+    ...(user.hostEventId ? {hostEventId:user.hostEventId,hostEventTitle:user.hostEventTitle ?? undefined} : {}),
   };
 }
 
@@ -51,13 +54,17 @@ export async function getVenueUserFromRequest(request: Request): Promise<VenueUs
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
   const { rows } = await query<VenueUser>(
     `SELECT u.id, u.phone_e164 AS "phoneE164", u.name, u.email,
-       CASE WHEN h.id IS NOT NULL THEN 'Host' ELSE 'Organiser' END AS role,
+       CASE WHEN h.id IS NOT NULL OR eh.id IS NOT NULL THEN 'Host' ELSE 'Organiser' END AS role,
        CASE WHEN h.id IS NOT NULL THEN v.name ELSE NULL END AS venue,
-       CASE WHEN h.id IS NOT NULL THEN v.slug ELSE NULL END AS "hostVenueSlug"
+       CASE WHEN h.id IS NOT NULL THEN v.slug ELSE NULL END AS "hostVenueSlug",
+       CASE WHEN eh.id IS NOT NULL THEN eh.event_id ELSE NULL END AS "hostEventId",
+       CASE WHEN eh.id IS NOT NULL THEN e.title ELSE NULL END AS "hostEventTitle"
        FROM venue_user_sessions s JOIN venue_users u ON u.id = s.user_id
        LEFT JOIN venue_host_access h ON h.phone_e164 = u.phone_e164
          AND h.venue_slug = s.host_venue_slug AND h.revoked_at IS NULL
        LEFT JOIN venues v ON v.slug = h.venue_slug
+       LEFT JOIN event_host_access eh ON eh.phone_e164=u.phone_e164 AND eh.event_id=s.host_event_id AND eh.revoked_at IS NULL
+       LEFT JOIN events e ON e.id=eh.event_id
       WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now()`,
     [hashVenueSession(token)],
   );

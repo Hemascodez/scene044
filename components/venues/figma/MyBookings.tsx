@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import FieldError from './FieldError'
+import { SceneLogo } from '@/components/brand/SceneLogo'
 import Dialog from './Dialog'
 import ProfileCard from './ProfileCard'
 import ReviewFlow from './ReviewFlow'
@@ -567,8 +568,8 @@ export default function MyBookings({
       </a>
       <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/85 backdrop-blur-md">
         <nav aria-label="Main" className="mx-auto flex max-w-[1152px] items-center justify-between gap-4 px-5 py-4 md:px-8">
-          <button type="button" onClick={onHome} aria-label="SCENE/044 home" className="font-mono-b text-sm leading-5 tracking-[2.52px]">
-            SCENE<span className="text-flame">/044</span>
+          <button type="button" onClick={onHome} aria-label="SCENE home" className="font-mono-b text-sm leading-5 tracking-[2.52px]">
+            <SceneLogo className="h-8 w-auto sm:h-9"/>
           </button>
           <ul className="hidden items-center gap-8 lg:flex">
             {['How it works', 'Spaces', 'Why SCENE', 'For hosts'].map((l) => (

@@ -103,7 +103,7 @@ export function SceneApp({
                 <SectionHead
                   kicker="Fresh finds"
                   title="Newly discovered"
-                  note="Pulled into SCENE/044 in the last few hours."
+                  note="Pulled into SCENE in the last few hours."
                 />
                 <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
                   {newlyDiscovered.map((event, i) => (

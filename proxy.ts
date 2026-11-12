@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { CURATOR_SESSION_COOKIE, checkCuratorAuth, isCuratorSessionValid } from "@/lib/auth";
 import { checkHostAccess, HOST_ACCESS_MESSAGE } from '@/lib/venueHostAccess';
+import { requireEventHost } from '@/lib/eventHostAccess';
+import { EventTicketError } from '@/lib/hostedEventData';
+import { getVenueUserFromRequest } from '@/lib/venueUserAuth';
 
 export const config = {
   matcher: ["/admin/:path*", "/api/admin/:path*", "/host/:path*", "/api/host/:path*"],
@@ -27,6 +30,19 @@ export async function proxy(req: NextRequest) {
     (await isCuratorSessionValid(req.cookies.get(CURATOR_SESSION_COOKIE)?.value));
 
   if (authorized) return NextResponse.next();
+  if (pathname === '/host/events' || pathname.startsWith('/host/events/') || pathname === '/api/host/events' || pathname.startsWith('/api/host/events/')) {
+    try { await requireEventHost(req); return NextResponse.next(); }
+    catch (error) {
+      const status=error instanceof EventTicketError ? error.status : 503;
+      if (pathname.startsWith('/api/')) return NextResponse.json({error:status===503 ? 'Event sign-in is temporarily unavailable.' : error instanceof Error ? error.message : 'Sign in to run your event.'},{status});
+      if (status===503) return NextResponse.json({error:'Event sign-in is temporarily unavailable.'},{status});
+      return NextResponse.redirect(new URL('/host/login?next=%2Fhost%2Fevents',req.url));
+    }
+  }
+  if (pathname === '/host') {
+    try { if ((await getVenueUserFromRequest(req))?.hostEventId) return NextResponse.redirect(new URL('/host/events',req.url)); }
+    catch { return NextResponse.json({error:'Host sign-in is temporarily unavailable.'},{status:503}); }
+  }
   const hostPath = pathname === '/host' || pathname.startsWith('/host/') || pathname.startsWith('/api/host/');
   if (hostPath) {
     try {

@@ -3,6 +3,7 @@ import { CATEGORIES, type Category, type CategorizationResult } from "@/lib/type
 import { extractModel } from "@/lib/extract";
 
 const CATEGORY_DEFINITIONS: Record<Category, string> = {
+  arts: "reading circles, book clubs, literature, visual arts, creative workshops and cultural gatherings",
   ai: "models, agents, ML/LLM research and applied AI",
   tech: "software engineering: web, mobile, backend, developer tooling",
   cybersecurity: "AppSec, privacy, defence and security research",

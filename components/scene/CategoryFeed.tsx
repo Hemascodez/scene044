@@ -15,7 +15,7 @@ export function CategoryFeed({
   events,
   fieldLabel = null,
   emptyTitle = 'Nothing in this field yet',
-  emptyDescription = 'SCENE/044 hasn’t found an upcoming Chennai event here. New ones land as they’re discovered.',
+  emptyDescription = 'SCENE hasn’t found an upcoming Chennai event here. New ones land as they’re discovered.',
   prefiltered = false,
 }: {
   events: PublicEvent[];
@@ -42,7 +42,7 @@ export function CategoryFeed({
             className="font-display text-6xl font-black tracking-tighter text-muted-foreground/30"
             aria-hidden
           >
-            044
+            SCENE
           </span>
           <h3 className="mt-4 font-display text-xl font-bold">{emptyTitle}</h3>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">

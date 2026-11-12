@@ -489,7 +489,7 @@ export function CandidateReview({
         {!started ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 border border-dashed border-[#2c4236] py-16 text-center">
             <span className="font-display text-5xl font-black text-[#25382e]" aria-hidden>
-              044
+              SCENE
             </span>
             <p className="max-w-xs text-sm text-[#8ba295]">
               Run extraction to prefill the fields, or enter them manually.
@@ -951,7 +951,7 @@ export function PosterField({
             </AdminBtn>
             {sceneFallback && (
               <AdminBtn variant="ghost" onClick={() => onChange(sceneFallback)} disabled={busy}>
-                Use SCENE/044 image
+                Use SCENE image
               </AdminBtn>
             )}
           </div>

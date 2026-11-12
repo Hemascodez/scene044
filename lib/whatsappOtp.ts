@@ -6,6 +6,7 @@
 
 import crypto from "node:crypto";
 import { HOST_ACCESS_MESSAGE } from '@/lib/venueHostAccess';
+import { EVENT_HOST_ACCESS_MESSAGE } from '@/lib/eventHostAccess';
 import { pool, query } from "@/lib/db";
 import { sendWhatsappTemplate, type WhatsappTemplateSendResult } from "@/lib/whatsappSend";
 import {
@@ -31,6 +32,7 @@ export interface VenueSignupDetails {
   email?: string;
   role?: "Organiser" | "Host";
   venue?: string;
+  eventId?: number;
 }
 
 function otpHashKey(): string | null {
@@ -131,7 +133,13 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
   try {
     await client.query("BEGIN");
     let hostVenue: { slug: string; name: string } | undefined;
-    if (details.role === 'Host') {
+    let hostEvent: {id:number;title:string} | undefined;
+    if (details.role === 'Host' && details.eventId) {
+      const approval = await client.query<{id:number;title:string}>(`SELECT e.id,e.title FROM event_host_access h
+        JOIN events e ON e.id=h.event_id WHERE h.event_id=$1 AND h.phone_e164=$2 AND h.revoked_at IS NULL FOR SHARE OF h`,[details.eventId,phone]);
+      if (approval.rows.length !== 1) { await client.query('ROLLBACK'); return {ok:false,error:EVENT_HOST_ACCESS_MESSAGE,forbidden:true}; }
+      hostEvent=approval.rows[0];
+    } else if (details.role === 'Host') {
       const approval = await client.query<{ slug: string; name: string }>(
         `SELECT v.slug, v.name FROM venue_host_access h JOIN venues v ON v.slug = h.venue_slug
          WHERE (v.slug = $1 OR v.name = $1) AND h.phone_e164 = $2 AND h.revoked_at IS NULL FOR SHARE OF h`,
@@ -191,9 +199,9 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
     );
     const sessionToken = newVenueSessionToken();
     await client.query(
-      `INSERT INTO venue_user_sessions (user_id, token_hash, expires_at, host_venue_slug)
-       VALUES ($1, $2, now() + ($3 * interval '1 second'), $4)`,
-      [user.id, hashVenueSession(sessionToken), VENUE_SESSION_AGE_SECONDS, hostVenue?.slug ?? null],
+      `INSERT INTO venue_user_sessions (user_id, token_hash, expires_at, host_venue_slug, host_event_id)
+       VALUES ($1, $2, now() + ($3 * interval '1 second'), $4, $5)`,
+      [user.id, hashVenueSession(sessionToken), VENUE_SESSION_AGE_SECONDS, hostVenue?.slug ?? null,hostEvent?.id ?? null],
     );
     // A successful newer code retires older outstanding codes too; they must
     // not be replayable to create a second session after this login.
@@ -203,7 +211,7 @@ export async function verifyPhoneOtp(rawPhone: string, rawCode: string, details:
       [record.id, phone],
     );
     await client.query("COMMIT");
-    return { ok: true, user, sessionToken };
+    return { ok: true, user:{...user,hostEventId:hostEvent?.id ?? null,hostEventTitle:hostEvent?.title ?? null}, sessionToken };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

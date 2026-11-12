@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "inkloom", "inkloom-skill", "atlas-skills", "brand-3d-skills"]
 }

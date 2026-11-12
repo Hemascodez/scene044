@@ -2,7 +2,7 @@
 
 The frontend for SCENE-hosted events is built: the public event page
 (`components/scene/hosted/`), event tickets in My bookings, and the
-organiser's event workspace (`/host/events`). It needs the backend below.
+organiser's event workspace (`/host/events`). The backend below is implemented locally; see `HANDOFF.md` for activation steps and the unresolved local Razorpay credentials. No production event has been published by this work.
 Types live in code, so this doc points at them rather than copying them:
 
 - Event data: `HostedEventInfo` in `lib/hostedEvents.ts`
@@ -16,19 +16,15 @@ Designs: `docs/superpowers/specs/2026-11-12-hosted-event-page-design.md`,
 
 ## 0. Required before launch: let event hosts through `/host`
 
-`proxy.ts` guards everything under `/host` and `/api/host` and only admits
-curators and **approved venue hosts** (`checkHostAccess`). Anyone else is
-redirected to `/host/login` (which needs a venue). So an organiser like Chapter
-Lounge cannot open `/host/events` today.
+`proxy.ts` guards `/host` and `/api/host`. Event paths now admit curators or verified accounts with an active `event_host_access` approval. Venue paths keep their existing, separate approval rules. Shared host sign-in offers Event or Venue, and stores only the selected session scope.
 
-The backend must:
+Implemented access rules:
 
-1. Store approved event-host numbers per event (like `venue_host_access`),
-   managed by the curator.
-2. Extend the proxy so `/host/events` and `/api/host/events/*` also admit a
+1. Approved event-host numbers and labels are stored per event, managed by the curator at `/admin/curator/hosting`.
+2. `/host/events` and `/api/host/events/*` admit a
    signed-in SCENE user whose number is an approved host of at least one event
    (the venue rules for other `/host` paths stay as they are).
-3. Enforce it again in every `/api/host/events/*` handler, per event id: a
+3. Every `/api/host/events/*` handler rechecks approval per event id: a
    host of event A must get 403 for event B.
 
 The workspace already handles the responses: 401 → "Sign in to run your
@@ -62,8 +58,7 @@ Also needed on the event row: `poster_image_url` (`/events/chapter-lounge/poster
 `venue_address` (Madras Adda's real street address), `organizer_name`,
 `start_at` 2026-11-22 11:00 IST, `end_at` 13:00 IST, `price_type` `paid`,
 `price_note` `₹299`, and a `primary_source_url` that points at the event page
-itself (calendar files and `/api/go/[id]` use it). There is no books or
-community category today: pick or add one; the hosted page never shows it.
+itself (calendar files and `/api/go/[id]` use it). Reading and creative events use `arts`. The independent `SCENE hosted` discovery chip filters events carrying a server-side hosted price; it does not change their topic category or promote external Arts listings to hosted status.
 
 ## 2. Guest endpoints
 
@@ -74,12 +69,13 @@ copy the page shows as is.
 
 | Call | Auth | Body | Success | Errors the page handles |
 |---|---|---|---|---|
-| `POST /api/events/[id]/registrations` | session | `{ name, email }` (phone comes from the session) | `CreatedRegistration` = `{ registrationToken, orderId, amount, currency, keyId }` | 401 → reopens sign-in · 409 `{ soldOut: true }` · 409 `{ existingTicketToken }` when this account already holds a confirmed ticket |
+| `POST /api/events/[id]/registrations` | session | `{ name, email, whatsappOptIn?: boolean }` (phone comes from the session; opt-in defaults false) | `CreatedRegistration` = `{ registrationToken, orderId, amount, currency, keyId }` | 401 → reopens sign-in · 409 `{ soldOut: true }` · 409 `{ existingTicketToken }` when this account already holds a confirmed ticket |
 | `POST /api/events/[id]/registrations/verify` | session | `{ registrationToken, razorpay_order_id, razorpay_payment_id, razorpay_signature }` | `{ ticket, ticketToken }` | any non-2xx: page keeps "Payment received" with Retry and the payment ID |
 | `GET /api/events/[id]/tickets/[token]` | token | | `{ ticket }` | 404 → page forgets the token |
 | `GET /api/events/[id]/seats` | public | | `{ registeredCount, capacity }` | 404 → enrolled card hides "LIVE" and stops polling (it polls every 30 s) |
 | `GET /api/me/event-registrations` | session | | `{ registrations: MyEventTicket[] }` | 401/404 → My bookings shows no event tickets |
 | `POST /api/events/[id]/waitlist` | session | | `{ ok: true }` | 401 → sign-in popup · shown on the Readers enrolled card when sold out ("Join the waitlist") |
+| `GET /api/events/[id]/waitlist` | session | | `{ waitlisted: boolean }` for the current account only | 401 when signed out |
 | `DELETE /api/events/[id]/waitlist` | session | | `{ ok: true }` | "Undo" on the same card |
 
 `Ticket` = `{ code, name, phoneMasked, status: "confirmed" | "cancelled", qrValue }`.
@@ -93,11 +89,12 @@ Rules the page relies on:
   from the database (pattern: `app/api/razorpay/create-order`).
 - Verify checks the signature **and** fetches the captured payment, as the
   venue `verify-payment` route does. Only then mark the registration confirmed
-  and send the WhatsApp ticket.
-- Hold a seat while an order is pending for a short window, so two people
-  can't pay for the last seat.
+  and queue the WhatsApp ticket only when the guest opted in.
+- A 15-minute hold and event-row locks protect the last seat. Repeated create requests reuse the stored order. A payment captured after its hold expires is rechecked against remaining capacity; if no seat exists, it is recorded as `payment_review` and no ticket is issued. SCENE must handle that payment manually.
 - The WhatsApp confirmation includes the ticket link above.
 - No email is sent. Email is collected for the organiser's records only.
+- `POST /api/razorpay/webhook` requires raw-body HMAC with `RAZORPAY_WEBHOOK_SECRET`, and handles `payment.captured` / `order.paid`. It ignores unrelated venue orders. Duplicate callbacks are idempotent. My bookings also reconciles the account's pending orders; the optional persistent worker covers absent browsers.
+- Public bearer passes expose only name, masked phone, code and QR. Shared URL tokens are not saved as the viewer's own ticket. Ticket-query visits do not initialise GA, and hosted pages use no-referrer metadata.
 
 ## 3. Organiser endpoints (`/api/host/events`)
 
@@ -110,13 +107,39 @@ All require the session **and** event-host approval for the event in the path
 | `GET /api/host/events/[id]/guests` | | `{ guests: HostGuest[] }` |
 | `POST /api/host/events/[id]/checkin` | `{ token }` or `{ code }` | `{ guest, alreadyCheckedIn }`. A second check-in returns `alreadyCheckedIn: true` and does not change counts. 404 unknown, 409 cancelled. |
 | `GET /api/host/events/[id]/reminders` | | `{ templates: ReminderTemplate[], history: ReminderSend[] }` |
-| `POST /api/host/events/[id]/reminders` | `{ templateId }` | `ReminderSend`. Sends the Meta-approved WhatsApp template to every confirmed guest. The UI already asks "Send to N guests on WhatsApp?" first; the server should still rate-limit repeats. |
-| `GET /api/host/events/[id]/payments` | | `MoneySummary` — read from Razorpay (orders for this event): gross, fees, net, count, settlement line, payments list |
+| `POST /api/host/events/[id]/reminders` | `{ templateId }` | `ReminderSend`. Queues an approved template for confirmed, opted-in guests, once per event/template. Returns `pending`, not a fabricated delivery count. |
+| `GET /api/host/events/[id]/payments` | | `MoneySummary` — verified capture records, actual recorded Razorpay fees, net, count, review count and payments. Unknown fees remain unknown. This is not a bank-settlement confirmation. |
 
 Reminder templates need Meta approval (Utility category) before they can be
-sent; see `docs/whatsapp-templates.md`.
+sent. This event outbox is separate from weekly digests and venue notifications. Configure:
 
-## 4. Trying it before the backend exists
+```
+RAZORPAY_KEY_ID=<matching test or live key>
+RAZORPAY_KEY_SECRET=<matching secret>
+RAZORPAY_WEBHOOK_SECRET=<matching dashboard webhook secret>
+HOSTED_EVENT_PAYMENT_RECONCILIATION_ENABLED=true
+WHATSAPP_HOSTED_EVENTS_ENABLED=true
+WHATSAPP_EVENT_TEMPLATE_LANGUAGE=en
+WHATSAPP_EVENT_TICKET_TEMPLATE_NAME=<approved name>
+WHATSAPP_EVENT_DAY_BEFORE_TEMPLATE_NAME=<approved name>
+WHATSAPP_EVENT_MORNING_OF_TEMPLATE_NAME=<approved name>
+WHATSAPP_EVENT_DIRECTIONS_TEMPLATE_NAME=<approved name>
+```
+
+Each event template expects five body parameters: guest name, event title, date/time in IST, venue (full address for directions), ticket code; one dynamic URL button uses the fixed prefix `https://scene044.in/events/` with `<event-slug>?ticket=<token>` as the suffix. Names must point to templates actually approved by Meta; setting an environment variable alone is not approval. The default switches are off, and no template was submitted in this implementation.
+
+STOP removes optional event WhatsApp consent; the worker rechecks it before sending. Accepted, delivered and read are tracked separately. Ambiguous provider sends are never blindly repeated. Automatic refunds, waitlist promotion, event creation by hosts and organiser bank payouts are not implemented; curator-managed launch and manual support remain required.
+
+## Curator setup APIs
+
+- `GET/POST /api/admin/hosted-events`: load or save ticketing for an existing event. `action: "prepare-chapter-lounge"` prepares/reuses the real-content Arts draft with closed registration and zero attendees; it never publishes.
+- `GET/POST /api/admin/event-hosts`: list event choices/access or approve `{eventId, label, phone}`. Requires curator authentication.
+- `DELETE /api/admin/event-hosts/[id]`: revoke access without deleting registrations or payments.
+- `GET /api/venue-auth/host-events`: public event names/IDs for sign-in, including published past events for post-event access; no draft titles or host mobile numbers.
+
+Apply the new migration BEFORE deploying this code: shared sign-in and public feeds now read the new tables. Migration is idempotent, creates no event, and sends no messages.
+
+## 4. Isolated frontend previews and backend tests
 
 Run `npm run dev` (404 in production for all three):
 

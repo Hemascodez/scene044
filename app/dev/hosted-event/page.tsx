@@ -13,7 +13,7 @@ import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
  * soldout@ = sold out, existing@ = already registered. Never served in production.
  */
 export const metadata: Metadata = {
-  title: "Hosted event preview — SCENE/044",
+  title: "Hosted event preview — SCENE",
   robots: { index: false, follow: false },
 };
 

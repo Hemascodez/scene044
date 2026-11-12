@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "SCENE/044 — Chennai Tech Events & Venues",
-    short_name: "SCENE/044",
-    description: "Discover Chennai tech events and book event venues.",
+    name: "SCENE — Events & Venues",
+    short_name: "SCENE",
+    description: "Discover events across India and book event spaces in Chennai.",
     start_url: "/",
     display: "standalone",
     background_color: "#f4f2ea",

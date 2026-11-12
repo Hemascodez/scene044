@@ -22,6 +22,7 @@ export const FIELD_CARDS: FieldCard[] = [
   { key: "startups", label: "Startups & Business", description: "Founders, funding, demos and new ventures", categories: ["startups"], mark: "▲" },
   { key: "data", label: "Data & Cloud", description: "Analytics, infrastructure and platform engineering", categories: ["data"], mark: "≋" },
   { key: "finance", label: "Finance & Fintech", description: "Payments, markets and financial technology", categories: ["finance"], mark: "₹" },
+  { key: "arts", label: "Arts", description: "Reading circles, literature, creative workshops and cultural gatherings", categories: ["arts"], mark: "◌" },
 ];
 
 export function getFieldCardByKey(key: string): FieldCard | undefined {

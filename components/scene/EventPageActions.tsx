@@ -21,7 +21,7 @@ export function EventPageActions({
 
   function share() {
     const when = startAt ? ` — ${formatSceneDate(startAt)}, ${formatSceneTime(startAt)} IST` : "";
-    const text = `${title}${when}. Found on SCENE/044.`;
+    const text = `${title}${when}. Found on SCENE.`;
     const url = `${window.location.origin}${eventPath({ id, title })}`;
     if (navigator.share) {
       navigator.share({ title, text, url }).catch(() => {

@@ -19,7 +19,7 @@ export function VenueShare({ path, name = 'Your venue' }: { path: string; name?:
   }
   async function share() {
     if (!navigator.share) { await copy(); return; }
-    try { await navigator.share({ title: `${name} · SCENE/044`, url }); }
+    try { await navigator.share({ title: `${name} · SCENE`, url }); }
     catch (e) { if (!(e instanceof Error && e.name === 'AbortError')) setMessage('Sharing is unavailable. Copy the venue link below.'); }
   }
   return <div className="w-full min-w-0 max-w-xl space-y-3 text-left">

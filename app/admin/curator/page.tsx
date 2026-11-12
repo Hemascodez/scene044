@@ -13,7 +13,7 @@ import { CuratorApp } from "@/components/curator/CuratorApp";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Curator — SCENE/044",
+  title: "Curator — SCENE",
   robots: { index: false, follow: false },
 };
 

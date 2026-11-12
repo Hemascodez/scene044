@@ -294,7 +294,7 @@ export default function ProfileCard({
       {onLogout && mode === 'view' && (
         <div className="mt-6 flex flex-col gap-3 border-t-2 border-dashed border-ink/25 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-body-sb text-sm text-ink">Log out of SCENE/044</h3>
+            <h3 className="font-body-sb text-sm text-ink">Log out of SCENE</h3>
             <p className="mt-0.5 text-xs leading-[18px] text-stone">
               {host ? 'Your venue, bookings and payouts stay safe. Log back in with your phone number.' : 'Your bookings and reviews stay safe. Log back in with your phone number.'}
             </p>

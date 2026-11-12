@@ -7,6 +7,7 @@ import { playSwipeBurst, setSwipeWhoosh, startSwipeWhoosh, stopSwipeWhoosh } fro
 import { useElementWidth } from "@/lib/client/useStageScale";
 import { formatRupees, seatProgress, type HostedEventInfo } from "@/lib/hostedEvents";
 import styles from "@/components/scene/hosted/ReaderPass.module.css";
+import { hostedCardSolid } from "@/components/scene/hosted/hostedCard";
 
 /**
  * The "Reader pass register card" (dark design) in SCENE fonts and red, with
@@ -27,7 +28,7 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
   const segments = seatSegments(seats);
 
   return (
-    <div className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-5 text-white sm:p-7">
+    <div className={`relative overflow-hidden border-2 border-foreground p-5 text-white sm:p-7 ${hostedCardSolid}`}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
@@ -119,7 +120,7 @@ export function PassFooter({ dark = true }: { dark?: boolean }) {
       <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? GREEN : "var(--color-signal-ink)"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z" />
       </svg>
-      After payment, you&apos;ll get your confirmation on WhatsApp.
+      Your ticket appears here and in My bookings. WhatsApp updates are optional.
     </p>
   );
 }

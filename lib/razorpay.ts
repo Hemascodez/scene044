@@ -29,6 +29,7 @@ export function razorpayCheckoutKey(): string { return credentials().keyId; }
 
 export interface RazorpayPayment {
   id: string; order_id: string; amount: number; currency: string; status: string;
+  fee?: number | null; tax?: number | null;
 }
 
 /** Recover a paid order if the browser closed before the success callback. */
@@ -48,13 +49,13 @@ export async function fetchCapturedPayment(paymentId: string, expected: { orderI
   if (!/^pay_[A-Za-z0-9]+$/.test(paymentId)) throw new Error('Invalid payment id');
   const { keyId, keySecret } = credentials();
   const headers = { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`, 'Content-Type': 'application/json' };
-  let response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, { headers, cache: 'no-store' });
+  let response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, { headers, cache: 'no-store', signal: AbortSignal.timeout(20000) });
   if (!response.ok) throw new Error('Could not retrieve payment from Razorpay');
   let payment = await response.json() as RazorpayPayment;
   if (payment.order_id !== expected.orderId || payment.amount !== expected.amountPaise || payment.currency !== expected.currency) throw new Error('Payment does not match the booking order');
   if (payment.status === 'authorized') {
     response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/capture`, {
-      method: 'POST', headers, body: JSON.stringify({ amount: payment.amount, currency: payment.currency }),
+      method: 'POST', headers, body: JSON.stringify({ amount: payment.amount, currency: payment.currency }), signal: AbortSignal.timeout(20000),
     });
     if (!response.ok) throw new Error('Payment is authorised but could not be captured. Please retry verification.');
     payment = await response.json() as RazorpayPayment;
@@ -85,6 +86,7 @@ export async function createRazorpayOrder(input: {
         // Razorpay caps receipt at 40 characters.
         receipt: input.receipt.slice(0, 40),
       }),
+      signal: AbortSignal.timeout(20000),
     });
   } catch (err) {
     return { ok: false, status: 500, error: err instanceof Error ? err.message : "network error" };

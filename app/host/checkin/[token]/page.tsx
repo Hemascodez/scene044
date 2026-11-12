@@ -12,7 +12,7 @@ import { canAccessHostBooking } from '@/lib/venueHostAccess';
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Check in a booking — SCENE/044",
+  title: "Check in a booking — SCENE",
   robots: { index: false, follow: false },
 };
 

@@ -18,8 +18,8 @@ interface CategoryPageProps {
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { key } = await params;
   const card = getFieldCardForKeys(key);
-  if (!card) return { title: "Field not found — SCENE/044", robots: { index: false, follow: false } };
-  const title = `${categorySeoHeading(card)} | SCENE/044`;
+  if (!card) return { title: "Field not found — SCENE", robots: { index: false, follow: false } };
+  const title = `${categorySeoHeading(card)} | SCENE`;
   const description = categorySeoDescription(card);
   const canonical = `/category/${card.key}`;
   const image = stockPosterFor(card.categories[0], 0);
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
       type: "website",
       locale: "en_IN",
       url: canonical,
-      siteName: "SCENE/044",
+      siteName: "SCENE",
       title,
       description,
       images: [{ url: image, alt: `${card.label} events in Chennai` }],

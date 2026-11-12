@@ -15,7 +15,7 @@
 /** Pre-filled text. Kept short and unambiguous because it becomes the visitor's
  *  own outgoing message, and because the words are what an operator sees as the
  *  opt-in record. */
-const DEFAULT_OPT_IN_MESSAGE = "Hi SCENE/044 — send me Chennai tech events.";
+const DEFAULT_OPT_IN_MESSAGE = "Hi SCENE — send me Chennai tech events.";
 
 export interface WhatsappOptInLink {
   href: string;

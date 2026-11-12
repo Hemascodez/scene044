@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight } from "./icons";
 import { useVenueApp } from "./VenueApp";
+import { SceneLogo } from "@/components/brand/SceneLogo";
 
 /*
  * The prototype's site header and footer, markup unchanged, with its SPA hash
@@ -10,11 +11,7 @@ import { useVenueApp } from "./VenueApp";
  * real routes so nothing in the chrome is a dead link on the live site.
  */
 
-export const Logo = () => (
-  <span className="font-mono-b text-sm leading-5 tracking-[2.52px] text-ink">
-    SCENE<span className="text-flame">/044</span>
-  </span>
-);
+export const Logo = () => <SceneLogo className="h-8 w-auto sm:h-9" />;
 
 const NAV: [string, string][] = [
   ["How it works", "#how"],
@@ -37,7 +34,7 @@ export function SiteHeader({ onLanding = false, wide = false }: { onLanding?: bo
       </a>
       <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/85 backdrop-blur-md">
         <nav aria-label="Main" className={`mx-auto flex ${wide ? "max-w-[1280px]" : "max-w-[1152px]"} items-center justify-between gap-4 px-5 py-4 md:px-8`}>
-          <Link href="/venues" aria-label="SCENE/044 home">
+          <Link href="/venues" aria-label="SCENE home">
             <Logo />
           </Link>
           <ul className="hidden items-center gap-8 md:flex">
@@ -83,7 +80,7 @@ export function SiteHeader({ onLanding = false, wide = false }: { onLanding?: bo
 const FOOTER: [string, [string, string][]][] = [
   ["Organisers", [["Explore venues", "/venues#spaces"], ["How booking works", "/venues#how"], ["My bookings", "/bookings"], ["Pricing", "/venues#spaces"]]],
   ["Hosts", [["List your venue", "/venues/partner"], ["Host dashboard", "/host"], ["Check-in tools", "/host"], ["Payouts", "/host"]]],
-  ["SCENE/044", [["About", "/"], ["Events", "/"], ["Contact", "/venues/partner"], ["Help centre", "/venues#how"]]],
+  ["SCENE", [["About", "/"], ["Events", "/"], ["Contact", "/venues/partner"], ["Help centre", "/venues#how"]]],
 ];
 
 /**
@@ -116,7 +113,7 @@ export function SiteFooter({ wide = false }: { wide?: boolean }) {
         ))}
       </div>
       <div className={`mx-auto flex ${max} flex-wrap justify-between gap-3 border-t border-line px-5 md:px-8 ${wide ? "py-5 text-xs text-stone" : "py-6 text-sm text-stone"}`}>
-        <p>© 2026 SCENE/044. Made in Chennai.</p>
+        <p>© 2026 SCENE. Made in Chennai.</p>
         <p className={`flex ${wide ? "gap-4" : "gap-6"}`}>
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>

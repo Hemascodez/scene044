@@ -182,7 +182,7 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
               />
               {featured && <figure className="pointer-events-none absolute -bottom-8 left-3 w-[220px] border-[1.5px] border-ink bg-paper-2 p-4 shadow-hard sm:w-[240px] lg:-left-6 lg:bottom-auto lg:top-[444px]">
                 <figcaption className="flex items-center gap-1.5 font-body-m text-xs leading-4 text-moss">
-                  <ShieldCheck className="size-[15px] shrink-0" /> {featured.slug === 'time-cafe' ? 'Visited & verified by SCENE/044' : 'Venue partner · SCENE/044'}
+                  <ShieldCheck className="size-[15px] shrink-0" /> {featured.slug === 'time-cafe' ? 'Visited & verified by SCENE' : 'Venue partner · SCENE'}
                 </figcaption>
                 <p className="mt-2 font-body-b text-lg leading-[22.5px] font-bold">{featured.name}</p>
                 <p className="mt-0.5 flex items-center gap-1 text-sm leading-5 text-stone">
@@ -230,7 +230,7 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
           onOpenVenue={onOpenVenue}
         />
 
-        {/* "What changed when they found SCENE/044" — the approved Figma frame
+        {/* "What changed when they found SCENE" — the approved Figma frame
             (Scene workflows Main, node 230:1286). Copy, photos and ratings are
             owner-supplied editorial content (lib/venueTestimonials.ts), kept
             separate from database reviews. */}
@@ -340,12 +340,12 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
         <section id="why" className="scroll-mt-20 border-b border-line bg-paper-2">
           <div className="mx-auto grid max-w-[1152px] gap-12 px-5 py-20 md:px-8 md:py-24 lg:grid-cols-2">
             <div>
-              <Eyebrow className="reveal">Why SCENE/044</Eyebrow>
+              <Eyebrow className="reveal">Why SCENE</Eyebrow>
               <h2 className="reveal mt-3 font-head text-3xl leading-tight tracking-[-0.6px] md:text-[40px]">
                 Trust earned before we ask you for anything.
               </h2>
               <p className="reveal mt-4 max-w-[480px] text-stone">
-                SCENE/044 helps people in Chennai find well-curated events. Venue booking extends that same care to the
+                SCENE helps people in Chennai find well-curated events. Venue booking extends that same care to the
                 spaces those events happen in.
               </p>
               <div className="reveal mt-8 max-w-[480px] border-[1.5px] border-ink bg-paper p-6 shadow-hard">
@@ -413,7 +413,7 @@ export default function Landing({ venues }: { venues: CatalogVenue[] }) {
                   onClick={onListVenue}
                   className="press inline-flex items-center justify-center gap-2 border-[1.5px] border-white bg-flame px-6 py-3.5 font-mono-b text-xs tracking-[0.72px] uppercase text-white"
                 >
-                  List your space on SCENE/044 <ArrowRight />
+                  List your space on SCENE <ArrowRight />
                 </button>
                 <a href="#hosts" className="inline-flex items-center gap-2 px-2 py-2 font-mono-b text-xs tracking-[0.72px] uppercase text-white/80 underline-offset-4 hover:underline">
                   Read host economics <ArrowRight />

@@ -4,7 +4,7 @@ import { CuratorLogin } from "@/components/curator/CuratorLogin";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Curator sign-in — SCENE/044",
+  title: "Curator sign-in — SCENE",
   robots: { index: false, follow: false },
 };
 

@@ -2,6 +2,7 @@ import { query } from "@/lib/db";
 import { CATEGORIES, type Category, type PriceType } from "@/lib/types";
 import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS } from "@/lib/eventDates";
 import type { HostedEventInfo } from "@/lib/hostedEvents";
+import { getHostedEventInfo } from '@/lib/hostedEventData';
 
 /**
  * Lifecycle states we surface publicly.
@@ -124,12 +125,14 @@ export async function getPublicEvents(categories: Category[] | null): Promise<Pu
     priceType: PriceType | null;
     priceNote: string | null;
     primarySourceDomain: string;
+    hostedPricePaise: number | null;
     sourceDomains: string[] | null;
     status: PublicEventStatus;
     discoveredAt: string;
     lastVerifiedAt: string | null;
   }>(
     `SELECT
+       (SELECT h.price_paise FROM hosted_events h WHERE h.event_id=e.id) AS "hostedPricePaise",
        e.id, e.title, e.summary, e.highlights, e.tags,
        e.is_promoted AS "isPromoted", e.category, e.status,
        e.registration_note AS "registrationNote",
@@ -251,6 +254,7 @@ export async function getPublicEventById(id: number): Promise<PublicEventDetail 
   const primary = bareDomain(primarySourceDomain);
   return {
     ...rest,
+    hosted: await getHostedEventInfo(row.id),
     primarySourceDomain: primary,
     otherSourceDomains: (sourceDomains ?? []).map(bareDomain).filter((d) => d && d !== primary),
   };

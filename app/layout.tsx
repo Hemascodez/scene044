@@ -3,6 +3,7 @@ import { gaInlineScript, gaMeasurementId } from "@/lib/client/analytics";
 import { SITE_URL } from "@/lib/seo";
 import { EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE } from '@/lib/eventDiscovery';
 import "./globals.css";
+import "@fontsource-variable/bricolage-grotesque";
 
 export const metadata: Metadata = {
   // Required for per-event OpenGraph images (app/page.tsx's generateMetadata)

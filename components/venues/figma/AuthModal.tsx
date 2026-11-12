@@ -7,7 +7,7 @@ import { ArrowRight, Check, Close, Phone, Search } from './icons'
 /** Optional replacement for the Organiser sign-in heading and line. */
 export type AuthCopy = { title: string; body: string }
 
-export type Profile = { name: string; phone: string; role: 'Organiser' | 'Host'; venue?: string; email?: string }
+export type Profile = { name: string; phone: string; role: 'Organiser' | 'Host'; venue?: string; email?: string; hostEventId?:number; hostEventTitle?:string }
 
 const RESEND_SECS = 60
 
@@ -24,6 +24,7 @@ export default function AuthModal({
   onVerified,
   submitting = false,
   initialRole,
+  initialHostScope,
   copy,
 }: {
   open: boolean
@@ -33,6 +34,7 @@ export default function AuthModal({
   /** True when auth was triggered mid-booking, so a request is sent after verifying. */
   submitting?: boolean
   initialRole?: Profile['role']
+  initialHostScope?: 'venue' | 'event'
   copy?: AuthCopy
 }) {
   const [step, setStep] = useState<Step>('details')
@@ -44,6 +46,10 @@ export default function AuthModal({
   const [role, setRole] = useState<Profile['role']>('Organiser')
   const [venue, setVenue] = useState<string | undefined>()
   const [hostVenues, setHostVenues] = useState<{ slug: string; name: string }[]>([])
+  const [hostScope,setHostScope] = useState<'venue'|'event'>('venue')
+  const [hostEvents,setHostEvents] = useState<{id:number;title:string}[]>([])
+  const [hostEventId,setHostEventId] = useState<number|null>(null)
+  const [eventError,setEventError] = useState('')
   const [venueError, setVenueError] = useState('')
   const [query, setQuery] = useState('')
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''))
@@ -71,6 +77,8 @@ export default function AuthModal({
     setBusy(false)
     setRole(initialRole ?? saved?.role ?? 'Organiser')
     setVenue(saved?.venue)
+    setHostScope(initialHostScope ?? (saved?.hostEventId ? 'event' : 'venue'))
+    setHostEventId(saved?.hostEventId ?? null)
     setQuery('')
     setDigits(Array(6).fill(''))
     setError('')
@@ -79,7 +87,7 @@ export default function AuthModal({
       document.body.style.overflow = ''
       lastFocus.current?.focus()
     }
-  }, [open, saved, initialRole])
+  }, [open, saved, initialRole, initialHostScope])
 
   useEffect(() => {
     if (!open) return
@@ -94,6 +102,17 @@ export default function AuthModal({
     }).catch(() => { if (active) { setHostVenues([]); setVenueError('Could not load venues. Reopen sign-in to retry.') } })
     return () => { active = false }
   }, [open])
+
+  useEffect(()=>{
+    if (!open) return
+    let active=true
+    fetch('/api/venue-auth/host-events',{cache:'no-store'}).then(async response=>{
+      const data=await response.json() as {events?:{id:number;title:string}[]}
+      if (!response.ok || !Array.isArray(data.events)) throw new Error('Could not load events. Reopen sign-in to retry.')
+      if(active){setHostEvents(data.events);setEventError('')}
+    }).catch(()=>{if(active){setHostEvents([]);setEventError('Could not load events. Reopen sign-in to retry.')}})
+    return()=>{active=false}
+  },[open])
 
   // Move focus into the dialog on each step
   useEffect(() => {
@@ -119,7 +138,8 @@ export default function AuthModal({
   // The booking API needs an email for organisers, so it is collected here too.
   const emailOk = /^\S+@\S+\.\S+$/.test(email.trim())
   const selectedHostVenue = hostVenues.find(v => v.slug === venue) ?? hostVenues.find(v => v.name === venue)
-  const valid = name.trim().length >= 2 && phoneDigits.length === 10 && (role === 'Organiser' ? emailOk : !!selectedHostVenue)
+  const selectedHostEvent=hostEvents.find(e=>e.id===hostEventId)
+  const valid = name.trim().length >= 2 && /^[6-9]\d{9}$/.test(phoneDigits) && (role === 'Organiser' ? emailOk : hostScope==='event' ? !!selectedHostEvent : !!selectedHostVenue)
   const code = digits.join('')
   const firstName = name.trim().split(/\s+/)[0]
   const venues = useMemo(() => hostVenues.filter((v) => v.name.toLowerCase().includes(query.toLowerCase())), [hostVenues, query])
@@ -130,7 +150,7 @@ export default function AuthModal({
     if (e.key === 'Escape') onClose()
     if (e.key !== 'Tab' || !panel.current) return
     const els = panel.current.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
     )
     const first = els[0]
     const last = els[els.length - 1]
@@ -148,7 +168,7 @@ export default function AuthModal({
     const res = await fetch('/api/whatsapp/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: `+91${phoneDigits}`, role, venue: role === 'Host' ? selectedHostVenue?.slug : undefined }),
+      body: JSON.stringify({ phone: `+91${phoneDigits}`, role, venue: role === 'Host' && hostScope==='venue' ? selectedHostVenue?.slug : undefined,eventId:role==='Host'&&hostScope==='event'?selectedHostEvent?.id:undefined }),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !data.ok) throw new Error(data.error ?? 'Could not send a code right now. Try again shortly.')
@@ -182,7 +202,7 @@ export default function AuthModal({
       const res = await fetch('/api/whatsapp/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${phoneDigits}`, code, name: name.trim(), email: email.trim(), role, venue: role === 'Host' ? selectedHostVenue?.slug : undefined }),
+        body: JSON.stringify({ phone: `+91${phoneDigits}`, code, name: name.trim(), email: email.trim(), role, venue: role === 'Host' && hostScope==='venue' ? selectedHostVenue?.slug : undefined,eventId:role==='Host'&&hostScope==='event'?selectedHostEvent?.id:undefined }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.ok) {
@@ -236,10 +256,10 @@ export default function AuthModal({
         {step === 'details' && (
           <form onSubmit={sendOtp} noValidate className="px-5 pt-6">
             <h2 id={titleId} className="font-head text-2xl leading-[30px]">
-              {role === 'Host' ? 'Sign in to your venue' : saved ? `Good to see you, ${saved.name.split(' ')[0]}` : copy?.title ?? 'Join to request a booking'}
+              {role === 'Host' ? `Sign in to your ${hostScope}` : saved ? `Good to see you, ${saved.name.split(' ')[0]}` : copy?.title ?? 'Join to request a booking'}
             </h2>
             <p id={descId} className="mt-2 text-sm leading-[22.75px] text-stone">
-              {role === 'Host' ? 'Your number must be approved for your venue. We’ll send a WhatsApp code to verify it.' : saved
+              {role === 'Host' ? `Your number must be approved for your ${hostScope}. We’ll send a WhatsApp code to verify it.` : saved
                 ? "We've filled in your details from last time. Confirm and we'll send a fresh code to your WhatsApp."
                 : copy?.body ?? "We'll send a one-time code to your WhatsApp to verify your number."}
             </p>
@@ -316,7 +336,18 @@ export default function AuthModal({
 
               {role === 'Host' && (
                 <fieldset ref={venueBox} className="rise scroll-mb-28 p-3">
-                  <legend className={`${label} float-left mb-2 w-full`}>Choose your venue</legend>
+                  <legend className={`${label} float-left mb-2 w-full`}>What do you host?</legend>
+                  <div className="clear-left mb-3 flex gap-4">
+                    {(['venue','event'] as const).map(scope=><label key={scope} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="radio" name="host-scope" checked={hostScope===scope} onChange={()=>setHostScope(scope)} />{scope==='venue'?'Venue':'Event'}</label>)}
+                  </div>
+                  {hostScope==='event' ? <label className="block text-sm">
+                    <span className={label}>Choose your event</span>
+                    <select aria-describedby={eventError?'host-event-error':undefined} className="mt-2 min-h-11 w-full border-[1.5px] border-ink bg-paper p-3 text-ink" value={hostEventId??''} onChange={e=>setHostEventId(e.target.value?Number(e.target.value):null)}>
+                      <option value="">Select an event</option>
+                      {hostEvents.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}
+                    </select>
+                    {eventError?<span id="host-event-error" role="alert" className="mt-2 block text-danger-ink">{eventError}</span>:hostEvents.length===0&&<span className="mt-2 block text-stone">No published events with host access yet. Ask the curator to add your event and number.</span>}
+                  </label> : <>
                   <label className="clear-left flex items-center gap-3 border-[1.5px] border-ink p-3 shadow-hard-sm focus-within:bg-paper-2">
                     <Search className="size-4 text-stone" />
                     <span className="sr-only">Search for venues</span>
@@ -351,6 +382,7 @@ export default function AuthModal({
                       </label>
                     ))}
                   </div>
+                  </>}
                 </fieldset>
               )}
             </div>

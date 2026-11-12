@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     if (!slug) return NextResponse.json({ error: HOST_ACCESS_MESSAGE }, { status: 403, headers });
     const venue = await getHostCatalogVenue(slug);
     return venue ? NextResponse.json({ ok: true, venue }, { headers })
-      : NextResponse.json({ error: 'Your venue could not be found. Contact SCENE/044.' }, { status: 404, headers });
+      : NextResponse.json({ error: 'Your venue could not be found. Contact SCENE.' }, { status: 404, headers });
   } catch (error) {
     console.error('[host venue] load failed', error);
     return NextResponse.json({ error: 'Could not load your venue. Please retry.' }, { status: 503, headers });

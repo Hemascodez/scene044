@@ -108,10 +108,10 @@ export function SceneFooter() {
       <div className="mx-auto max-w-6xl px-4 py-10 lg:px-6">
         <div className="grid gap-8 sm:grid-cols-[1.5fr_1fr_1fr]">
           <div>
-            <Wordmark size="text-lg" />
+            <Wordmark size="text-lg" variant="dark" />
             <p className="mt-3 max-w-xs text-sm text-background/70">
-              A discovery layer for Chennai&apos;s professional scene. We link you to the original source —
-              we never own registration.
+              Discover Chennai&apos;s professional and creative scene. Explore original listings,
+              or register and pay for SCENE-hosted events right here.
             </p>
           </div>
           <div>
@@ -152,7 +152,7 @@ export function SceneFooter() {
         </nav>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t-2 border-background/20 pt-5">
           <div className="flex flex-wrap items-center gap-4">
-            <Mono className="text-[10px] text-background/50">© 2026 SCENE/044 · Made in Chennai</Mono>
+            <Mono className="text-[10px] text-background/50">© 2026 SCENE · Made in Chennai</Mono>
             <Link
               href="/privacy"
               className="font-mono text-[10px] uppercase tracking-[0.1em] text-background/50 underline underline-offset-2 hover:text-primary"

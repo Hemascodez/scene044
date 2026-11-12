@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { PRINT_TIMING } from "@/lib/client/ticketSound";
 import { useStageScale } from "@/lib/client/useStageScale";
 import styles from "@/components/scene/hosted/TicketPrinter.module.css";
+import { SceneLogo } from "@/components/brand/SceneLogo";
 
 /**
  * The payment-success ticket printer. `printing` loops while the server
@@ -123,7 +124,7 @@ function PrintedTicket({ eventTitle, guestName, eventDate }: { eventTitle: strin
           letterSpacing: ".14em",
         }}
       >
-        <span>SCENE/044</span>
+        <SceneLogo variant="red" className="h-8 w-auto" animated={false}/>
         <span>ADMIT ONE</span>
       </div>
       <div style={{ padding: "22px 25px 0", display: "flex", flexDirection: "column", flex: 1 }}>

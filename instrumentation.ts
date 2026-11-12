@@ -4,5 +4,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs' && process.argv.includes('start')) {
     const { startVenueNotificationWorker } = await import('./lib/venueNotificationWorker');
     startVenueNotificationWorker();
+    const { startHostedEventWorker } = await import('./lib/hostedEventWorker');
+    startHostedEventWorker();
   }
 }

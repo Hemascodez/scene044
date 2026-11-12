@@ -18,7 +18,7 @@ export function HostedPageActions({ id, title, startAt }: { id: number; title: s
 
   function share() {
     const when = startAt ? ` — ${formatSceneDate(startAt)}, ${formatSceneTime(startAt)} IST` : "";
-    const text = `${title}${when}. Hosted by SCENE/044.`;
+    const text = `${title}${when}. Hosted by SCENE.`;
     const url = `${window.location.origin}${eventPath({ id, title })}`;
     if (navigator.share) {
       navigator.share({ title, text, url }).catch(() => {

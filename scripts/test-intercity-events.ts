@@ -74,9 +74,16 @@ async function main() {
     events: [...events, event(9, "Hyderabad", { status: "expired" })], has: () => false,
     onToggleSave: () => {}, lastViewedId: null,
   })));
-  assert.equal(markup('[role="tab"]').length, 6);
+  assert.equal(markup('[role="tab"]').length, 7);
   assert.equal(markup('#tab-intercity').text().replace(/\s+/g, " ").trim(), "Intercity5");
   assert.equal(markup('[role="tab"][aria-selected="true"]').attr("id"), "tab-this_week");
+  const hostedLane=load(renderToStaticMarkup(createElement(TabbedFeed,{
+    events:[...events,event(99,'Chennai',{category:'arts',hostedPricePaise:29900}),event(100,'Chennai',{category:'arts'})],
+    has:()=>false,onToggleSave:()=>{},lastViewedId:null,initialPreset:'scene_hosted',
+  })));
+  assert.equal(hostedLane('#tab-scene_hosted').attr('aria-selected'),'true');
+  assert.equal(hostedLane('article').length,1,'only an explicitly hosted Arts event appears in SCENE hosted');
+  assert.match(hostedLane('article').text(),/SCENE hosted/);
   const deepLinked = load(renderToStaticMarkup(createElement(TabbedFeed, {
     events, has: () => false, onToggleSave: () => {}, lastViewedId: null, initialPreset: "intercity", initialCity: "Bangalore",
   })));

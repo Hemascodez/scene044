@@ -38,6 +38,7 @@ import {
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/[^\d]/g, "") ?? "";
 
 const INTERESTS = [
+  "Arts",
   "Artificial Intelligence",
   "Software Development",
   "Design and UX",
@@ -73,6 +74,7 @@ const CATEGORY_TO_INTEREST: Record<string, string> = {
   Cybersecurity: "Cybersecurity",
   "Startups & Business": "Startups and Founders",
   "Data & Cloud": "Data",
+  Arts: "Arts",
 };
 
 type Phase = "form" | "opening" | "fallback";

@@ -28,7 +28,7 @@ async function main() {
   }>("SELECT query_text, category_hint, site_filter, active FROM search_queries ORDER BY id");
 
   const out: string[] = [
-    "-- SCENE/044 — full Supabase setup.",
+    "-- SCENE — full Supabase setup.",
     "-- Paste into the Supabase SQL Editor (Database > SQL Editor > New query) and Run.",
     "-- Safe to re-run: every statement is idempotent.",
     "",

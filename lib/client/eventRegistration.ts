@@ -33,6 +33,7 @@ export interface RegistrationDetails {
 export interface RegistrationInput {
   name: string;
   email: string;
+  whatsappOptIn?:boolean;
 }
 
 export interface RegistrationApi {
@@ -50,6 +51,7 @@ export interface RegistrationApi {
   /** Sold out: join / leave the waitlist. Requires the SCENE session (401 when signed out). */
   joinWaitlist(): Promise<void>;
   leaveWaitlist(): Promise<void>;
+  getWaitlist():Promise<boolean>;
 }
 
 export class RegistrationError extends Error {
@@ -148,8 +150,8 @@ function postJson(body: unknown): RequestInit {
 export function httpRegistrationApi(eventId: number): RegistrationApi {
   const base = `/api/events/${eventId}`;
   return {
-    async create({ name, email }) {
-      const { body } = await request<CreatedRegistration>(`${base}/registrations`, postJson({ name: name.trim(), email: email.trim() }));
+    async create({ name, email,whatsappOptIn }) {
+      const { body } = await request<CreatedRegistration>(`${base}/registrations`, postJson({ name: name.trim(), email: email.trim(),...(whatsappOptIn!==undefined?{whatsappOptIn}: {}) }));
       return body;
     },
     async verify(input) {
@@ -158,6 +160,10 @@ export function httpRegistrationApi(eventId: number): RegistrationApi {
     },
     async joinWaitlist() {
       await request(`${base}/waitlist`, { method: "POST" });
+    },
+    async getWaitlist() {
+      try {return (await request<{waitlisted:boolean}>(`${base}/waitlist`)).body.waitlisted;}
+      catch(error){if(error instanceof RegistrationError && error.status===401)return false;throw error;}
     },
     async leaveWaitlist() {
       await request(`${base}/waitlist`, { method: "DELETE" });
@@ -269,6 +275,7 @@ export function mockRegistrationApi(seats: { registeredCount: number; capacity: 
     async leaveWaitlist() {
       await wait(300);
     },
+    async getWaitlist() {return false;},
     async getTicket(token) {
       await wait(200);
       return tickets.get(token) ?? null;

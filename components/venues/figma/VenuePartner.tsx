@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import FieldError from './FieldError'
+import { SceneLogo } from '@/components/brand/SceneLogo'
 
 const A = '/venues/figma/partner'
 const types = ['Cafe / restaurant', 'Rooftop / terrace', 'Design studio', 'Event hall', 'Garden / courtyard', 'Workspace/ office']
@@ -28,8 +29,8 @@ function TopBar({ onHome }: { onHome: () => void }) {
   return (
     <header className="border-b border-line bg-paper/90 backdrop-blur-md">
       <div className="px-5 py-4 md:px-8">
-        <button type="button" onClick={onHome} aria-label="SCENE/044 home" className="font-mono-b text-sm tracking-[2.52px]">
-          SCENE<span className="text-flame">/044</span>
+        <button type="button" onClick={onHome} aria-label="SCENE home" className="font-mono-b text-sm tracking-[2.52px]">
+          <SceneLogo className="h-8 w-auto sm:h-9"/>
         </button>
       </div>
     </header>
@@ -116,7 +117,7 @@ export default function VenuePartner() {
             <div className="flex flex-col items-center gap-4 text-center" role="status">
               <p className="font-mono-b text-[11px] uppercase tracking-[1.32px] text-flame">Venue partner application</p>
               <h1 className="font-head text-[32px] leading-[1.1] tracking-[-1px] md:text-[40px] md:leading-[44px]">Successfully submitted</h1>
-              <p className="max-w-[500px] text-base leading-[26px] text-stone">The SCENE/044 team will get in touch with you within the next 48 hours.</p>
+              <p className="max-w-[500px] text-base leading-[26px] text-stone">The SCENE team will get in touch with you within the next 48 hours.</p>
             </div>
             <div className="flex w-full flex-wrap items-center gap-4 border-[1.5px] border-ink bg-paper px-[18px] py-4">
               <span className="h-10 w-1 bg-flame" />
@@ -127,7 +128,7 @@ export default function VenuePartner() {
               <span className="rounded-full bg-[#ffe2dc] px-3 py-2 font-mono-b text-xs uppercase tracking-[0.6px] text-flame">Within 48 hrs</span>
             </div>
             <button type="button" onClick={onHome} className={`${primary} shadow-hard-md`}>
-              Return to SCENE/044 <img src={`${A}/ca5e8.svg`} alt="" className="size-4" />
+              Return to SCENE <img src={`${A}/ca5e8.svg`} alt="" className="size-4" />
             </button>
           </section>
         </main>

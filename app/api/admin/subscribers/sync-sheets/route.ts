@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         properties: {
-          title: `SCENE/044 Subscribers (${new Date().toLocaleDateString()})`,
+          title: `SCENE Subscribers (${new Date().toLocaleDateString()})`,
         },
       }),
     });

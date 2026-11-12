@@ -38,6 +38,8 @@ export interface ReminderTemplate {
   preview: string;
   audience: number;
   lastSentAt: string | null;
+  available?:boolean;
+  unavailableReason?:string;
 }
 
 export interface ReminderSend {
@@ -47,6 +49,7 @@ export interface ReminderSend {
   sent: number;
   delivered: number;
   failed: number;
+  pending?:number;
 }
 
 export interface MoneySummary {
@@ -54,6 +57,8 @@ export interface MoneySummary {
   feesPaise: number;
   netPaise: number;
   paymentsCount: number;
+  feesKnown?:boolean;
+  reviewCount?:number;
   /** Human line from the backend, e.g. "Next settlement on 24 Nov". */
   settlement: string;
   payments: { at: string; guest: string; amountPaise: number; paymentId: string; status: "captured" | "failed" | "refunded" }[];

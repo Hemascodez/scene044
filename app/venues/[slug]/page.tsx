@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: VenuePageProps): Promise<Meta
   const { slug } = await params;
   const venue = await getCatalogVenue(slug);
   if (!venue || venue.status === "hidden") {
-    return { title: "Venue — SCENE/044", robots: { index: false, follow: false } };
+    return { title: "Venue — SCENE", robots: { index: false, follow: false } };
   }
 
   const title = venueSeoTitle(venue);

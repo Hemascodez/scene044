@@ -23,6 +23,7 @@ import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedE
 import { Btn, Mono } from "@/components/scene/ui";
 import { REGISTER_OPEN_EVENT, RegisterBar } from "@/components/scene/hosted/RegisterBar";
 import { TicketView } from "@/components/scene/hosted/TicketView";
+import { hostedCard } from "@/components/scene/hosted/hostedCard";
 import { useHostedAuth } from "@/components/scene/hosted/hostedAuth";
 import { PassFooter, ReaderPass, SwipeToPay } from "@/components/scene/hosted/ReaderPass";
 
@@ -105,6 +106,7 @@ export function HostedRegistration({
   const [state, dispatch] = useReducer(flowReducer, seat, (s) => initialFlow(s, null));
   const [checkingTicket, setCheckingTicket] = useState(true);
   const [showErrors, setShowErrors] = useState(false);
+  const [whatsappOptIn,setWhatsappOptIn]=useState(false);
   const { requireAuth } = useHostedAuth();
   const paymentRef = useRef<RazorpaySuccessResponse | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -118,14 +120,14 @@ export function HostedRegistration({
   }, [requireAuth]);
 
   const showTicket = useCallback(
-    async (token: string) => {
+    async (token: string,remember=false) => {
       const ticket = await api.getTicket(token);
       if (ticket?.status === "confirmed") {
-        storeTicketToken(event.id, token);
+        if (remember) storeTicketToken(event.id, token);
         dispatch({ type: "confirmed", ticket });
         return true;
       }
-      clearStoredTicketToken(event.id);
+      if (readStoredTicketToken(event.id)===token) clearStoredTicketToken(event.id);
       return false;
     },
     [api, event.id],
@@ -134,6 +136,7 @@ export function HostedRegistration({
   // A returning guest (WhatsApp link ?ticket=… or this device) sees their ticket.
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("ticket");
+    if(fromUrl){const url=new URL(window.location.href);url.searchParams.delete('ticket');window.history.replaceState(window.history.state,'',`${url.pathname}${url.search}${url.hash}`);}
     const token = fromUrl || readStoredTicketToken(event.id);
     void (async () => {
       if (token) {
@@ -175,17 +178,17 @@ export function HostedRegistration({
     primeTicketSound();
     dispatch({ type: "busy", busy: true });
     try {
-      const registration = await api.create({ name: state.details.name, email: state.details.email });
+      const registration = await api.create({ name: state.details.name, email: state.details.email,whatsappOptIn });
       dispatch({ type: "registration_created", registration });
       void pay(registration);
     } catch (error) {
       if (error instanceof RegistrationError && error.status === 401) {
         dispatch({ type: "error", message: "Your sign-in expired. Sign in again to continue." });
-        startRegistration();
+        requireAuth(profile=>dispatch({type:'prefill',details:{name:profile.name,email:profile.email??'',phone:profile.phone}}),true);
       } else if (error instanceof RegistrationError && error.soldOut) {
         dispatch({ type: "sold_out" });
       } else if (error instanceof RegistrationError && error.existingTicketToken) {
-        const shown = await showTicket(error.existingTicketToken).catch(() => false);
+        const shown = await showTicket(error.existingTicketToken,true).catch(() => false);
         if (!shown) dispatch({ type: "error", message: error.message });
       } else {
         dispatch({ type: "error", message: error instanceof Error ? error.message : "Something went wrong. Try again." });
@@ -227,7 +230,7 @@ export function HostedRegistration({
         orderId: registration.orderId,
         amount: registration.amount,
         currency: registration.currency,
-        name: "SCENE/044",
+        name: "SCENE",
         description: event.title,
         prefill: { name: state.details.name, email: state.details.email, contact: state.details.phone },
         onSuccess,
@@ -259,7 +262,7 @@ export function HostedRegistration({
         className={`scroll-mt-20 ${
           !checkingTicket && state.step === "idle"
             ? "" // the Reader pass is its own dark card
-            : "border-2 border-foreground bg-card p-4 shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-6"
+            : `border-2 border-foreground bg-card p-4 shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-6 ${hostedCard}`
         }`}
       >
         <h2 id="hosted-registration-title" className="sr-only">
@@ -336,8 +339,9 @@ export function HostedRegistration({
                 <p className="mt-3 border-2 border-foreground bg-secondary px-3 py-2 text-sm">
                   <span className={labelClass}>WhatsApp</span>{" "}
                   <span className="font-mono">{formatIndianMobile(state.details.phone)}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">Your ticket and reminders come here.</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">Verified number for this registration.</span>
                 </p>
+                <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 text-sm"><input className="mt-1 size-4 shrink-0" type="checkbox" checked={whatsappOptIn} onChange={e=>setWhatsappOptIn(e.target.checked)} /><span>Send my ticket and event reminders to this WhatsApp number. You can still find your ticket here and in My bookings without WhatsApp updates.</span></label>
 
                 <FlowMessage message={state.message} />
 

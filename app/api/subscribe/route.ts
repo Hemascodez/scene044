@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       email,
       categories,
       source,
-      consentNote: "Signed up via the SCENE/044 web signup field.",
+      consentNote: "Signed up via the SCENE web signup field.",
     });
 
     /*

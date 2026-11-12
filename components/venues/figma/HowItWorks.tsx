@@ -113,7 +113,7 @@ export default function HowItWorks() {
             <div className={step === 1 && playing ? 'hiw-depart' : ''}>
             {/* Header */}
             <div className="flex items-center justify-between border-b-[1.5px] border-dashed border-ink/30 px-5 py-3">
-              <span className="font-mono-b text-[10px] tracking-[1.4px] text-stone uppercase">Scene/044 · {step === 2 ? 'Pass' : 'Request'}</span>
+              <span className="font-mono-b text-[10px] tracking-[1.4px] text-stone uppercase">SCENE · {step === 2 ? 'Pass' : 'Request'}</span>
               <span key={step} className={`anim-pop inline-flex items-center gap-1.5 font-mono-b text-[10px] tracking-[1px] uppercase ${step === 0 ? 'text-flame' : 'text-moss'}`}>
                 <span className={`size-1.5 rounded-full ${step === 0 ? 'hiw-pulse bg-flame' : 'bg-moss'}`} />
                 {['Sending', 'Approved', 'Confirmed'][step]}

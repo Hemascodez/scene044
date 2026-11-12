@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { sendPhoneOtp } from "@/lib/whatsappOtp";
 import { HOST_ACCESS_MESSAGE, isApprovedHostPhone } from '@/lib/venueHostAccess';
 import { normalizeIndianPhone } from '@/lib/venueUserAuth';
+import { EVENT_HOST_ACCESS_MESSAGE, isApprovedEventHostPhone } from '@/lib/eventHostAccess';
 
 interface SendOtpBody {
   phone?: unknown;
   role?: unknown;
   venue?: unknown;
+  eventId?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -25,8 +27,13 @@ export async function POST(request: Request) {
   let result;
   try {
     if (body.role === 'Host') {
+      if (body.eventId !== undefined) {
+        if (!Number.isSafeInteger(body.eventId) || Number(body.eventId)<=0 || body.venue) return NextResponse.json({error:'Select your event.'},{status:400});
+        if (!await isApprovedEventHostPhone(phone,Number(body.eventId))) return NextResponse.json({error:EVENT_HOST_ACCESS_MESSAGE},{status:403});
+      } else {
       if (typeof body.venue !== 'string' || !body.venue.trim()) return NextResponse.json({ error: 'Select your venue.' }, { status: 400 });
       if (!await isApprovedHostPhone(phone, body.venue)) return NextResponse.json({ error: HOST_ACCESS_MESSAGE }, { status: 403 });
+      }
     }
     result = await sendPhoneOtp(phone);
   } catch (err) {

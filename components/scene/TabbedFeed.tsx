@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicEvent } from "@/lib/events";
+import { isSceneHostedEvent } from "@/lib/hostedEvents";
 import { classifyDateBucket } from "@/lib/client/istTime";
 import { isHiddenFromFeed, matchesSearch } from "@/lib/client/sceneEvent";
 import { intercityCityOptions, isChennaiDiscoveryEvent, isIntercityEvent, normalizeEventCity } from "@/lib/eventLocations";
@@ -32,6 +33,7 @@ const PRESETS: Preset[] = [
       return bucket === "today" || bucket === "this_week" || bucket === "this_weekend";
     },
   },
+  { key: "scene_hosted", label: "SCENE hosted", hint: "Register and pay on SCENE", test: isSceneHostedEvent },
   { key: "intercity", label: "Intercity", hint: "Discover something worth the trip · IST", test: isIntercityEvent },
   { key: "upcoming", label: "Upcoming in Chennai", hint: "Soonest first · IST", test: () => true },
   {
@@ -81,7 +83,7 @@ export function TabbedFeed({
   const pool = useMemo(() => upcoming.filter((e) => matchesSearch(e, query)), [upcoming, query]);
   const panels = useMemo(() => PRESETS.map((p) => ({
     preset: p,
-    items: pool.filter((event) => (p.key === "intercity" || isChennaiDiscoveryEvent(event)) && p.test(event)),
+    items: pool.filter((event) => (p.key === "intercity" || p.key === "scene_hosted" || isChennaiDiscoveryEvent(event)) && p.test(event)),
   })), [pool]);
   const activePanel = panels[active];
   const shownItems = activePanel.items.filter((event) => activePanel.preset.key !== "intercity"
@@ -314,7 +316,7 @@ function PanelEmpty({
         className="size-24"
         fallback={
           <span className="font-display text-6xl font-black tracking-tighter text-muted-foreground/30" aria-hidden>
-            044
+            SCENE
           </span>
         }
       />
@@ -326,9 +328,11 @@ function PanelEmpty({
           ? "Try a broader term — an organizer, a field like “AI”, or a city."
           : label === "Intercity"
             ? "We’re adding events across India. Check back soon to discover upcoming events beyond Chennai."
+          : label === "SCENE hosted"
+            ? "Our next SCENE-hosted events will appear here when published. You’ll be able to register and pay directly on SCENE."
           : label === "Free to attend"
             ? "No event has been confirmed free yet. We only list one here when the source says so outright — never by assuming."
-            : "This lane is empty for now. Freshly discovered events land here as SCENE/044 finds them."}
+            : "This lane is empty for now. Freshly discovered events land here as SCENE finds them."}
       </p>
       <div className="mt-5">
         {searching ? (

@@ -5,7 +5,7 @@ import EventHostWorkspace from "@/components/venues/figma/EventHostWorkspace";
 
 /** Dev-only preview of the event workspace on sample data. Never served in production. */
 export const metadata: Metadata = {
-  title: "Event workspace preview — SCENE/044",
+  title: "Event workspace preview — SCENE",
   robots: { index: false, follow: false },
 };
 

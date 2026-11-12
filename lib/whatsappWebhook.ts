@@ -3,6 +3,7 @@ import type { Category } from "@/lib/types";
 
 /** Maps the visitor-facing interest labels to the feed's stored categories. */
 const INTEREST_TO_CATEGORIES: Record<string, Category[]> = {
+  Arts: ['arts'],
   "Artificial Intelligence": ["ai"],
   "Software Development": ["tech"],
   "Design and UX": ["design"],
@@ -37,7 +38,7 @@ export function replyFor(text: string): string {
   const notedClause =
     interests && interests !== "Not specified" ? `noted you're into ${interests}` : "got you noted";
 
-  return `Hey ${greetingName}! 🎉 Thanks for registering with SCENE/044 — ${notedClause}. We'll send you Chennai tech event updates every week. Talk soon!`;
+  return `Hey ${greetingName}! 🎉 Thanks for registering with SCENE — ${notedClause}. We'll send you Chennai tech event updates every week. Talk soon!`;
 }
 
 /** STOP text and Meta's quick-reply title/payload share this path. */

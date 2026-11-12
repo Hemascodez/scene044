@@ -15,6 +15,7 @@ import type { Category } from "@/lib/types";
  * required, self-hosting permitted).
  */
 const STOCK_BY_CATEGORY: Record<Category, readonly string[]> = {
+  arts: ["/stock/design-1.jpg"],
   ai: ["/stock/ai-1.jpg", "/stock/ai-2.jpg"],
   tech: ["/stock/tech-1.jpg"],
   cybersecurity: ["/stock/cybersecurity-1.jpg"],

@@ -164,7 +164,7 @@ export function formatDigestEvent(event: DigestEvent): string {
 }
 
 function renderedTemplateBody(name: string, eventBlock: string, categoryLabel: string): string {
-  return `Hi ${name}, here are your Chennai tech picks for this week:\n\n${eventBlock}\n\nSee more ${categoryLabel} events using the button below.\n\nYou subscribed to SCENE/044 updates. Reply STOP to unsubscribe.`;
+  return `Hi ${name}, here are your Chennai tech picks for this week:\n\n${eventBlock}\n\nSee more ${categoryLabel} events using the button below.\n\nYou subscribed to SCENE updates. Reply STOP to unsubscribe.`;
 }
 
 export function buildDigestEventBlock(

@@ -14,6 +14,7 @@ import { HandwrittenNote } from "@/components/scene/hosted/HandwrittenNote";
 import { HostedPageActions } from "@/components/scene/hosted/HostedPageActions";
 import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration";
 import { ReadersEnrolled } from "@/components/scene/hosted/ReadersEnrolled";
+import { hostedCard } from "@/components/scene/hosted/hostedCard";
 import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
 import { Mono } from "@/components/scene/ui";
 import { ChevronDown } from "@/components/venues/figma/icons";
@@ -77,7 +78,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
 
       {event.posterImageUrl && (
         <div className="mx-auto max-w-5xl px-4 pt-8 lg:px-6 lg:pt-10">
-          <div className="overflow-hidden border-2 border-foreground bg-secondary shadow-[6px_6px_0_0_var(--color-foreground)] sm:aspect-[21/9] sm:max-h-[440px]">
+          <div className={`overflow-hidden border-2 border-foreground bg-secondary shadow-[6px_6px_0_0_var(--color-foreground)] sm:aspect-[21/9] sm:max-h-[440px] ${hostedCard}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- poster keeps its own shape; never cropped */}
             <img
               src={event.posterImageUrl}
@@ -91,17 +92,17 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
       <article className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-9 lg:px-6 lg:py-12">
         {event.status === "cancelled" && (
           <div className="border-l-4 border-primary-ink bg-primary/10 px-4 py-3 text-sm">
-            This event has been cancelled. Everyone who paid will be refunded.
+            This event has been cancelled. Contact SCENE with your payment reference for cancellation and refund updates.
           </div>
         )}
 
-        <EventGlance gist={event.gist} facts={hostedGlanceFacts(event)} bullets={[]} />
+        <EventGlance gist={event.gist} facts={hostedGlanceFacts(event)} bullets={[]} boxClassName={hostedCard} />
 
         <ReadersEnrolled event={event} api={api} registerAnchorId="register" />
 
         <HostedRegistration event={event} api={api} anchorId="register" />
 
-        <section aria-labelledby="hosted-about" className="border-2 border-foreground bg-card p-4 sm:p-6">
+        <section aria-labelledby="hosted-about" className={`border-2 border-foreground bg-card p-4 sm:p-6 ${hostedCard}`}>
           <Mono className="text-[10px] text-primary-ink">About</Mono>
           <h2 id="hosted-about" className="mt-1.5 font-display text-xl font-black leading-tight tracking-tight sm:text-2xl">
             What the morning is like
@@ -127,7 +128,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
         {hosted.gallery.length > 0 && (
           <section
             aria-labelledby="hosted-last-time"
-            className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-4 sm:p-6"
+            className={`relative overflow-hidden border-2 border-foreground p-4 sm:p-6 ${hostedCard}`}
           >
             <div
               aria-hidden="true"
