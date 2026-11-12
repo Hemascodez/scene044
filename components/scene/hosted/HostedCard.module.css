@@ -1,32 +1,63 @@
 /*
- * Frosted glass card for the hosted event page (owner request): 8px corners,
- * a translucent dark fill with a background blur so the page's red glows show
- * through, and a gradient stroke (coral → clear glass → red).
+ * Cards on the hosted event page (owner requests): 8px corners and a red
+ * gradient stroke (bright #ff3b25 → deep #8a1208), drawn as a separate ring
+ * (::before + mask) so the gradient stays in the stroke and never tints the
+ * fill.
  *
- * Scoped under .hosted-dark and doubled (.card.card) so it outranks the page's
- * theme overrides in app/globals.css (`.hosted-dark .bg-card`, border and
- * shadow rules) regardless of stylesheet order. The dark base under the glass
- * keeps cream text at ≥ 12:1.
+ * .card  — liquid glass: a clear, flat frosted fill with a strong blur and
+ *          light catching on the edges. Used for every card except the two
+ *          below.
+ * .solid — the exact dark fill "Who's joining" and the Reader pass had before
+ *          (owner asked to keep it), with the same corners and stroke.
+ *
+ * Scoped under .hosted-dark and doubled (.card.card) so these outrank the
+ * page's theme overrides in app/globals.css regardless of stylesheet order.
  */
 
-:global(.hosted-dark) .card.card {
+:global(.hosted-dark) .card.card,
+:global(.hosted-dark) .solid.solid {
+  position: relative;
   border-radius: 8px;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)) padding-box,
-    linear-gradient(rgba(22, 15, 13, 0.62), rgba(22, 15, 13, 0.62)) padding-box,
-    linear-gradient(135deg, #ff3b25 0%, rgba(255, 45, 22, 0.45) 28%, rgba(122, 13, 5, 0.35) 62%, #8a1208 100%) border-box;
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 48px -28px rgba(0, 0, 0, 0.9);
+  border-width: 0;
   overflow: hidden;
 }
 
-/* Browsers without backdrop blur get a solid dark base instead. */
+/* The gradient stroke: a 1.5px ring masked out of a gradient-filled layer. */
+:global(.hosted-dark) .card.card::before,
+:global(.hosted-dark) .solid.solid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #ff3b25 0%, rgba(255, 45, 22, 0.45) 28%, rgba(122, 13, 5, 0.35) 62%, #8a1208 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+/* Liquid glass: flat clear fill, strong blur, light on the edges. */
+:global(.hosted-dark) .card.card {
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(24px) saturate(175%);
+  backdrop-filter: blur(24px) saturate(175%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.28),
+    inset 1px 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 28px rgba(255, 255, 255, 0.035),
+    0 24px 48px -28px rgba(0, 0, 0, 0.9);
+}
+
+/* The previous dark card colour, kept for Who's joining and the Reader pass. */
+:global(.hosted-dark) .solid.solid {
+  background: linear-gradient(160deg, #211813 0%, #14130d 55%, #170f0c 100%);
+  box-shadow: none;
+}
+
+/* Browsers without backdrop blur: a solid dark base keeps text readable. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :global(.hosted-dark) .card.card {
-    background:
-      linear-gradient(#1b1412, #1b1412) padding-box,
-      linear-gradient(135deg, #ff3b25 0%, rgba(255, 45, 22, 0.45) 28%, rgba(122, 13, 5, 0.35) 62%, #8a1208 100%) border-box;
-  }
+  :global(.hosted-dark) .card.card { background: #1b1412; }
 }
