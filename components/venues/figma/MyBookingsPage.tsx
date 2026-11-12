@@ -6,6 +6,7 @@ import MyBookings from "./MyBookings";
 import { useVenueApp } from "./VenueApp";
 import type { Booking, Review } from "./bookingsData";
 import { fetchMyBookings, type VenueBooking } from "@/lib/client/venueBookingStore";
+import { fetchMyEventTickets, type MyEventTicket } from "@/lib/client/myEventTickets";
 import { openRazorpayCheckout } from "@/lib/client/razorpay";
 import { trackBookingCheckout, trackBookingPurchase } from "@/lib/client/bookingAnalytics";
 import { submitSelfReportedReview } from "@/lib/client/venueReviewApi";
@@ -83,10 +84,17 @@ export default function MyBookingsPage() {
   const { profile, authReady, saveProfile, openAuth, logout, notify } = useVenueApp();
   const [raw, setRaw] = useState<Array<{ booking: VenueBooking; qrSvg: string }>>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [eventTickets, setEventTickets] = useState<MyEventTicket[]>([]);
   const [reviewState, setReviewState] = useState<{ phone: string | null; items: Review[] }>({ phone: null, items: [] });
   const reviews = reviewState.phone === (profile?.phone ?? null) ? reviewState.items : [];
 
   const refresh = useCallback((signal?: AbortSignal) => {
+    fetchMyEventTickets(signal).then((tickets) => {
+      if (!signal?.aborted) setEventTickets(tickets);
+    }).catch((error) => {
+      if (signal?.aborted || error instanceof DOMException && error.name === "AbortError") return;
+      notify(error instanceof Error ? error.message : "Could not load your event tickets.");
+    });
     fetchMyBookings(signal).then((entries) => {
       if (signal?.aborted) return;
       setRaw(entries);
@@ -103,6 +111,7 @@ export default function MyBookingsPage() {
     if (!authReady || !profile) {
       setRaw([]);
       setBookings([]);
+      setEventTickets([]);
       return;
     }
     const controller = new AbortController();
@@ -196,6 +205,7 @@ export default function MyBookingsPage() {
       onWithdrawBooking={withdraw}
       onPublishReview={publishReview}
       hostReviews={[]}
+      eventTickets={eventTickets}
     />
   );
 }

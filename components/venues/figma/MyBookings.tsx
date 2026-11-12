@@ -12,6 +12,8 @@ import type { Profile } from './AuthModal'
 import { REVIEW_TAGS, type Booking, type HostReview, type Review } from './bookingsData'
 import { SiteFooter } from './SiteChrome'
 import { saveVenueProfilePhoto } from '@/lib/client/venueProfilePhoto'
+import { splitEventTickets, type MyEventTicket } from '@/lib/client/myEventTickets'
+import { EventTicketCard } from './EventTicketCard'
 const arrowWhite = '/venues/figma/profile-623be.svg'
 const pinIcon = '/venues/figma/profile-58648.svg'
 const calIcon = '/venues/figma/profile-135c7.svg'
@@ -413,6 +415,7 @@ export default function MyBookings({
   onWithdrawBooking,
   onPublishReview,
   hostReviews = [],
+  eventTickets = [],
 }: {
   profile: Profile | null
   bookings: Booking[]
@@ -432,6 +435,8 @@ export default function MyBookings({
   onPublishReview: (r: { venue: string; eventType: string; rating: number; tags: string[]; text: string }) => Promise<void>
   /** Reviews hosts have left about this organiser. There is no backend for these yet, so it is empty. */
   hostReviews?: HostReview[]
+  /** Hosted-event tickets, shown in Upcoming / Past beside venue bookings. Optional and additive. */
+  eventTickets?: MyEventTicket[]
 }) {
   const [tab, setTab] = useState<Tab>('upcoming')
   const [storedPhoto, setStoredPhoto] = useState<{ owner: string | undefined; src: string | null }>({ owner: undefined, src: null })
@@ -482,6 +487,7 @@ export default function MyBookings({
   const upcoming = bookings.filter((b) => ['due', 'confirmed', 'sent'].includes(b.status))
   const past = bookings.filter((b) => b.status === 'completed')
   const declined = bookings.filter((b) => b.status === 'declined' || b.status === 'withdrawn')
+  const tickets = splitEventTickets(eventTickets)
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get('ref')?.trim().toUpperCase()
     if (!code || !/^SCN-[A-Z0-9]{6,8}$/.test(code) || focusedBookingRef.current === code) return
@@ -501,8 +507,8 @@ export default function MyBookings({
     target.focus({ preventScroll: true })
   }, [bookings, tab])
   const tabs: [Tab, string, number][] = [
-    ['upcoming', 'Upcoming', upcoming.length],
-    ['past', 'Past', past.length],
+    ['upcoming', 'Upcoming', upcoming.length + tickets.upcoming.length],
+    ['past', 'Past', past.length + tickets.past.length],
     ['declined', 'Declined', declined.length],
     ['for-you', 'Reviews for you', hostReviews.length],
     ['yours', 'Your reviews', reviews.length],
@@ -703,8 +709,9 @@ export default function MyBookings({
 
           <div key={tab} role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={0} className="anim-fade pt-6 outline-none">
             {tab === 'upcoming' &&
-              (upcoming.length ? (
+              (upcoming.length || tickets.upcoming.length ? (
                 <ul className="flex flex-col gap-5">
+                  {tickets.upcoming.map((t, i) => <EventTicketCard key={`ticket-${t.ticket.code}`} t={t} i={i} />)}
                   {upcoming.map((b, i) => (
                     <BookingCard key={b.id} b={b} i={i} onPay={() => setPaying(b)} onWithdraw={() => setWithdrawing(b)} onReview={() => {}} onBrowse={onExplore} />
                   ))}
@@ -714,8 +721,9 @@ export default function MyBookings({
               ))}
 
             {tab === 'past' &&
-              (past.length ? (
+              (past.length || tickets.past.length ? (
                 <ul className="flex flex-col gap-5">
+                  {tickets.past.map((t, i) => <EventTicketCard key={`ticket-${t.ticket.code}`} t={t} i={i} past />)}
                   {past.map((b, i) => (
                     <BookingCard key={b.id} b={b} i={i} onPay={() => {}} onWithdraw={() => {}} onReview={() => setReviewing({ forBooking: b })} onBrowse={onExplore} />
                   ))}

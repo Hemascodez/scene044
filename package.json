@@ -18,7 +18,7 @@
     "test:seo": "node --import tsx scripts/test-seo.ts && node --import tsx scripts/test-event-discovery.ts && node --import tsx scripts/test-sitemap.ts && node --import tsx scripts/test-booking-analytics.ts && node --import tsx scripts/test-venue-seo-ui.ts && node --import tsx scripts/test-venue-discovery.ts",
     "test:curator": "node --import tsx scripts/test-curator-draft-validation.ts && node --import tsx scripts/test-admin-event-update.ts && node --import tsx scripts/test-curator-add.ts",
     "test:intercity": "node --import tsx scripts/test-intercity-events.ts",
-    "test:hosted-event": "node --import tsx scripts/test-hosted-event.ts && node --import tsx scripts/test-event-registration.ts && node --import tsx scripts/test-registration-flow.ts && node --import tsx scripts/test-ticket-sound.ts && node --import tsx scripts/test-swipe.ts && node --import tsx scripts/test-enrolled.ts",
+    "test:hosted-event": "node --import tsx scripts/test-hosted-event.ts && node --import tsx scripts/test-event-registration.ts && node --import tsx scripts/test-registration-flow.ts && node --import tsx scripts/test-ticket-sound.ts && node --import tsx scripts/test-swipe.ts && node --import tsx scripts/test-enrolled.ts && node --import tsx scripts/test-my-event-tickets.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
     "test:venue-auth": "node --import tsx scripts/test-venue-auth.ts",
     "test:venue-concession": "node --import tsx scripts/test-yoga-concession.ts",
