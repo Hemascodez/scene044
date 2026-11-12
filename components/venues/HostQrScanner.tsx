@@ -2,7 +2,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { IScannerControls } from '@zxing/browser';
 import { checkInBooking } from '@/lib/client/hostApi';
-export function HostQrScanner({ onRefresh }: { onRefresh: () => void }) {
+/**
+ * `onToken` (optional, additive): hand the scanned text to the caller instead
+ * of the venue booking check-in, and show the message it returns. Used by the
+ * event workspace for ticket QRs. Without it, behaviour is unchanged.
+ */
+export function HostQrScanner({ onRefresh, onToken, label = 'Scan booking QR' }: { onRefresh: () => void; onToken?: (text: string) => Promise<string>; label?: string }) {
   const video = useRef<HTMLVideoElement>(null);
   const controls = useRef<IScannerControls | null>(null);
   const generation = useRef(0);
@@ -21,6 +26,13 @@ export function HostQrScanner({ onRefresh }: { onRefresh: () => void }) {
       const reader = new BrowserQRCodeReader();
       const scanner = await reader.decodeFromConstraints({ audio: false, video: { facingMode: { ideal: 'environment' } } }, video.current, async (result, _error, scan) => {
         if (!result || processing.current || current !== generation.current) return;
+        if (onToken) {
+          processing.current = true; generation.current++; scan.stop(); controls.current = null; setRunning(false);
+          try { setMessage(await onToken(result.getText())); onRefresh(); }
+          catch (e) { setMessage(e instanceof Error ? e.message : 'Check-in failed. Try the ticket code instead.'); }
+          finally { processing.current = false; }
+          return;
+        }
         let token: string;
         try {
           const url = new URL(result.getText());
@@ -42,7 +54,7 @@ export function HostQrScanner({ onRefresh }: { onRefresh: () => void }) {
   }
   return <section className="space-y-3 border-2 border-ink bg-white p-4 shadow-hard">
     <video ref={video} muted playsInline aria-label="Booking QR camera preview" className={`aspect-square w-full max-w-[340px] mx-auto bg-ink object-cover ${running ? '' : 'hidden'}`} />
-    <button type="button" className="min-h-11 w-full border border-ink bg-ink px-4 py-3 text-white" onClick={running ? stop : start}>{running ? 'Stop camera' : 'Scan booking QR'}</button>
+    <button type="button" className="min-h-11 w-full border border-ink bg-ink px-4 py-3 text-white" onClick={running ? stop : start}>{running ? 'Stop camera' : label}</button>
     <p role="status" className="text-sm">{message}</p>
   </section>;
 }
