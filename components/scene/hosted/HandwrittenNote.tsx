@@ -46,9 +46,13 @@ export function HandwrittenNote({ text, by, highlight }: { text: string; by: str
   const { frameRef, scale } = useStageScale<HTMLDivElement>(NOTE_W + PAD * 2);
   const [play, setPlay] = useState(false);
 
+  // Start writing only when the note is properly on screen: wait for its real
+  // size (a zero-height frame can report as "visible"), then need 60% of it in
+  // view and clear of the bottom 15% of the screen. Plays once.
+  const measured = scale > 0;
   useEffect(() => {
     const node = frameRef.current;
-    if (!node) return;
+    if (!node || !measured || play) return;
     if (typeof IntersectionObserver === "undefined") {
       const timer = setTimeout(() => setPlay(true), 0);
       return () => clearTimeout(timer);
@@ -60,11 +64,11 @@ export function HandwrittenNote({ text, by, highlight }: { text: string; by: str
           observer.disconnect();
         }
       },
-      { threshold: 0.4 },
+      { threshold: 0.6, rootMargin: "0px 0px -15% 0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [frameRef]);
+  }, [frameRef, measured, play]);
 
   const list = words(text, highlight);
   const writeStart = 650; // after the note lands
