@@ -90,7 +90,7 @@ function PrintedTicket({ eventTitle, guestName, eventDate }: { eventTitle: strin
     width: 24,
     height: 24,
     borderRadius: "50%",
-    background: "#ffffff",
+    background: "var(--color-card)",
     border: `3px solid ${INK}`,
     boxSizing: "content-box",
   };

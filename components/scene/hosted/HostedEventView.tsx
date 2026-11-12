@@ -30,7 +30,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
   const paragraphs = hosted.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 
   return (
-    <main className="hosted-surface bg-white pb-28 sm:pb-0">
+    <main className="hosted-surface pb-28 sm:pb-0">
       <section className="border-b-2 border-foreground bg-foreground text-background">
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6 lg:py-8">
           <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-background/60">

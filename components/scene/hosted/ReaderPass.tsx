@@ -12,7 +12,7 @@ import styles from "@/components/scene/hosted/ReaderPass.module.css";
  * pay step.
  */
 
-const THUMB = 52;
+const THUMB = 48;
 const INSET = 4;
 
 export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwipe: () => void }) {
@@ -21,15 +21,15 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 font-mono text-[12px] font-bold tracking-[0.1em] text-foreground">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <span className="inline-flex items-center gap-1.5 bg-foreground px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-background">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" />
             <path d="M14 5v14" strokeDasharray="2 3" />
           </svg>
           READER PASS
         </span>
-        <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-[13px] font-bold text-primary-ink">
-          <span className={`${styles.dot} size-2 rounded-full bg-primary`} aria-hidden="true" />
+        <span className="inline-flex items-center gap-2 bg-primary-ink px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+          <span className={`${styles.dot} size-1.5 rounded-full bg-white`} aria-hidden="true" />
           {seats.left <= 10 ? `Only ${seats.left} ${seats.left === 1 ? "spot" : "spots"} left` : `${seats.left} spots left`}
         </span>
       </div>
@@ -41,7 +41,7 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
 
       <div className="mt-6">
         <div
-          className="h-2.5 overflow-hidden rounded-full bg-muted"
+          className="h-3 overflow-hidden border-2 border-foreground bg-muted"
           role="progressbar"
           aria-label="Seats booked"
           aria-valuemin={0}
@@ -49,15 +49,15 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
           aria-valuenow={seats.booked}
         >
           <div
-            className={`${styles.fill} h-full rounded-full bg-gradient-to-r from-primary to-primary-ink`}
+            className={`${styles.fill} h-full bg-primary`}
             style={{ width: `${seats.percent}%` }}
           />
         </div>
-        <div className="mt-2.5 flex justify-between text-[13px] font-medium text-muted-foreground">
+        <div className="mt-2.5 flex justify-between font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
           <span>
             {seats.booked} of {seats.capacity} booked
           </span>
-          <span className="font-bold text-primary-ink">{seats.left} left</span>
+          <span className="font-semibold text-primary-ink">{seats.left} left</span>
         </div>
       </div>
 
@@ -161,19 +161,19 @@ export function SwipeToPay({
   return (
     <div
       ref={trackRef}
-      className="relative h-[60px] select-none overflow-hidden rounded-[18px] bg-primary-ink shadow-[0_10px_22px_-12px_rgba(196,27,9,.8),inset_0_1px_0_rgba(255,255,255,.18)]"
+      className="relative h-[60px] select-none overflow-hidden border-2 border-foreground bg-foreground"
     >
       <div
         aria-hidden="true"
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.28) 100%)",
+          background: "linear-gradient(90deg, rgba(255,45,22,0) 0%, rgba(255,45,22,.45) 100%)",
           transform: `translateX(${x - trackWidth + THUMB}px)`,
           transition: trans,
         }}
       />
       <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center pl-14 pr-10 font-display text-[15px] font-bold tracking-[0.01em] sm:text-[17px]"
+        className="pointer-events-none absolute inset-0 flex items-center justify-center pl-14 pr-12 font-mono text-xs font-semibold uppercase tracking-[0.12em]"
         style={{ opacity: labelOpacity }}
         aria-live="polite"
       >
@@ -197,7 +197,7 @@ export function SwipeToPay({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onKeyDown={onKeyDown}
-        className={`${styles.thumb} absolute left-1 top-1 flex size-[52px] items-center justify-center rounded-[14px] bg-white text-foreground shadow-[0_6px_14px_-4px_rgba(0,0,0,.45)]`}
+        className={`${styles.thumb} absolute left-1 top-1 flex size-12 items-center justify-center bg-primary text-white`}
         style={{ transform: `translateX(${x}px) scale(${dragging ? 1.05 : 1})`, transition: trans }}
       >
         {busy ? (

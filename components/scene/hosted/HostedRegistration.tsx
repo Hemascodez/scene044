@@ -274,7 +274,7 @@ export function HostedRegistration({
       <section
         id={anchorId}
         aria-labelledby="hosted-registration-title"
-        className="scroll-mt-20 rounded-[24px] border border-line bg-white p-5 shadow-[inset_0_1px_0_#ffffff,0_30px_60px_-28px_rgba(20,19,13,.35),0_8px_18px_-10px_rgba(20,19,13,.18)] sm:p-7"
+        className="scroll-mt-20 border-2 border-foreground bg-card p-4 shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-6"
       >
         <h2 id="hosted-registration-title" className="sr-only">
           Registration
