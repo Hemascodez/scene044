@@ -30,6 +30,8 @@ import { EventGlance } from "@/components/scene/EventGlance";
 import { EventPageScrollReset } from "@/components/scene/EventPageScrollReset";
 import { EventPageActions } from "@/components/scene/EventPageActions";
 import { HostedEventView } from "@/components/scene/hosted/HostedEventView";
+import { VenueAuthBridge } from "@/components/scene/hosted/hostedAuth";
+import { VenueAppProvider } from "@/components/venues/figma/VenueApp";
 import { SceneFooter } from "@/components/scene/SceneHero";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { StatusBadge } from "@/components/scene/ui";
@@ -117,7 +119,13 @@ export default async function EventPage({ params }: EventPageProps) {
           />
         ))}
         <SceneHeaderStatic />
-        <HostedEventView event={{ ...event, hosted: event.hosted }} api="http" />
+        <div className="venue-surface hosted-root">
+          <VenueAppProvider>
+            <VenueAuthBridge>
+              <HostedEventView event={{ ...event, hosted: event.hosted }} api="http" />
+            </VenueAuthBridge>
+          </VenueAppProvider>
+        </div>
         <SceneFooter />
       </div>
     );

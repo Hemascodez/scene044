@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import AuthModal, { type Profile } from "./AuthModal";
+import AuthModal, { type AuthCopy, type Profile } from "./AuthModal";
 
 /**
  * App-level state the Figma Make prototype kept in App.tsx, rebuilt for Next's
@@ -17,7 +17,8 @@ interface VenueAppValue {
   authReady: boolean;
   saveProfile: (p: Profile) => Promise<void>;
   openAuth: () => void;
-  requireAuth: (then: (p: Profile) => void) => void;
+  /** `copy` optionally replaces the sign-in popup's heading and line (e.g. on event pages). */
+  requireAuth: (then: (p: Profile) => void, copy?: AuthCopy) => void;
   logout: () => void;
   notify: (msg: string) => void;
 }
@@ -53,6 +54,7 @@ export function VenueAppProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [authCopy, setAuthCopy] = useState<AuthCopy | undefined>(undefined);
   const [notice, setNotice] = useState("");
   const pending = useRef<((p: Profile) => void) | null>(null);
   const sessionRevision = useRef(0);
@@ -106,12 +108,14 @@ export function VenueAppProvider({ children }: { children: ReactNode }) {
 
   const openAuth = useCallback(() => {
     pending.current = null;
+    setAuthCopy(undefined);
     setSubmitting(false);
     setOpen(true);
   }, []);
 
-  const requireAuth = useCallback((then: (p: Profile) => void) => {
+  const requireAuth = useCallback((then: (p: Profile) => void, copy?: AuthCopy) => {
     pending.current = then;
+    setAuthCopy(copy);
     setSubmitting(true);
     setOpen(true);
   }, []);
@@ -142,6 +146,7 @@ export function VenueAppProvider({ children }: { children: ReactNode }) {
         open={open}
         saved={profile}
         submitting={submitting}
+        copy={authCopy}
         onClose={() => {
           setOpen(false);
           setSubmitting(false);

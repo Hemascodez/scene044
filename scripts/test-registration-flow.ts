@@ -19,27 +19,22 @@ assert.equal(initialFlow({ state: "closed" }, null).step, "closed");
 assert.equal(initialFlow({ state: "ended" }, null).step, "ended");
 
 const start = initialFlow({ state: "open" }, null);
-const filled = run(
-  start,
-  { type: "open" },
-  { type: "edit", field: "name", value: "Asha" },
-  { type: "edit", field: "email", value: "asha@example.com" },
-  { type: "edit", field: "phone", value: "98765 43210" },
-);
-assert.equal(filled.step, "details");
-assert.deepEqual(filled.details, { name: "Asha", email: "asha@example.com", phone: "98765 43210" });
 
-// Changing the phone after the code went out asks for a new code.
-const codeSent = run(filled, { type: "code_sent" });
-assert.equal(codeSent.step, "code_sent");
-assert.equal(run(codeSent, { type: "edit", field: "phone", value: "98765 43211" }).step, "details");
-assert.equal(run(codeSent, { type: "edit", field: "name", value: "Asha R" }).step, "code_sent", "name edits keep the code");
+// Signed in (or just signed in): the account fills the details and opens them.
+const account = { name: "Asha", email: "asha@example.com", phone: "+919876543210" };
+const filled = run(start, { type: "prefill", details: account });
+assert.equal(filled.step, "details");
+assert.deepEqual(filled.details, account);
+assert.equal(run(filled, { type: "prefill", details: { ...account, name: "Other" } }).details.name, "Other", "a later sign-in refreshes the details");
+assert.equal(run(initialFlow({ state: "sold_out" }, null), { type: "prefill", details: account }).step, "sold_out", "prefill never reopens a closed card");
+
+// Name and email stay editable; the phone belongs to the account.
+const edited = run(filled, { type: "edit", field: "email", value: "asha@work.com" });
+assert.equal(edited.details.email, "asha@work.com");
+assert.equal(edited.details.phone, account.phone);
 
 // Payment: dismissing or failing keeps the details and stays ready to pay.
-let s = run(codeSent, { type: "registration_created", registration });
-const rephoned = run(s, { type: "edit", field: "phone", value: "98765 43211" });
-assert.equal(rephoned.step, "details", "a new phone at the pay step needs a new code");
-assert.equal(rephoned.registration, null, "and drops the order made for the old number");
+let s = run(filled, { type: "registration_created", registration });
 assert.equal(s.step, "paying");
 s = run(s, { type: "payment_dismissed" });
 assert.equal(s.step, "paying");
@@ -68,9 +63,9 @@ assert.equal(done.message, null);
 assert.equal(done.celebrate, true, "confirmed after paying prints the ticket");
 assert.equal(initialFlow({ state: "open" }, ticket).celebrate, false, "a returning guest just sees the ticket");
 
-// Already registered: the existing ticket is shown straight from the code step.
-assert.equal(run(codeSent, { type: "confirmed", ticket }).step, "confirmed");
-assert.equal(run(codeSent, { type: "confirmed", ticket }).celebrate, false, "no celebration for a ticket bought earlier");
+// Already registered: the existing ticket is shown straight from the details step.
+assert.equal(run(filled, { type: "confirmed", ticket }).step, "confirmed");
+assert.equal(run(filled, { type: "confirmed", ticket }).celebrate, false, "no celebration for a ticket bought earlier");
 
 // Sold out mid-flow.
 assert.equal(run(filled, { type: "sold_out" }).step, "sold_out");

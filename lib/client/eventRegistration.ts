@@ -29,9 +29,15 @@ export interface RegistrationDetails {
   phone: string;
 }
 
+/** What the guest confirms on the card. The phone comes from the signed-in account. */
+export interface RegistrationInput {
+  name: string;
+  email: string;
+}
+
 export interface RegistrationApi {
-  sendCode(phone: string): Promise<void>;
-  create(input: RegistrationDetails & { code: string }): Promise<CreatedRegistration>;
+  /** Requires the SCENE session (shared WhatsApp sign-in); 401 when signed out. */
+  create(input: RegistrationInput): Promise<CreatedRegistration>;
   verify(input: {
     registrationToken: string;
     razorpay_order_id: string;
@@ -69,11 +75,10 @@ export function formatIndianMobile(input: string): string {
   return digits ? `+91 ${digits.slice(0, 5)} ${digits.slice(5)}` : input;
 }
 
-export function validateDetails(input: RegistrationDetails): Partial<Record<keyof RegistrationDetails, string>> {
-  const errors: Partial<Record<keyof RegistrationDetails, string>> = {};
+export function validateDetails(input: RegistrationInput): Partial<Record<keyof RegistrationInput, string>> {
+  const errors: Partial<Record<keyof RegistrationInput, string>> = {};
   if (!input.name.trim()) errors.name = "Enter your name";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) errors.email = "Enter a valid email";
-  if (!normalizeIndianMobile(input.phone)) errors.phone = "Enter a 10-digit mobile number";
   return errors;
 }
 
@@ -138,14 +143,8 @@ function postJson(body: unknown): RequestInit {
 export function httpRegistrationApi(eventId: number): RegistrationApi {
   const base = `/api/events/${eventId}`;
   return {
-    async sendCode(phone) {
-      await request(`${base}/registrations/otp`, postJson({ phone: normalizeIndianMobile(phone) ?? phone }));
-    },
-    async create({ name, email, phone, code }) {
-      const { body } = await request<CreatedRegistration>(
-        `${base}/registrations`,
-        postJson({ name: name.trim(), email: email.trim(), phone: normalizeIndianMobile(phone) ?? phone, code }),
-      );
+    async create({ name, email }) {
+      const { body } = await request<CreatedRegistration>(`${base}/registrations`, postJson({ name: name.trim(), email: email.trim() }));
       return body;
     },
     async verify(input) {
@@ -166,7 +165,8 @@ export function httpRegistrationApi(eventId: number): RegistrationApi {
 
 // ----------------------------------------------------------------- dev mock
 
-const MOCK_CODE = "123456";
+/** The dev preview's signed-in guest (see MockHostedAuth). */
+const MOCK_PHONE = "9876543210";
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -178,8 +178,8 @@ function maskPhone(phone: string): string {
 
 /**
  * In-memory stand-in for the backend, for the dev preview page only.
- * Code 123456 passes; phones ending 0000 hit "sold out", 1111 "already
- * registered"; payment always verifies.
+ * Emails starting soldout@ hit "sold out", existing@ "already registered";
+ * payment always verifies.
  */
 const MOCK_TICKETS_KEY = "scene044:mock-tickets";
 
@@ -211,21 +211,16 @@ export function mockRegistrationApi(): RegistrationApi {
   let counter = tickets.size;
 
   return {
-    async sendCode(phone) {
+    async create({ name, email }) {
       await wait(400);
-      if (!normalizeIndianMobile(phone)) throw new RegistrationError("Enter a valid Indian mobile number.", 400);
-    },
-    async create({ name, email, phone, code }) {
-      await wait(400);
-      const normalized = normalizeIndianMobile(phone) ?? "";
-      if (code !== MOCK_CODE) throw new RegistrationError("That code didn't match. Check WhatsApp and try again.", 400);
-      if (normalized.endsWith("0000")) throw new RegistrationError("Sorry, this event just sold out.", 409, { soldOut: true });
-      if (normalized.endsWith("1111")) {
+      const address = email.trim().toLowerCase();
+      if (address.startsWith("soldout@")) throw new RegistrationError("Sorry, this event just sold out.", 409, { soldOut: true });
+      if (address.startsWith("existing@")) {
         throw new RegistrationError("You're already registered for this event.", 409, { existingTicketToken: "mock-existing" });
       }
       counter += 1;
       const registrationToken = `mock-reg-${counter}`;
-      pending.set(registrationToken, { name: name.trim(), email, phone: normalized });
+      pending.set(registrationToken, { name: name.trim(), email, phone: MOCK_PHONE });
       return { registrationToken, orderId: `order_mock_${counter}`, amount: 29900, currency: "INR", keyId: "rzp_test_mock" };
     },
     async verify({ registrationToken }) {

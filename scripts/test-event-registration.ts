@@ -51,12 +51,12 @@ async function main() {
   assert.equal(formatIndianMobile("9876543210"), "+91 98765 43210");
   assert.equal(formatIndianMobile("12"), "12", "unparseable input is shown as typed");
 
-  assert.deepEqual(validateDetails({ name: " ", email: "a@", phone: "123" }), {
+  // The phone comes from the signed-in account, so only name and email are checked here.
+  assert.deepEqual(validateDetails({ name: " ", email: "a@" }), {
     name: "Enter your name",
     email: "Enter a valid email",
-    phone: "Enter a 10-digit mobile number",
   });
-  assert.deepEqual(validateDetails({ name: "Asha", email: "asha@example.com", phone: "98765 43210" }), {});
+  assert.deepEqual(validateDetails({ name: "Asha", email: "asha@example.com" }), {});
 
   // Ticket token survives a reload, per event.
   storeTicketToken(7, "tok");
@@ -69,16 +69,16 @@ async function main() {
   const api = httpRegistrationApi(42);
 
   stubFetch(200, { registrationToken: "r1", orderId: "order_1", amount: 29900, currency: "INR", keyId: "rzp_test" });
-  const created = await api.create({ name: "Asha", email: "asha@example.com", phone: "+91 98765 43210", code: "123456" });
+  const created = await api.create({ name: " Asha ", email: "asha@example.com" });
   assert.equal(created.orderId, "order_1");
   const last = calls.at(-1)!;
   assert.equal(last.url, "/api/events/42/registrations");
   const sent = JSON.parse(String(last.init?.body));
   assert.equal("amount" in sent, false, "the client never sends an amount");
-  assert.equal(sent.phone, "9876543210", "phone is sent normalized");
+  assert.deepEqual(sent, { name: "Asha", email: "asha@example.com" }, "only name and email; the session supplies the phone");
 
   stubFetch(409, { error: "You're already registered.", existingTicketToken: "t1" });
-  await assert.rejects(api.create({ name: "Asha", email: "asha@example.com", phone: "9876543210", code: "123456" }), (error) => {
+  await assert.rejects(api.create({ name: "Asha", email: "asha@example.com" }), (error) => {
     assert.ok(error instanceof RegistrationError);
     assert.equal(error.status, 409);
     assert.equal(error.existingTicketToken, "t1");
@@ -87,7 +87,7 @@ async function main() {
   });
 
   stubFetch(409, { error: "Sold out.", soldOut: true });
-  await assert.rejects(api.create({ name: "A", email: "a@b.co", phone: "9876543210", code: "123456" }), (error) => {
+  await assert.rejects(api.create({ name: "A", email: "a@b.co" }), (error) => {
     assert.ok(error instanceof RegistrationError && error.soldOut === true);
     return true;
   });
@@ -96,12 +96,13 @@ async function main() {
   assert.equal(await api.getTicket("missing"), null);
   assert.equal(calls.at(-1)!.url, "/api/events/42/tickets/missing");
 
-  stubFetch(429, { error: "Wait 30 seconds before asking for another code." });
-  await assert.rejects(api.sendCode("9876543210"), /Wait 30 seconds/);
-  assert.equal(calls.at(-1)!.url, "/api/events/42/registrations/otp");
+  assert.equal("sendCode" in api, false, "no event-specific OTP any more");
+
+  stubFetch(401, { error: "Sign in to continue." });
+  await assert.rejects(api.create({ name: "A", email: "a@b.co" }), (e) => e instanceof RegistrationError && e.status === 401);
 
   globalThis.fetch = (async () => { throw new TypeError("Failed to fetch"); }) as typeof fetch;
-  await assert.rejects(api.sendCode("9876543210"), (error) => {
+  await assert.rejects(api.create({ name: "A", email: "a@b.co" }), (error) => {
     assert.ok(error instanceof RegistrationError);
     assert.equal(error.status, 0);
     assert.match(error.message, /connection/i);
@@ -110,10 +111,9 @@ async function main() {
 
   // Dev mock behaves like the contract.
   const mock = mockRegistrationApi();
-  await assert.rejects(mock.create({ name: "A", email: "a@b.co", phone: "9876500000", code: "123456" }), (e) => e instanceof RegistrationError && e.soldOut === true);
-  await assert.rejects(mock.create({ name: "A", email: "a@b.co", phone: "9876511111", code: "123456" }), (e) => e instanceof RegistrationError && e.existingTicketToken === "mock-existing");
-  await assert.rejects(mock.create({ name: "A", email: "a@b.co", phone: "9876543210", code: "000000" }), /code/i);
-  const reg = await mock.create({ name: "Asha", email: "a@b.co", phone: "9876543210", code: "123456" });
+  await assert.rejects(mock.create({ name: "A", email: "soldout@example.com" }), (e) => e instanceof RegistrationError && e.soldOut === true);
+  await assert.rejects(mock.create({ name: "A", email: "existing@example.com" }), (e) => e instanceof RegistrationError && e.existingTicketToken === "mock-existing");
+  const reg = await mock.create({ name: "Asha", email: "a@b.co" });
   const verified = await mock.verify({ registrationToken: reg.registrationToken, razorpay_order_id: reg.orderId, razorpay_payment_id: "pay_1", razorpay_signature: "sig" });
   assert.equal(verified.ticket.status, "confirmed");
   assert.deepEqual(await mock.getTicket(verified.ticketToken), verified.ticket);

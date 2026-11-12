@@ -167,6 +167,12 @@ body {
 .hosted-surface .font-sans {
   font-family: var(--venue-font-body);
 }
+/* The hosted page sits inside .venue-surface (for the shared sign-in popup's
+   styles) but keeps the events cream, not the venue paper. */
+.venue-surface.hosted-root {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
 
 /*
  * Press feedback for hard-shadow controls. Lifts toward the light on hover and

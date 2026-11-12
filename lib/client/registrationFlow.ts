@@ -11,7 +11,6 @@ import type { RegistrationState } from "@/lib/hostedEvents";
 export type FlowStep =
   | "idle"
   | "details"
-  | "code_sent"
   | "paying"
   | "confirming"
   | "confirmed"
@@ -32,9 +31,10 @@ export interface FlowState {
 }
 
 export type FlowAction =
-  | { type: "open" }
-  | { type: "edit"; field: keyof RegistrationDetails; value: string }
-  | { type: "code_sent" }
+  /** The signed-in account's details; opens the card from idle. */
+  | { type: "prefill"; details: RegistrationDetails }
+  /** Name and email only — the phone belongs to the account. */
+  | { type: "edit"; field: "name" | "email"; value: string }
   | { type: "registration_created"; registration: CreatedRegistration }
   | { type: "payment_dismissed" }
   | { type: "payment_failed"; message: string }
@@ -61,23 +61,11 @@ export function initialFlow(seat: { state: RegistrationState | "ended" }, ticket
 
 export function flowReducer(state: FlowState, action: FlowAction): FlowState {
   switch (action.type) {
-    case "open":
-      return state.step === "idle" ? { ...state, step: "details", message: null } : state;
-    case "edit": {
-      const details = { ...state.details, [action.field]: action.value };
-      // A new phone number needs a new code; anything already created for the
-      // old number is dropped so the next payment is for the right person.
-      const phoneChanged = action.field === "phone" && action.value !== state.details.phone;
-      const backToDetails = phoneChanged && (state.step === "code_sent" || state.step === "paying");
-      return {
-        ...state,
-        details,
-        message: null,
-        ...(backToDetails ? { step: "details" as const, registration: null } : {}),
-      };
-    }
-    case "code_sent":
-      return { ...state, step: "code_sent", busy: false, message: null };
+    case "prefill":
+      if (state.step !== "idle" && state.step !== "details") return state;
+      return { ...state, step: "details", details: { ...action.details }, message: null };
+    case "edit":
+      return { ...state, details: { ...state.details, [action.field]: action.value }, message: null };
     case "registration_created":
       return { ...state, step: "paying", registration: action.registration, busy: false, message: null };
     case "payment_dismissed":

@@ -4,6 +4,9 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import FieldError from './FieldError'
 import { ArrowRight, Check, Close, Phone, Search } from './icons'
 
+/** Optional replacement for the Organiser sign-in heading and line. */
+export type AuthCopy = { title: string; body: string }
+
 export type Profile = { name: string; phone: string; role: 'Organiser' | 'Host'; venue?: string; email?: string }
 
 const RESEND_SECS = 60
@@ -21,6 +24,7 @@ export default function AuthModal({
   onVerified,
   submitting = false,
   initialRole,
+  copy,
 }: {
   open: boolean
   saved: Profile | null
@@ -29,6 +33,7 @@ export default function AuthModal({
   /** True when auth was triggered mid-booking, so a request is sent after verifying. */
   submitting?: boolean
   initialRole?: Profile['role']
+  copy?: AuthCopy
 }) {
   const [step, setStep] = useState<Step>('details')
   const [name, setName] = useState('')
@@ -231,12 +236,12 @@ export default function AuthModal({
         {step === 'details' && (
           <form onSubmit={sendOtp} noValidate className="px-5 pt-6">
             <h2 id={titleId} className="font-head text-2xl leading-[30px]">
-              {role === 'Host' ? 'Sign in to your venue' : saved ? `Good to see you, ${saved.name.split(' ')[0]}` : 'Join to request a booking'}
+              {role === 'Host' ? 'Sign in to your venue' : saved ? `Good to see you, ${saved.name.split(' ')[0]}` : copy?.title ?? 'Join to request a booking'}
             </h2>
             <p id={descId} className="mt-2 text-sm leading-[22.75px] text-stone">
               {role === 'Host' ? 'Your number must be approved for your venue. We’ll send a WhatsApp code to verify it.' : saved
                 ? "We've filled in your details from last time. Confirm and we'll send a fresh code to your WhatsApp."
-                : "We'll send a one-time code to your WhatsApp to verify your number."}
+                : copy?.body ?? "We'll send a one-time code to your WhatsApp to verify your number."}
             </p>
 
             <div className="mt-6 border-[1.5px] border-ink shadow-hard-sm">

@@ -12,7 +12,6 @@ import {
   storeTicketToken,
   validateDetails,
   type RegistrationApi,
-  type RegistrationDetails,
   type Ticket,
 } from "@/lib/client/eventRegistration";
 import { formatSceneDateLong } from "@/lib/client/istTime";
@@ -24,9 +23,9 @@ import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedE
 import { Btn, Mono } from "@/components/scene/ui";
 import { REGISTER_OPEN_EVENT, RegisterBar } from "@/components/scene/hosted/RegisterBar";
 import { TicketView } from "@/components/scene/hosted/TicketView";
+import { useHostedAuth } from "@/components/scene/hosted/hostedAuth";
 import { PassFooter, ReaderPass, SwipeToPay } from "@/components/scene/hosted/ReaderPass";
 
-const RESEND_SECONDS = 30;
 
 const inputClass =
   "mt-1 block min-h-11 w-full border-2 border-foreground bg-card px-3 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary aria-[invalid=true]:border-primary-ink disabled:opacity-60";
@@ -34,7 +33,7 @@ const labelClass = "font-mono text-[10px] font-semibold uppercase tracking-[0.12
 
 /** Groups steps that share one panel, so the panel only animates on real changes. */
 function panelOf(step: FlowStep): string {
-  if (step === "details" || step === "code_sent") return "form";
+  if (step === "details") return "form";
   // Same panel, so the ticket printer carries on from printing to printed.
   if (step === "confirming" || step === "confirmed") return "ticket";
   return step;
@@ -106,11 +105,17 @@ export function HostedRegistration({
   const [state, dispatch] = useReducer(flowReducer, seat, (s) => initialFlow(s, null));
   const [checkingTicket, setCheckingTicket] = useState(true);
   const [showErrors, setShowErrors] = useState(false);
-  const [code, setCode] = useState("");
-  const [resendIn, setResendIn] = useState(0);
+  const { requireAuth } = useHostedAuth();
   const paymentRef = useRef<RazorpaySuccessResponse | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
-  const codeRef = useRef<HTMLInputElement>(null);
+
+  /** Swipe or the phone bar: sign in if needed, then open the details. */
+  const startRegistration = useCallback(() => {
+    requireAuth((profile) => {
+      dispatch({ type: "prefill", details: { name: profile.name, email: profile.email ?? "", phone: profile.phone } });
+      setTimeout(() => nameRef.current?.focus({ preventScroll: true }), 250);
+    });
+  }, [requireAuth]);
 
   const showTicket = useCallback(
     async (token: string) => {
@@ -141,19 +146,9 @@ export function HostedRegistration({
 
   // The phone bar asks the card to open.
   useEffect(() => {
-    function onOpen() {
-      dispatch({ type: "open" });
-      setTimeout(() => nameRef.current?.focus({ preventScroll: true }), 250);
-    }
-    window.addEventListener(REGISTER_OPEN_EVENT, onOpen);
-    return () => window.removeEventListener(REGISTER_OPEN_EVENT, onOpen);
-  }, []);
-
-  useEffect(() => {
-    if (resendIn <= 0) return;
-    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendIn]);
+    window.addEventListener(REGISTER_OPEN_EVENT, startRegistration);
+    return () => window.removeEventListener(REGISTER_OPEN_EVENT, startRegistration);
+  }, [startRegistration]);
 
   // The ticket printer's sound, once, when a ticket was just paid for here.
   const playedRef = useRef(false);
@@ -166,41 +161,28 @@ export function HostedRegistration({
   const errors = validateDetails(state.details);
   const visibleErrors = showErrors ? errors : {};
 
-  function edit(field: keyof RegistrationDetails, value: string) {
-    if (field === "phone" && value !== state.details.phone) setCode("");
+  function edit(field: "name" | "email", value: string) {
     dispatch({ type: "edit", field, value });
   }
 
-  async function sendCode() {
+  async function continueToPay() {
     setShowErrors(true);
-    const firstInvalid = (["name", "email", "phone"] as const).find((field) => errors[field]);
+    const firstInvalid = (["name", "email"] as const).find((field) => errors[field]);
     if (firstInvalid) {
       document.getElementById(`reg-${firstInvalid}`)?.focus();
       return;
     }
+    primeTicketSound();
     dispatch({ type: "busy", busy: true });
     try {
-      await api.sendCode(state.details.phone);
-      dispatch({ type: "code_sent" });
-      setResendIn(RESEND_SECONDS);
-      setTimeout(() => codeRef.current?.focus(), 250);
-    } catch (error) {
-      dispatch({ type: "error", message: error instanceof Error ? error.message : "Couldn't send a code. Try again." });
-    }
-  }
-
-  async function verifyCodeAndPay() {
-    if (code.length !== 6) {
-      dispatch({ type: "error", message: "Enter the 6-digit code from WhatsApp." });
-      return;
-    }
-    dispatch({ type: "busy", busy: true });
-    try {
-      const registration = await api.create({ ...state.details, code });
+      const registration = await api.create({ name: state.details.name, email: state.details.email });
       dispatch({ type: "registration_created", registration });
       void pay(registration);
     } catch (error) {
-      if (error instanceof RegistrationError && error.soldOut) {
+      if (error instanceof RegistrationError && error.status === 401) {
+        dispatch({ type: "error", message: "Your sign-in expired. Sign in again to continue." });
+        startRegistration();
+      } else if (error instanceof RegistrationError && error.soldOut) {
         dispatch({ type: "sold_out" });
       } else if (error instanceof RegistrationError && error.existingTicketToken) {
         const shown = await showTicket(error.existingTicketToken).catch(() => false);
@@ -302,21 +284,14 @@ export function HostedRegistration({
             ) : state.step === "idle" ? (
               <ReaderPass
                 hosted={hosted}
-                onSwipe={() => {
-                  dispatch({ type: "open" });
-                  setTimeout(() => nameRef.current?.focus(), 250);
-                }}
+                onSwipe={startRegistration}
               />
-            ) : state.step === "details" || state.step === "code_sent" ? (
+            ) : state.step === "details" ? (
               <form
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (state.step === "details") void sendCode();
-                  else {
-                    primeTicketSound();
-                    void verifyCodeAndPay();
-                  }
+                  void continueToPay();
                 }}
               >
                 <div className="flex items-baseline justify-between gap-3">
@@ -354,68 +329,19 @@ export function HostedRegistration({
                   />
                 </Field>
 
-                <Field id="reg-phone" label="WhatsApp number" error={visibleErrors.phone} hint="Your ticket and reminders come here.">
-                  <div className="mt-1 flex">
-                    <span className="inline-flex min-h-11 items-center border-2 border-r-0 border-foreground bg-muted px-3 font-mono text-sm" aria-hidden>
-                      +91
-                    </span>
-                    <input
-                      id="reg-phone"
-                      name="phone"
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel-national"
-                      placeholder="98765 43210"
-                      value={state.details.phone}
-                      onChange={(e) => edit("phone", e.target.value)}
-                      aria-invalid={Boolean(visibleErrors.phone)}
-                      aria-describedby={`reg-phone-hint${visibleErrors.phone ? " reg-phone-error" : ""}`}
-                      className={`${inputClass} mt-0 min-w-0 flex-1`}
-                    />
-                  </div>
-                </Field>
-
-                {state.step === "code_sent" && (
-                  <Field id="reg-code" label="6-digit code" hint={`Sent on WhatsApp to ${formatIndianMobile(state.details.phone)}.`}>
-                    <input
-                      ref={codeRef}
-                      id="reg-code"
-                      name="code"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      aria-describedby="reg-code-hint"
-                      className={`${inputClass} w-40 font-mono tracking-[0.4em]`}
-                    />
-                  </Field>
-                )}
+                <p className="mt-3 border-2 border-foreground bg-secondary px-3 py-2 text-sm">
+                  <span className={labelClass}>WhatsApp</span>{" "}
+                  <span className="font-mono">{formatIndianMobile(state.details.phone)}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">Your ticket and reminders come here.</span>
+                </p>
 
                 <FlowMessage message={state.message} />
 
                 <Btn type="submit" className="mt-4 min-h-12 w-full text-sm" disabled={state.busy}>
-                  {state.busy
-                    ? state.step === "details"
-                      ? "Sending code…"
-                      : "Checking…"
-                    : state.step === "details"
-                      ? "Send code on WhatsApp"
-                      : `Verify and pay ${price}`}
+                  {state.busy ? "Starting payment…" : `Continue to pay ${price}`}
                 </Btn>
 
-                {state.step === "code_sent" && <TermsConsent />}
-
-                {state.step === "code_sent" && (
-                  <button
-                    type="button"
-                    onClick={() => void sendCode()}
-                    disabled={resendIn > 0 || state.busy}
-                    className="mt-2 min-h-11 w-full font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:no-underline disabled:opacity-60"
-                  >
-                    {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
-                  </button>
-                )}
+                <TermsConsent />
               </form>
             ) : state.step === "paying" ? (
               <div>
