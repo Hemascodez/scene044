@@ -14,6 +14,7 @@ import { HostedPageActions } from "@/components/scene/hosted/HostedPageActions";
 import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration";
 import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
 import { Mono } from "@/components/scene/ui";
+import { Quote } from "@/components/venues/figma/icons";
 
 /**
  * The event page for events SCENE hosts itself. Same grammar as the regular
@@ -118,11 +119,10 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
               <Flipbook photos={hosted.gallery} />
             </div>
             {hosted.quote && (
-              <figure className="mt-5 border-l-4 border-foreground bg-card px-4 py-3">
-                <blockquote className="font-display text-lg font-black leading-snug">“{hosted.quote.text}”</blockquote>
-                <figcaption className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                  {hosted.quote.by}
-                </figcaption>
+              <figure className="mt-5 border-[1.5px] border-ink bg-white p-5 shadow-hard">
+                <Quote className="size-6 text-flame" />
+                <blockquote className="mt-3 font-head text-[15px] leading-6 text-ink">{hosted.quote.text}</blockquote>
+                <figcaption className="mt-3 text-xs text-stone">{hosted.quote.by}</figcaption>
               </figure>
             )}
           </section>

@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-11-12T12:29:42.823Z",
         "reason": "Owner supplied the Reader pass register card design and asked to use its design and interaction; the shimmering swipe label is part of it and is plain white under reduced motion"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "components/scene/hosted/HostedEventView.tsx"
+        ],
+        "createdAt": "2026-11-12T12:32:20.330Z",
+        "reason": "Cancelled-event notice reuses SCENE's existing Notice style (border-l-4 primary-ink, app/events/[slug]/page.tsx:292); the quote side-tab was removed"
       }
     ]
   }
