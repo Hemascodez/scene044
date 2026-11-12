@@ -48,7 +48,7 @@ export function useVenueApp(): VenueAppValue {
   return value;
 }
 
-export function VenueAppProvider({ children }: { children: ReactNode }) {
+export function VenueAppProvider({ children, authClassName, defaultAuthCopy }: { children: ReactNode; authClassName?: string; defaultAuthCopy?: AuthCopy }) {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -108,10 +108,10 @@ export function VenueAppProvider({ children }: { children: ReactNode }) {
 
   const openAuth = useCallback(() => {
     pending.current = null;
-    setAuthCopy(undefined);
+    setAuthCopy(defaultAuthCopy);
     setSubmitting(false);
     setOpen(true);
-  }, []);
+  }, [defaultAuthCopy]);
 
   const requireAuth = useCallback((then: (p: Profile) => void, copy?: AuthCopy) => {
     pending.current = then;
@@ -142,6 +142,7 @@ export function VenueAppProvider({ children }: { children: ReactNode }) {
       <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4">
         {notice && <p className="anim-pop border-[2.5px] border-ink bg-white px-5 py-3 font-body-sb text-sm text-ink shadow-hard">{notice}</p>}
       </div>
+      <div className={authClassName}>
       <AuthModal
         open={open}
         saved={profile}
@@ -169,6 +170,7 @@ export function VenueAppProvider({ children }: { children: ReactNode }) {
           else then?.(p);
         }}
       />
+      </div>
     </Ctx.Provider>
   );
 }

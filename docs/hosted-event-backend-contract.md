@@ -150,7 +150,7 @@ Apply the new migration BEFORE deploying this code: shared sign-in and public fe
 Run `npm run dev` (404 in production for all three):
 
 - `/dev/hosted-event` — the event page on `mockRegistrationApi()`. Add `?seats=0`
-  (first visitor) or `?seats=20` (full house, waitlist) to preview the other
+  (first visitor) or `?seats=15` (full house, waitlist) to preview the other
   Readers enrolled states. Sign-in is
   simulated (signs in as a sample guest). Emails starting `soldout@` → sold
   out; `existing@` → already registered. The Razorpay sheet is a browser

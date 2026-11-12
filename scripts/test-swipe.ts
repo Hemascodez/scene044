@@ -15,7 +15,7 @@ assert.equal(resolveSwipe({ dx: 40, max: 404 }), "reset", "a short drag is not a
 // Seats: what the progress bar shows.
 // Seats set here, independent of the fixture.
 assert.deepEqual(seatProgress({ ...CHAPTER_LOUNGE_FIXTURE.hosted, capacity: 20, registeredCount: 14 }), { booked: 14, capacity: 20, left: 6, percent: 70 });
-assert.deepEqual(seatProgress({ ...CHAPTER_LOUNGE_FIXTURE.hosted, registeredCount: 25 }), { booked: 20, capacity: 20, left: 0, percent: 100 });
+assert.deepEqual(seatProgress({ ...CHAPTER_LOUNGE_FIXTURE.hosted, capacity: 20, registeredCount: 25 }), { booked: 20, capacity: 20, left: 0, percent: 100 });
 assert.deepEqual(seatProgress({ ...CHAPTER_LOUNGE_FIXTURE.hosted, capacity: 0, registeredCount: 0 }), { booked: 0, capacity: 0, left: 0, percent: 0 });
 
 console.log("PASS swipe and seat progress");

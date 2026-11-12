@@ -195,7 +195,7 @@ async function main() {
     await db.exec(
       readFileSync("db/migrations/2026-11-12-hosted-events.sql", "utf8"),
     ); // repeatable migration
-    const { prepareChapterLoungeDraft } =
+    const { prepareChapterLoungeDraft, saveHostedEventSettings, hostedEventAdminCatalog } =
       await import("../lib/hostedEventAdmin");
     const draft = await prepareChapterLoungeDraft();
     assert.equal(
@@ -229,6 +229,18 @@ async function main() {
     console.log(
       "PASS migration, repeatable unpublished Arts draft, real content and zero initial registrations",
     );
+    const settings = (await hostedEventAdminCatalog()).find(e => e.id === draft.eventId)!;
+    const gist = "Two uninterrupted hours, just u and ur book with a cup of tea and good company.";
+    await saveHostedEventSettings({ ...settings, eventId: draft.eventId, capacity: 15, gist });
+    assert.equal((await getHostedEventInfo(draft.eventId))?.capacity, 15);
+    assert.equal((await db.query<{gist:string}>("SELECT gist FROM events WHERE id=$1", [draft.eventId])).rows[0].gist, gist);
+    await saveHostedEventSettings({ ...settings, eventId: draft.eventId, capacity: 15, gist: "A separate isolated copy update." });
+    const withoutGist = { ...settings };
+    delete withoutGist.gist;
+    await saveHostedEventSettings({ ...withoutGist, eventId: draft.eventId, capacity: 15 });
+    assert.equal((await db.query<{gist:string}>("SELECT gist FROM events WHERE id=$1", [draft.eventId])).rows[0].gist, "A separate isolated copy update.", "legacy settings saves preserve the gist when omitted");
+    await assert.rejects(() => saveHostedEventSettings({ ...settings, eventId: draft.eventId, gist: "x".repeat(141) }), /140 characters/);
+    console.log("PASS 15-seat correction and editable At a glance copy; omitted gist preserved and invalid copy rejected");
 
     const userIds: number[] = [];
     const sessions: string[] = [];
@@ -859,7 +871,6 @@ async function main() {
       assert.equal(r.status, 200, await r.clone().text());
       recoveryOrders.push(await data<CreatedRegistration>(r));
     }
-    const { saveHostedEventSettings } = await import("../lib/hostedEventAdmin");
     await assert.rejects(
       () =>
         saveHostedEventSettings({

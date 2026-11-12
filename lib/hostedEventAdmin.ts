@@ -9,7 +9,7 @@ import { eventPath } from "@/lib/seo";
 
 export async function hostedEventAdminCatalog() {
   return (
-    await query(`SELECT e.id,e.title,e.status,e.start_at AS "startAt",e.category,
+    await query(`SELECT e.id,e.title,e.status,e.start_at AS "startAt",e.category,e.gist,
     h.host_name AS "hostName",h.host_person AS "hostPerson",h.price_paise AS "pricePaise",h.capacity,
     h.registration_state AS "registrationState",h.description,h.gallery,h.quote,h.good_to_know AS "goodToKnow",
     h.refund_policy AS "refundPolicy",h.terms FROM events e LEFT JOIN hosted_events h ON h.event_id=e.id
@@ -32,6 +32,9 @@ export async function saveHostedEventSettings(body: Record<string, unknown>) {
     typeof body.refundPolicy === "string" ? body.refundPolicy.trim() : "";
   const terms = body.terms;
   const gallery = body.gallery ?? [];
+  const updateGist = Object.hasOwn(body, "gist");
+  if (updateGist && (typeof body.gist !== "string" || !body.gist.trim() || body.gist.trim().length > 140))
+    throw new EventTicketError("At a glance must be a sentence of 140 characters or fewer.");
   if (
     hostName.length < 2 ||
     hostName.length > 120 ||
@@ -111,11 +114,14 @@ export async function saveHostedEventSettings(body: Record<string, unknown>) {
       ],
     );
     await client.query(
-      `UPDATE events SET price_type='paid',price_note=$2,primary_source_url=$3,updated_at=now() WHERE id=$1`,
+      `UPDATE events SET price_type='paid',price_note=$2,primary_source_url=$3,
+      gist=CASE WHEN $4::boolean THEN $5::text ELSE gist END,updated_at=now() WHERE id=$1`,
       [
         id,
         `₹${Number(pricePaise) / 100}`,
         `https://scene044.in${eventPath(e.rows[0])}`,
+        updateGist,
+        updateGist ? (body.gist as string).trim() : null,
       ],
     );
     await client.query("COMMIT");

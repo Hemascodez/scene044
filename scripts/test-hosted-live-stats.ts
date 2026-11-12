@@ -92,7 +92,7 @@ function SharedCounter() {
 }
 const event = {
   ...CHAPTER_LOUNGE_FIXTURE,
-  hosted: { ...seed, registeredCount: 3 },
+  hosted: { ...seed, capacity: 20, registeredCount: 3 },
 };
 const markup = renderToStaticMarkup(
   React.createElement(HostedSeatStatsProvider, {

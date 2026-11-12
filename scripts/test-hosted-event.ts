@@ -25,7 +25,8 @@ assert.deepEqual(seatSummary(hosted, END, BEFORE, "cancelled"), { state: "closed
 assert.equal(seatSummary(hosted, END, BEFORE, "live").state, "open");
 
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.pricePaise, 29900);
-assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.capacity, 20);
+assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.capacity, 15);
+assert.equal(CHAPTER_LOUNGE_FIXTURE.gist, "Two uninterrupted hours, just u and ur book with a cup of tea and good company.");
 assert.equal(CHAPTER_LOUNGE_FIXTURE.category,'arts');
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.registeredCount,0,'real event starts with zero registrations');
 assert.equal(isSceneHostedEvent({hostedPricePaise:29900}),true);

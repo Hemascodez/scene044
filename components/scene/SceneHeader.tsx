@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { SceneLogo, type SceneLogoVariant } from "@/components/brand/SceneLogo";
 
 export function Wordmark({ size = "text-xl",variant="light" }: { size?: string;variant?:SceneLogoVariant }) {
@@ -72,19 +73,22 @@ export function SceneHeader({
 }
 
 /** Plain-link header for routes that aren't the single-page app shell. */
-export function SceneHeaderStatic() {
+export function SceneHeaderStatic({ accountControls }: { accountControls?: ReactNode } = {}) {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
         <Link href="/" aria-label="SCENE — home">
           <Wordmark />
         </Link>
-        <Link
-          href="/"
-          className="px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
-        >
-          ← All fields
-        </Link>
+        <nav aria-label="Event navigation" className="flex items-center gap-2">
+          <Link
+            href="/"
+            className={`${accountControls ? "hidden min-h-11 items-center sm:inline-flex" : ""} px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground`}
+          >
+            ← All fields
+          </Link>
+          {accountControls}
+        </nav>
       </div>
     </header>
   );

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** `?seats=0` (first visitor) or `?seats=20` (full house) previews the other card states. */
+/** `?seats=0` (first visitor) or `?seats=15` (full house) previews the other card states. */
 export default async function HostedEventPreviewPage({ searchParams }: { searchParams: Promise<{ seats?: string }> }) {
   if (process.env.NODE_ENV === "production") notFound();
   const requested = Number((await searchParams).seats);

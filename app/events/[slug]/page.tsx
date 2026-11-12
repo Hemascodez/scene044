@@ -31,9 +31,8 @@ import { EventPageScrollReset } from "@/components/scene/EventPageScrollReset";
 import { EventPageActions } from "@/components/scene/EventPageActions";
 import { HostedEventView } from "@/components/scene/hosted/HostedEventView";
 import { VenueAuthBridge } from "@/components/scene/hosted/hostedAuth";
-import { VenueAppProvider } from "@/components/venues/figma/VenueApp";
+import { EventPageAuth } from "@/components/scene/EventPageAuth";
 import { SceneFooter } from "@/components/scene/SceneHero";
-import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { StatusBadge } from "@/components/scene/ui";
 
 export const dynamic = "force-dynamic";
@@ -123,15 +122,14 @@ export default async function EventPage({ params,searchParams }: EventPageProps)
             dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
           />
         ))}
-        <SceneHeaderStatic />
+        <EventPageAuth>
         <div className="venue-surface hosted-root">
-          <VenueAppProvider>
             <VenueAuthBridge>
               <HostedEventView event={{ ...event, hosted: event.hosted }} api="http" />
             </VenueAuthBridge>
-          </VenueAppProvider>
         </div>
         <SceneFooter />
+        </EventPageAuth>
       </div>
     );
   }
@@ -147,7 +145,7 @@ export default async function EventPage({ params,searchParams }: EventPageProps)
         />
       ))}
 
-      <SceneHeaderStatic />
+      <EventPageAuth>
 
       <main>
         <section className="border-b-2 border-foreground bg-foreground text-background">
@@ -288,6 +286,7 @@ export default async function EventPage({ params,searchParams }: EventPageProps)
       </main>
 
       <SceneFooter />
+      </EventPageAuth>
     </div>
   );
 }

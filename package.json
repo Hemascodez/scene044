@@ -22,6 +22,7 @@
     "test:hosted-event-backend": "node --import tsx scripts/test-hosted-event-backend.ts",
     "test:brand": "node --import tsx scripts/test-brand.tsx",
     "test:hosted-live-stats": "node --import tsx scripts/test-hosted-live-stats.ts && node --import tsx scripts/test-event-confirmation-template.ts",
+    "test:event-page-auth": "node --import tsx scripts/test-event-page-auth.tsx",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
     "test:venue-auth": "node --import tsx scripts/test-venue-auth.ts",
     "test:venue-concession": "node --import tsx scripts/test-yoga-concession.ts",
