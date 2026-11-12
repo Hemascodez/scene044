@@ -2,7 +2,7 @@
 
 const CHECKOUT_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 
-interface RazorpaySuccessResponse {
+export interface RazorpaySuccessResponse {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
