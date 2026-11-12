@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * SCENE/044 — editorial / newsprint identity.
+ * SCENE — editorial / newsprint identity.
  *
  * Tokens are taken verbatim from the approved Figma Make design. Two things
  * are load-bearing and easy to "tidy" into a regression:
@@ -873,11 +873,11 @@ body {
   --hosted-line: rgba(255, 255, 255, 0.14);
   color: #f4f2ea;
   background:
-    radial-gradient(ellipse 90% 45% at 90% 0%, rgba(255, 45, 22, 0.3), rgba(255, 45, 22, 0) 62%),
-    radial-gradient(ellipse 70% 35% at 0% 42%, rgba(196, 27, 9, 0.2), rgba(196, 27, 9, 0) 62%),
-    radial-gradient(ellipse 80% 40% at 100% 88%, rgba(255, 45, 22, 0.16), rgba(255, 45, 22, 0) 62%),
-    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.2px) 0 0 / 22px 22px,
-    linear-gradient(180deg, #0f0b09 0%, #15100d 50%, #0b0807 100%);
+    /* Black first; red is one soft glow behind the title and a faint ember at the foot. */
+    radial-gradient(ellipse 90% 30% at 85% 0%, rgba(255, 45, 22, 0.16), rgba(255, 45, 22, 0) 65%),
+    radial-gradient(ellipse 80% 25% at 100% 100%, rgba(196, 27, 9, 0.07), rgba(196, 27, 9, 0) 65%),
+    radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1.2px) 0 0 / 22px 22px,
+    linear-gradient(180deg, #0c0a09 0%, #0f0d0c 50%, #090807 100%);
 }
 .hosted-dark .bg-card,
 .hosted-dark .bg-white,
