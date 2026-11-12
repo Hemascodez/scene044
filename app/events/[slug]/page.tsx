@@ -29,6 +29,7 @@ import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { EventGlance } from "@/components/scene/EventGlance";
 import { EventPageScrollReset } from "@/components/scene/EventPageScrollReset";
 import { EventPageActions } from "@/components/scene/EventPageActions";
+import { HostedEventView } from "@/components/scene/hosted/HostedEventView";
 import { SceneFooter } from "@/components/scene/SceneHero";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { StatusBadge } from "@/components/scene/ui";
@@ -103,6 +104,24 @@ export default async function EventPage({ params }: EventPageProps) {
   const bullets = eventSummaryBullets(event);
   const heroByline = event.organizerName ?? (event.isOnline ? "Online event" : (event.venueName ?? event.city));
   const jsonLd = [eventBreadcrumbStructuredData(event), eventStructuredData(event)].filter(Boolean);
+
+  if (event.hosted) {
+    return (
+      <div className="min-h-full">
+        <EventPageScrollReset />
+        {jsonLd.map((data, index) => (
+          <script
+            key={index}
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
+          />
+        ))}
+        <SceneHeaderStatic />
+        <HostedEventView event={{ ...event, hosted: event.hosted }} api="http" />
+        <SceneFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full">

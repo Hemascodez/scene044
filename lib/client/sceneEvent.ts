@@ -2,6 +2,7 @@ import type { PublicEvent } from "@/lib/events";
 import { stockPosterFor } from "@/lib/stockPosters";
 import { formatSceneDate, formatSceneTime, isPastEvent } from "@/lib/client/istTime";
 import { normalizeEventCity } from "@/lib/eventLocations";
+import { formatRupees, type HostedEventDetail } from "@/lib/hostedEvents";
 
 /**
  * The status the card actually renders, which is not the same as the database
@@ -239,6 +240,18 @@ export function glanceFactsFor(event: PublicEvent & { venueAddress?: string | nu
   }
 
   return facts;
+}
+
+/** "At a glance" for events SCENE hosts: our own facts, so no audience guess
+ *  and a "Bring" line instead. */
+export function hostedGlanceFacts(event: HostedEventDetail): GlanceFact[] {
+  const [when] = glanceFactsFor(event);
+  return [
+    when,
+    { label: "Where", value: event.venueName ?? event.city, ...(event.venueAddress ? { hint: event.venueAddress } : {}) },
+    { label: "Price", value: `${formatRupees(event.hosted.pricePaise)} · refreshments included` },
+    { label: "Bring", value: "Any book, poetry or your Kindle" },
+  ];
 }
 
 export interface ScenePoster {

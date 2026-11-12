@@ -9,6 +9,7 @@ import { deriveSceneStatus, isNewlyDiscovered, posterFor } from "@/lib/client/sc
 import { getFieldCardForCategory } from "@/lib/fieldCards";
 import { FreshnessDot, Mono, SaveIcon, StatusBadge } from "@/components/scene/ui";
 import { normalizeEventCity } from "@/lib/eventLocations";
+import { formatRupees } from "@/lib/hostedEvents";
 
 export function EventCard({
   event,
@@ -111,8 +112,13 @@ export function EventCard({
 
           {/* Top-left stack, mirroring the top-right one below: a curator's pin
               and a fresh find are independent signals, so both can show. */}
-          {(event.isPromoted || isNewlyDiscovered(event)) && (
+          {(event.hostedPricePaise != null || event.isPromoted || isNewlyDiscovered(event)) && (
             <span className="absolute left-0 top-0 m-1.5 flex flex-col items-start gap-1">
+              {event.hostedPricePaise != null && (
+                <span className="bg-primary-ink px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
+                  Hosted · {formatRupees(event.hostedPricePaise)}
+                </span>
+              )}
               {event.isPromoted && (
                 <span className="bg-primary-ink px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
                   Promoted
