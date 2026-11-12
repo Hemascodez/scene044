@@ -27,6 +27,8 @@ export interface FlowState {
   ticket: Ticket | null;
   message: string | null;
   busy: boolean;
+  /** True only when the ticket was just paid for here: plays the ticket printer. */
+  celebrate: boolean;
 }
 
 export type FlowAction =
@@ -53,6 +55,7 @@ export function initialFlow(seat: { state: RegistrationState | "ended" }, ticket
     ticket: confirmed,
     message: null,
     busy: false,
+    celebrate: false,
   };
 }
 
@@ -91,7 +94,14 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
         message: `We received your payment but couldn't confirm it yet. Retry, or message us with payment ID ${state.paymentId}.`,
       };
     case "confirmed":
-      return { ...state, step: "confirmed", ticket: action.ticket, busy: false, message: null };
+      return {
+        ...state,
+        step: "confirmed",
+        ticket: action.ticket,
+        busy: false,
+        message: null,
+        celebrate: state.step === "confirming",
+      };
     case "sold_out":
       return { ...state, step: "sold_out", busy: false, message: null };
     case "busy":

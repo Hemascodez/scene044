@@ -64,8 +64,13 @@ assert.equal(done.step, "confirmed");
 assert.equal(done.ticket, ticket);
 assert.equal(done.message, null);
 
+// Only a fresh payment gets the ticket-printer celebration.
+assert.equal(done.celebrate, true, "confirmed after paying prints the ticket");
+assert.equal(initialFlow({ state: "open" }, ticket).celebrate, false, "a returning guest just sees the ticket");
+
 // Already registered: the existing ticket is shown straight from the code step.
 assert.equal(run(codeSent, { type: "confirmed", ticket }).step, "confirmed");
+assert.equal(run(codeSent, { type: "confirmed", ticket }).celebrate, false, "no celebration for a ticket bought earlier");
 
 // Sold out mid-flow.
 assert.equal(run(filled, { type: "sold_out" }).step, "sold_out");

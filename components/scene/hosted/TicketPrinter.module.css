@@ -1,0 +1,169 @@
+/*
+ * Ticket printer, ported from the "Payment success ticket printer" design.
+ * Two phases set on .stage via data-phase:
+ *   printing — loops while the server confirms the payment
+ *   printed  — one shot: the ticket feeds out, reels land, "TICKET READY"
+ * Durations come from PRINT_TIMING (lib/client/ticketSound.ts) as CSS
+ * variables, so the sound and the motion share one clock. The 24 in steps()
+ * is PRINT_TIMING.feedSteps and the 82% stop is feedMs / (feedMs + settleMs);
+ * keep them in step if the timing changes.
+ * Transform and opacity only.
+ */
+
+.stage {
+  position: relative;
+  width: 560px;
+  height: 740px;
+  transform-origin: top left;
+}
+
+.machine,
+.ticket,
+.reel,
+.dial,
+.ledRed,
+.ledWhite,
+.statusPrinting,
+.statusReady,
+.tag,
+.glow {
+  animation-fill-mode: both;
+}
+
+.dial {
+  transform-box: view-box;
+  transform-origin: 120px 150px;
+}
+
+.ticket {
+  transform: translateY(-100%);
+  will-change: transform;
+}
+
+.ledWhite,
+.statusReady,
+.tag,
+.glow {
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------- printing */
+
+.stage[data-phase="printing"] .machine {
+  animation: tp-vib 160ms steps(2, jump-none) infinite;
+}
+.stage[data-phase="printing"] .reel {
+  animation: tp-spin 520ms steps(4, jump-end) infinite;
+}
+.stage[data-phase="printing"] .reel2 {
+  animation-duration: 600ms;
+}
+.stage[data-phase="printing"] .reel3 {
+  animation-duration: 680ms;
+}
+.stage[data-phase="printing"] .dial {
+  animation: tp-turn 1200ms steps(12, jump-end) infinite;
+}
+.stage[data-phase="printing"] .ledRed {
+  animation: tp-blink 600ms steps(2, jump-none) infinite;
+}
+
+/* ----------------------------------------------------------------- printed */
+
+.stage[data-phase="printed"] .machine {
+  animation: tp-vib 160ms steps(2, jump-none) 10;
+}
+.stage[data-phase="printed"] .ticket {
+  animation: tp-feed calc(var(--tp-feed) + var(--tp-settle)) linear forwards;
+}
+.stage[data-phase="printed"] .reel {
+  animation: tp-land 900ms steps(7, jump-end) forwards;
+}
+.stage[data-phase="printed"] .reel2 {
+  animation-duration: 1200ms;
+}
+.stage[data-phase="printed"] .reel3 {
+  animation-duration: var(--tp-feed);
+}
+.stage[data-phase="printed"] .dial {
+  animation: tp-turn-twice var(--tp-feed) steps(24, jump-end) forwards;
+}
+.stage[data-phase="printed"] .ledRed,
+.stage[data-phase="printed"] .statusPrinting {
+  animation: tp-out 1ms linear var(--tp-feed) forwards;
+}
+.stage[data-phase="printed"] .ledWhite,
+.stage[data-phase="printed"] .statusReady {
+  animation: tp-in 1ms linear var(--tp-feed) forwards;
+}
+.stage[data-phase="printed"] .tag {
+  animation: tp-tag 400ms ease-out calc(var(--tp-feed) + var(--tp-settle) * 0.5) forwards;
+}
+.stage[data-phase="printed"] .glow {
+  animation: tp-in 500ms ease-out var(--tp-feed) forwards;
+}
+
+@keyframes tp-vib {
+  0% { transform: translateX(-1px); }
+  100% { transform: translateX(1px); }
+}
+@keyframes tp-spin {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-192px); }
+}
+@keyframes tp-land {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-336px); }
+}
+@keyframes tp-turn {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes tp-turn-twice {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(720deg); }
+}
+@keyframes tp-blink {
+  0% { opacity: 1; }
+  100% { opacity: 0.35; }
+}
+@keyframes tp-feed {
+  0% { transform: translateY(-100%); animation-timing-function: steps(24, jump-end); }
+  82% { transform: translateY(58px); animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1); }
+  100% { transform: translateY(48px); }
+}
+@keyframes tp-out {
+  to { opacity: 0; }
+}
+@keyframes tp-in {
+  to { opacity: 1; }
+}
+@keyframes tp-tag {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced motion: no shaking, spinning or feeding. Printing holds still;
+   printed shows the finished state at once. */
+@media (prefers-reduced-motion: reduce) {
+  .stage .machine,
+  .stage .reel,
+  .stage .dial,
+  .stage .ledRed,
+  .stage .ledWhite,
+  .stage .statusPrinting,
+  .stage .statusReady,
+  .stage .ticket,
+  .stage .tag,
+  .stage .glow {
+    animation: none !important;
+  }
+  .stage[data-phase="printed"] .ticket { transform: translateY(48px); }
+  .stage[data-phase="printed"] .reel { transform: translateY(-336px); }
+  .stage[data-phase="printed"] .ledRed,
+  .stage[data-phase="printed"] .statusPrinting { opacity: 0; }
+  .stage[data-phase="printed"] .ledWhite,
+  .stage[data-phase="printed"] .statusReady,
+  .stage[data-phase="printed"] .tag,
+  .stage[data-phase="printed"] .glow { opacity: 1; }
+}

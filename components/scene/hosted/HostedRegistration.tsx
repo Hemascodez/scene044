@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import {
   RegistrationError,
   clearStoredTicketToken,
@@ -13,7 +13,11 @@ import {
   validateDetails,
   type RegistrationApi,
   type RegistrationDetails,
+  type Ticket,
 } from "@/lib/client/eventRegistration";
+import { formatSceneDateLong } from "@/lib/client/istTime";
+import { PRINT_TIMING, playTicketPrint, primeTicketSound } from "@/lib/client/ticketSound";
+import { TicketPrinter } from "@/components/scene/hosted/TicketPrinter";
 import { openRazorpayCheckout, type RazorpaySuccessResponse } from "@/lib/client/razorpay";
 import { flowReducer, initialFlow, type FlowStep } from "@/lib/client/registrationFlow";
 import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedEvents";
@@ -30,7 +34,55 @@ const labelClass = "font-mono text-[10px] font-semibold uppercase tracking-[0.12
 /** Groups steps that share one panel, so the panel only animates on real changes. */
 function panelOf(step: FlowStep): string {
   if (step === "details" || step === "code_sent") return "form";
+  // Same panel, so the ticket printer carries on from printing to printed.
+  if (step === "confirming" || step === "confirmed") return "ticket";
   return step;
+}
+
+/**
+ * The ticket printer while the payment is confirmed, then the printed ticket,
+ * then the real ticket (QR, calendar) fading in underneath. Rendered in both
+ * the confirming and confirmed steps so React keeps the same printer on screen.
+ */
+function CelebrationPanel({
+  phase,
+  event,
+  guestName,
+  ticket,
+}: {
+  phase: "printing" | "printed";
+  event: HostedEventDetail;
+  guestName: string;
+  ticket: Ticket | null;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    if (phase !== "printed") return;
+    const delay = reduceMotion ? 0 : PRINT_TIMING.feedMs + PRINT_TIMING.settleMs + 500;
+    const timer = setTimeout(() => setRevealed(true), delay);
+    return () => clearTimeout(timer);
+  }, [phase, reduceMotion]);
+
+  return (
+    <div>
+      <p role="status" aria-live="polite" className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-ink">
+        {phase === "printing" ? "Confirming your payment…" : <span className="text-signal-ink">Payment successful · ticket printed</span>}
+      </p>
+      <TicketPrinter
+        phase={phase}
+        eventTitle={event.title}
+        guestName={guestName}
+        eventDate={event.startAt ? formatSceneDateLong(event.startAt) : "Date to be announced"}
+      />
+      {revealed && ticket && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="mt-2">
+          <TicketView ticket={ticket} event={event} />
+        </motion.div>
+      )}
+    </div>
+  );
 }
 
 export function HostedRegistration({
@@ -101,6 +153,14 @@ export function HostedRegistration({
     const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendIn]);
+
+  // The ticket printer's sound, once, when a ticket was just paid for here.
+  const playedRef = useRef(false);
+  useEffect(() => {
+    if (state.step !== "confirmed" || !state.celebrate || playedRef.current) return;
+    playedRef.current = true;
+    playTicketPrint();
+  }, [state.step, state.celebrate]);
 
   const errors = validateDetails(state.details);
   const visibleErrors = showErrors ? errors : {};
@@ -231,7 +291,13 @@ export function HostedRegistration({
                 Checking for your ticket…
               </p>
             ) : state.step === "confirmed" && state.ticket ? (
-              <TicketView ticket={state.ticket} event={event} />
+              state.celebrate ? (
+                <CelebrationPanel phase="printed" event={event} guestName={state.ticket.name} ticket={state.ticket} />
+              ) : (
+                <TicketView ticket={state.ticket} event={event} />
+              )
+            ) : state.step === "confirming" && !state.message ? (
+              <CelebrationPanel phase="printing" event={event} guestName={state.details.name} ticket={null} />
             ) : state.step === "idle" ? (
               <div>
                 <PriceRow price={price} seatLabel={seat.label} lowSeats={seat.spotsLeft <= 5} />
@@ -246,7 +312,10 @@ export function HostedRegistration({
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (state.step === "details") void sendCode();
-                  else void verifyCodeAndPay();
+                  else {
+                    primeTicketSound();
+                    void verifyCodeAndPay();
+                  }
                 }}
               >
                 <div className="flex items-baseline justify-between gap-3">
@@ -353,26 +422,22 @@ export function HostedRegistration({
                 </p>
                 <PriceRow price={price} seatLabel="Includes refreshments" />
                 <FlowMessage message={state.message} />
-                <Btn className="mt-4 min-h-12 w-full text-sm" onClick={() => void pay()} disabled={state.busy}>
+                <Btn className="mt-4 min-h-12 w-full text-sm" onClick={() => {
+                    primeTicketSound();
+                    void pay();
+                  }}
+                  disabled={state.busy}
+                >
                   {state.busy ? "Opening payment…" : `Pay ${price}`}
                 </Btn>
               </div>
             ) : state.step === "confirming" ? (
               <div role="status" aria-live="polite">
                 <Mono className="text-[10px] text-primary-ink">Payment received</Mono>
-                {state.message ? (
-                  <>
-                    <FlowMessage message={state.message} />
-                    <Btn className="mt-4 min-h-12 w-full text-sm" onClick={retryConfirmation} disabled={state.busy}>
-                      {state.busy ? "Retrying…" : "Retry confirmation"}
-                    </Btn>
-                  </>
-                ) : (
-                  <p className="mt-2 flex items-center gap-3 text-sm">
-                    <span className="inline-block size-3 animate-spin border-2 border-foreground border-t-transparent" aria-hidden />
-                    Confirming your payment…
-                  </p>
-                )}
+                <FlowMessage message={state.message} />
+                <Btn className="mt-4 min-h-12 w-full text-sm" onClick={retryConfirmation} disabled={state.busy}>
+                  {state.busy ? "Retrying…" : "Retry confirmation"}
+                </Btn>
               </div>
             ) : (
               <ClosedState step={state.step} label={seat.label} />
