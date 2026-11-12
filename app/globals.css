@@ -857,3 +857,62 @@ body {
   .venue-surface .trust-quote.is-in .trust-stars svg { animation: none !important; }
   .venue-surface .trust-stars svg { opacity: 1 !important; }
 }
+
+/*
+ * Hosted event page — black and red theme (owner request). Scoped to
+ * `.hosted-dark` (HostedEventView's <main>) so the rest of SCENE is untouched.
+ * The events theme is `@theme inline` (utilities carry literal colours), so the
+ * shared pieces used inside (EventGlance, Btn, AlertsBanner, venue cards) are
+ * re-coloured here by utility class. Unlayered, so these win over Tailwind's
+ * utilities layer. Palette from the owner's dark card designs; contrast:
+ * #f4f2ea / #b5aeaa / #ff6a55 on #1b1412 ≈ 16:1 / 8:1 / 6:1.
+ */
+.hosted-dark {
+  --hosted-surface: #1b1412;
+  --hosted-surface-2: #241a17;
+  --hosted-line: rgba(255, 255, 255, 0.14);
+  color: #f4f2ea;
+  background:
+    radial-gradient(ellipse 90% 45% at 90% 0%, rgba(255, 45, 22, 0.3), rgba(255, 45, 22, 0) 62%),
+    radial-gradient(ellipse 70% 35% at 0% 42%, rgba(196, 27, 9, 0.2), rgba(196, 27, 9, 0) 62%),
+    radial-gradient(ellipse 80% 40% at 100% 88%, rgba(255, 45, 22, 0.16), rgba(255, 45, 22, 0) 62%),
+    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.2px) 0 0 / 22px 22px,
+    linear-gradient(180deg, #0f0b09 0%, #15100d 50%, #0b0807 100%);
+}
+.hosted-dark .bg-card,
+.hosted-dark .bg-white,
+.hosted-dark .bg-paper,
+.hosted-dark .bg-sand { background-color: var(--hosted-surface); }
+.hosted-dark .bg-secondary,
+.hosted-dark .bg-muted { background-color: var(--hosted-surface-2); }
+.hosted-dark .border-foreground,
+.hosted-dark .border-ink { border-color: var(--hosted-line); }
+.hosted-dark .border-line,
+.hosted-dark .border-foreground\/25 { border-color: rgba(255, 255, 255, 0.1); }
+.hosted-dark .bg-line { background-color: rgba(255, 255, 255, 0.1); }
+.hosted-dark .text-foreground,
+.hosted-dark .text-ink { color: #f4f2ea; }
+.hosted-dark .text-muted-foreground,
+.hosted-dark .text-stone { color: #b5aeaa; }
+.hosted-dark .text-primary-ink,
+.hosted-dark .text-flame { color: #ff6a55; }
+.hosted-dark .text-moss,
+.hosted-dark .text-signal-ink { color: #86efac; }
+.hosted-dark .bg-\[\#ffe3dd\] { background-color: rgba(255, 45, 22, 0.16); }
+/* Hard ink shadows vanish on black; use a soft depth shadow instead. */
+.hosted-dark .shadow-hard,
+.hosted-dark .shadow-hard-sm,
+.hosted-dark .shadow-hard-md,
+.hosted-dark [class*="shadow-[5px_5px_0_0_var(--color-foreground)]"],
+.hosted-dark [class*="shadow-[6px_6px_0_0_var(--color-foreground)]"] {
+  box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Solid buttons: SCENE red instead of ink-on-ink. */
+.hosted-dark button.bg-foreground.text-background,
+.hosted-dark a.bg-foreground.text-background { background-color: #c41b09; border-color: #c41b09; }
+.hosted-dark button.bg-foreground.text-background:hover:not(:disabled),
+.hosted-dark a.bg-foreground.text-background:hover { background-color: #ff2d16; border-color: #ff2d16; }
+/* Cream-on-cream guard (e.g. the phone bar's Register button). */
+.hosted-dark .bg-background.text-foreground { color: #14130d; }
+.hosted-dark input::placeholder { color: #8f8783; }
+.hosted-dark :focus-visible { outline-color: #ff6a55; }

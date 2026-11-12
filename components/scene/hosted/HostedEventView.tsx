@@ -31,10 +31,10 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
   const paragraphs = hosted.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 
   return (
-    <main className="hosted-surface pb-28 sm:pb-0">
-      <section className="border-b-2 border-foreground bg-foreground text-background">
+    <main className="hosted-surface hosted-dark pb-28 sm:pb-0">
+      <section className="border-b border-white/10 text-[#f4f2ea]">
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6 lg:py-8">
-          <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-background/60">
+          <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#b5aeaa]">
             <Link href="/" className="hover:text-primary">Events</Link>
             <span aria-hidden> / </span>
             <span>Hosted by SCENE</span>
@@ -57,7 +57,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
           <h1 className="mt-3 max-w-4xl font-display text-3xl font-black leading-[0.98] tracking-tighter sm:text-4xl lg:text-5xl">
             {event.title}
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-background/75">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#d8d2ce]">
             {event.startAt ? (
               <time dateTime={new Date(event.startAt).toISOString()}>
                 {formatSceneDateLong(event.startAt)} · {formatSceneTime(event.startAt)}
@@ -113,7 +113,16 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
         </section>
 
         {hosted.gallery.length > 0 && (
-          <section aria-labelledby="hosted-last-time">
+          <section
+            aria-labelledby="hosted-last-time"
+            className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-4 sm:p-6"
+          >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{ background: "radial-gradient(ellipse at 100% 0%, rgba(255,45,22,.26), rgba(255,45,22,0) 55%)" }}
+            />
+            <div className="relative">
             <Mono className="text-[10px] text-primary-ink">Last time</Mono>
             <h2 id="hosted-last-time" className="mt-1.5 font-display text-xl font-black leading-tight tracking-tight sm:text-2xl">
               Last time at {hosted.hostName}
@@ -122,12 +131,13 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
               <Flipbook photos={hosted.gallery} />
             </div>
             {hosted.quote && (
-              <figure className="mt-5 border-[1.5px] border-ink bg-white p-5 shadow-hard">
+              <figure className="mt-5 border-[1.5px] border-ink bg-white p-5">
                 <Quote className="size-6 text-flame" />
                 <blockquote className="mt-3 font-head text-[15px] leading-6 text-ink">{hosted.quote.text}</blockquote>
                 <figcaption className="mt-3 text-xs text-stone">{hosted.quote.by}</figcaption>
               </figure>
             )}
+            </div>
           </section>
         )}
 
