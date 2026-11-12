@@ -25,11 +25,14 @@ export function EventGlance({
   facts,
   bullets,
   className = "",
+  boxClassName = "",
 }: {
   gist: string | null;
   facts: GlanceFact[];
   bullets: string[];
   className?: string;
+  /** Optional extra classes for the glance box (e.g. the hosted page's glass card). */
+  boxClassName?: string;
 }) {
   if (!gist && facts.length === 0 && bullets.length === 0) return null;
 
@@ -47,7 +50,7 @@ export function EventGlance({
         At a glance
       </h2>
 
-      <div className="mt-3 border-2 border-foreground bg-card shadow-[5px_5px_0_0_var(--color-foreground)]">
+      <div className={`mt-3 border-2 border-foreground bg-card shadow-[5px_5px_0_0_var(--color-foreground)] ${boxClassName}`}>
         {gist && (
           <p
             className="scene-rise-tight border-b-2 border-foreground px-4 py-4 text-base font-medium leading-snug sm:text-lg"

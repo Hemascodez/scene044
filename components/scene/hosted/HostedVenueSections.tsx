@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { GoodToKnowGroup, GoodToKnowIcon } from "@/lib/hostedEvents";
 import { venueMapEmbedUrl } from "@/lib/venueMaps";
+import { hostedCard } from "@/components/scene/hosted/hostedCard";
 import { VenueMap } from "@/components/venues/VenueMap";
 import { Check, ChevronDown, Clock, Coffee, MapPin, QrCode, Seating, Sparkle, Users } from "@/components/venues/figma/icons";
 
@@ -74,7 +75,7 @@ export function HostedGoodToKnow({ groups }: { groups: GoodToKnowGroup[] }) {
                 return (
                   <li
                     key={text}
-                    className="group relative overflow-hidden border-[1.5px] border-ink bg-white p-4 shadow-hard-sm transition-[transform,box-shadow] duration-200 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-md"
+                    className={`group relative overflow-hidden border-[1.5px] border-ink bg-white p-4 shadow-hard-sm transition-transform duration-200 hover:-translate-y-0.5 ${hostedCard}`}
                   >
                     <span
                       aria-hidden="true"
@@ -102,7 +103,7 @@ export function HostedWhere({ venueName, address, city }: { venueName: string; a
     <section aria-labelledby="where-title" className="border-t border-line pt-10">
       <h2 id="where-title" className="font-head text-xl">Where you will be</h2>
       <p className="mt-1 text-sm text-stone">{address ? `${venueName} · ${address}` : `${venueName}, ${city}`}</p>
-      <div className="relative mt-5 overflow-hidden border-[1.5px] border-ink bg-sand">
+      <div className={`relative mt-5 overflow-hidden border-[1.5px] border-ink bg-sand ${hostedCard}`}>
         <VenueMap
           title={`Google Map showing ${venueName}`}
           src={venueMapEmbedUrl({ name: venueName, address: place, area: address ?? "", city })}
@@ -132,7 +133,7 @@ export function HostedWhere({ venueName, address, city }: { venueName: string; a
 export function HostedTerms({ terms, refundPolicy }: { terms: string[]; refundPolicy: string }) {
   return (
     <section aria-labelledby="terms-title" className="border-t border-line pt-10">
-      <details id="terms" className="group scroll-mt-24 border-[1.5px] border-ink bg-white shadow-hard-sm">
+      <details id="terms" className={`group scroll-mt-24 border-[1.5px] border-ink bg-white shadow-hard-sm ${hostedCard}`}>
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
           <span>
             <h2 id="terms-title" className="font-head text-xl">Before you book</h2>

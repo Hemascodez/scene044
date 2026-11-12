@@ -1,0 +1,32 @@
+/*
+ * Frosted glass card for the hosted event page (owner request): 8px corners,
+ * a translucent dark fill with a background blur so the page's red glows show
+ * through, and a gradient stroke (coral → clear glass → red).
+ *
+ * Scoped under .hosted-dark and doubled (.card.card) so it outranks the page's
+ * theme overrides in app/globals.css (`.hosted-dark .bg-card`, border and
+ * shadow rules) regardless of stylesheet order. The dark base under the glass
+ * keeps cream text at ≥ 12:1.
+ */
+
+:global(.hosted-dark) .card.card {
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)) padding-box,
+    linear-gradient(rgba(22, 15, 13, 0.62), rgba(22, 15, 13, 0.62)) padding-box,
+    linear-gradient(135deg, rgba(255, 138, 119, 0.7), rgba(255, 255, 255, 0.14) 32%, rgba(255, 255, 255, 0.05) 65%, rgba(255, 45, 22, 0.5)) border-box;
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 48px -28px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+/* Browsers without backdrop blur get a solid dark base instead. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :global(.hosted-dark) .card.card {
+    background:
+      linear-gradient(#1b1412, #1b1412) padding-box,
+      linear-gradient(135deg, rgba(255, 138, 119, 0.7), rgba(255, 255, 255, 0.14) 32%, rgba(255, 255, 255, 0.05) 65%, rgba(255, 45, 22, 0.5)) border-box;
+  }
+}
