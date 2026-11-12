@@ -1,0 +1,19 @@
+import assert from "node:assert/strict";
+import { eventRegistrationTemplate as template } from "../lib/eventRegistrationTemplate";
+import { buildWhatsappTemplatePayload } from "../lib/whatsappSend";
+
+assert.equal(template.category, "UTILITY");
+assert.equal(template.language, "en");
+const body = template.components[1];
+assert.deepEqual([...body.text.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])), [1,2,3,4,5]);
+assert.equal(body.example.body_text[0].length, 5);
+assert.ok(body.text.length < 1024);
+assert.ok(body.text.includes("payment has been received"));
+assert.ok(body.text.includes("Reply STOP"));
+const button = template.components[3].buttons[0];
+assert.equal(button.url, "https://scene044.in/events/{{1}}");
+const payload = buildWhatsappTemplatePayload({to:"919000000000",name:template.name,language:template.language,bodyParameters:[...body.example.body_text[0]],urlButtonSuffix:"let-s-do-more-reading-1?ticket="+"0".repeat(64)});
+assert.equal(payload.template.components.find(c=>c.type==='body')?.parameters.length,5);
+assert.ok(!payload.template.components.some(c=>c.type==='header'),'static text header needs no runtime parameter');
+assert.equal(payload.template.components.find(c=>c.type==='button')?.parameters[0].type,'text');
+console.log("PASS registration-confirmation utility template, five backend variables, private ticket button and opt-out; no network calls");

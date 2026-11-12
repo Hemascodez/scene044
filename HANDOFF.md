@@ -1,6 +1,6 @@
 # Handoff: hosted events (branch feat/hosted-event-page)
 
-Claude's frontend commits are preserved through `1c1139f`, including the in-view handwritten note, black-first background, frosted cards and dark glass map button. The backend work below is being committed for the authorised production rollout; deployment, migration and host-approval results must still be verified separately.
+Claude's frontend commits are preserved through `1c1139f`, including the in-view handwritten note, black-first background, frosted cards and dark glass map button. Combined release `5fcd5bd` was pushed to main and Railway confirmed success on 12 November. Its startup migrations completed and the public home, venues, weekly guide and host sign-in respond successfully; unauthenticated private APIs return 401.
 Tests: `npm run -s test:hosted-event`, `npm run -s test:hosted-event-backend`, `npm run -s test:venue-auth`, curator/Intercity/SEO/digest suites and TypeScript pass. The configured Railway production build (`npm run build -- --webpack`) passes; an extra default Turbopack build stalled in this sandbox and was stopped.
 Previews (`npm run dev`): `/dev/hosted-event`, `/dev/my-bookings`, `/dev/host-events`.
 Backend contract: `docs/hosted-event-backend-contract.md` (section 0: proxy.ts must admit approved event hosts to /host/events).
@@ -25,12 +25,12 @@ Specs/plans: `docs/superpowers/specs/2026-11-12-*`, `docs/superpowers/plans/2026
 - Isolated PGlite integration tests run the actual SQL and routes with all payment/Meta calls intercepted. They never read `.env.local` or connect to production.
 - TypeScript excludes unrelated untracked skill/project bundles (`inkloom` etc.) so their Cloudflare globals don't contaminate the app. Those files are otherwise untouched.
 
-## Before production activation
-1. Apply `db/migrations/2026-11-12-hosted-events.sql` (after the existing venue-host migration) BEFORE deploying code that reads the new tables/session column. Review the target DB first; no live migration was run.
+## Production activation / remaining gates
+1. Railway startup applied `db/migrations/2026-11-12-hosted-events.sql` after the existing migrations. Curator ticketing/access APIs were verified against production after deployment.
 2. The local Razorpay test-order connectivity request returned `401 Authentication failed` and created no order/charge. User could not edit `.env.local` and explicitly asked us to stop payment checks: they say production has the correct keys and will test the live purchase themselves. No further payment-provider requests should be made without a new request. Production keys were not inspected or changed; live payment success remains unverified.
-3. Configure `RAZORPAY_WEBHOOK_SECRET` and the matching dashboard endpoint `https://scene044.in/api/razorpay/webhook` for `payment.captured` and `order.paid`. Enable `HOSTED_EVENT_PAYMENT_RECONCILIATION_ENABLED=true` only on the persistent website service. No live settings changed.
-4. Configure approved event utility templates and `WHATSAPP_HOSTED_EVENTS_ENABLED=true` only after approval. See the backend contract for exact names/variables. No attendee messages were sent.
-5. In curator, prepare/reuse the Chapter Lounge draft and add the owner-authorised Sadhana host account only for this reading event. Do not include her private number in this public repository. Review terms, open registration, and explicitly publish only when authorised. No real host/registration was inserted during implementation.
+3. Production `RAZORPAY_WEBHOOK_SECRET` and `HOSTED_EVENT_PAYMENT_RECONCILIATION_ENABLED` are absent. Browser signature/capture verification is implemented, but webhook recovery and the optional provider reconciliation worker are not enabled. Owner still needs to verify the live purchase. No Razorpay requests were made during deployment.
+4. Owner requested a confirmation template. `scene_event_registration_confirmed_v1` (English, Utility, five body parameters, View ticket URL button) was submitted to Meta, id `1626829511700108`, and last checked PENDING. Template name/language were saved on the website service without redeploy; sending remains disabled until approval. No attendee messages were sent. See `docs/hosted-event-backend-contract.md` and `lib/eventRegistrationTemplate.ts`.
+5. After explicit owner approval to publish, the real Chapter Lounge event was published as `/events/let-s-do-more-reading-164`: Arts, ₹299, 20 seats, 22 November 2026 11am–1pm IST at Madras Adda. Production registered count is zero. Sadhana's owner-supplied number is approved for this event only (do not commit her number). Registration is open; host sign-in can now select this published event. No registrations/payments were created for verification.
 6. Refund operations and actual organiser payouts remain manual, not automatic. A payment-review record requires SCENE support before any ticket or payout.
 
 ## Local review

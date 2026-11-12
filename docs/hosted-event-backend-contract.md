@@ -132,6 +132,12 @@ STOP removes optional event WhatsApp consent; the worker rechecks it before send
 
 ## Curator setup APIs
 
+### Registration-confirmation template submission (12 November 2026)
+
+`scene_event_registration_confirmed_v1` was submitted to the verified SCENE WhatsApp business account as an English (`en`) Utility template, Meta id `1626829511700108`. Last verified status: PENDING, not approved. Exact content/examples are versioned in `lib/eventRegistrationTemplate.ts`; the five positional body parameters match `eventNotifications.ts`: attendee name, event title, IST date/time, venue and ticket code. Its **View ticket** URL button uses the existing event slug plus private ticket token. No real attendee token is included in the submission example.
+
+`scripts/submit-event-confirmation-template.ts --waba=<selected-account-id>` is read-only by default; `--submit` creates only this template if absent, never sends a message. It verifies that the selected business account contains the website's configured sender and does not print/store credentials. A timed-out submission must be resolved with a read-only lookup before any retry. The website template name/language have been saved; `WHATSAPP_HOSTED_EVENTS_ENABLED` remains disabled pending approval. Do not promise WhatsApp delivery until approval and the website switch are verified.
+
 - `GET/POST /api/admin/hosted-events`: load or save ticketing for an existing event. `action: "prepare-chapter-lounge"` prepares/reuses the real-content Arts draft with closed registration and zero attendees; it never publishes.
 - `GET/POST /api/admin/event-hosts`: list event choices/access or approve `{eventId, label, phone}`. Requires curator authentication.
 - `DELETE /api/admin/event-hosts/[id]`: revoke access without deleting registrations or payments.
