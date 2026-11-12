@@ -40,7 +40,7 @@ s = run(s, { type: "payment_dismissed" });
 assert.equal(s.step, "paying");
 assert.equal(s.details.name, "Asha");
 assert.equal(s.registration, registration);
-assert.equal(s.message, "Payment not completed. Your details are saved — try again when ready.");
+assert.equal(s.message, null, "closing Razorpay shows no message; the swipe is simply ready again");
 s = run(s, { type: "payment_failed", message: "Card declined" });
 assert.equal(s.step, "paying");
 assert.equal(s.message, "Card declined");

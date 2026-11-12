@@ -367,7 +367,7 @@ export function HostedRegistration({
                   />
                 </div>
                 <TermsConsent />
-                <PassFooter dark={false} />
+                <PassFooter />
               </div>
             ) : state.step === "confirming" ? (
               <div role="status" aria-live="polite">

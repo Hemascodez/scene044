@@ -15,7 +15,7 @@ import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration
 import { ReadersEnrolled } from "@/components/scene/hosted/ReadersEnrolled";
 import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
 import { Mono } from "@/components/scene/ui";
-import { Quote } from "@/components/venues/figma/icons";
+import { ChevronDown, Quote } from "@/components/venues/figma/icons";
 
 /**
  * The event page for events SCENE hosts itself. Same grammar as the regular
@@ -100,16 +100,27 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
 
         <HostedRegistration event={event} api={api} anchorId="register" />
 
-        <section aria-labelledby="hosted-about">
+        <section aria-labelledby="hosted-about" className="border-2 border-foreground bg-card p-4 sm:p-6">
           <Mono className="text-[10px] text-primary-ink">About</Mono>
           <h2 id="hosted-about" className="mt-1.5 font-display text-xl font-black leading-tight tracking-tight sm:text-2xl">
             What the morning is like
           </h2>
-          <div className="mt-3 space-y-4 text-base leading-relaxed">
-            {paragraphs.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
+          {paragraphs[0] && <p className="mt-3 text-base leading-relaxed">{paragraphs[0]}</p>}
+          {paragraphs.length > 1 && (
+            // Long description folds away (native <details>: keyboard and screen readers work as is).
+            <details className="group mt-3">
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-ink [&::-webkit-details-marker]:hidden">
+                <span className="group-open:hidden">Read the full description</span>
+                <span className="hidden group-open:inline">Show less</span>
+                <ChevronDown className="size-4 transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 space-y-4 text-base leading-relaxed">
+                {paragraphs.slice(1).map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+            </details>
+          )}
         </section>
 
         {hosted.gallery.length > 0 && (

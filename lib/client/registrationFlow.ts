@@ -69,7 +69,7 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
     case "registration_created":
       return { ...state, step: "paying", registration: action.registration, busy: false, message: null };
     case "payment_dismissed":
-      return { ...state, step: "paying", busy: false, message: "Payment not completed. Your details are saved — try again when ready." };
+      return { ...state, step: "paying", busy: false, message: null };
     case "payment_failed":
       return { ...state, step: "paying", busy: false, message: action.message };
     case "payment_succeeded":

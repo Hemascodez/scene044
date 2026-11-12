@@ -115,21 +115,12 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
 
 export function PassFooter({ dark = true }: { dark?: boolean }) {
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] font-medium" style={{ color: dark ? MUTED : "var(--color-muted-foreground)" }}>
-      <span className="inline-flex items-center gap-1.5">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? GREEN : "var(--color-signal-ink)"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <rect x="2" y="5" width="20" height="14" rx="3" />
-          <path d="M2 10h20" />
-        </svg>
-        Pay by UPI or card
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? GREEN : "var(--color-signal-ink)"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z" />
-        </svg>
-        Confirmation on WhatsApp
-      </span>
-    </div>
+    <p className="mt-4 flex items-start gap-2 text-[13px] font-medium leading-5" style={{ color: dark ? "#86efac" : "var(--color-signal-ink)" }}>
+      <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? GREEN : "var(--color-signal-ink)"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z" />
+      </svg>
+      After payment, you&apos;ll get your confirmation on WhatsApp.
+    </p>
   );
 }
 
