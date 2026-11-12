@@ -145,7 +145,7 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
   venueAddress: "Mylapore, Chennai",
   primarySourceUrl: "https://scene044.in",
   updatedAt: "2026-11-12T00:00:00.000Z",
-  gist: "Two uninterrupted hours, just u and ur book with a cup of tea and good company.",
+  gist: "Two uninterrupted hours, just you and your book with a cup of tea and good company.",
   hosted: {
     hostName: "Chapter Lounge",
     hostPerson: "Sadhana",

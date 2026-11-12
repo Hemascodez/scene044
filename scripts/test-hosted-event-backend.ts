@@ -230,7 +230,7 @@ async function main() {
       "PASS migration, repeatable unpublished Arts draft, real content and zero initial registrations",
     );
     const settings = (await hostedEventAdminCatalog()).find(e => e.id === draft.eventId)!;
-    const gist = "Two uninterrupted hours, just u and ur book with a cup of tea and good company.";
+    const gist = "Two uninterrupted hours, just you and your book with a cup of tea and good company.";
     await saveHostedEventSettings({ ...settings, eventId: draft.eventId, capacity: 15, gist });
     assert.equal((await getHostedEventInfo(draft.eventId))?.capacity, 15);
     assert.equal((await db.query<{gist:string}>("SELECT gist FROM events WHERE id=$1", [draft.eventId])).rows[0].gist, gist);
@@ -241,6 +241,18 @@ async function main() {
     assert.equal((await db.query<{gist:string}>("SELECT gist FROM events WHERE id=$1", [draft.eventId])).rows[0].gist, "A separate isolated copy update.", "legacy settings saves preserve the gist when omitted");
     await assert.rejects(() => saveHostedEventSettings({ ...settings, eventId: draft.eventId, gist: "x".repeat(141) }), /140 characters/);
     console.log("PASS 15-seat correction and editable At a glance copy; omitted gist preserved and invalid copy rejected");
+    const quote = { ...settings.quote, text: "It's warm to see people immerse themselves in books. Stories, conversations and some chai. Thank you Sadhana and Chapter Lounge for this beautiful Sunday morning." };
+    await db.query("UPDATE hosted_events SET quote=$2::jsonb WHERE event_id=$1", [draft.eventId, JSON.stringify({ text: "Previous stored review.", by: settings.quote.by })]);
+    await saveHostedEventSettings({ ...settings, eventId: draft.eventId, quote });
+    assert.deepEqual((await getHostedEventInfo(draft.eventId))?.quote, quote, "review text is persisted, not preview-only");
+    const withoutQuote = { ...settings };
+    delete withoutQuote.quote;
+    await saveHostedEventSettings({ ...withoutQuote, eventId: draft.eventId });
+    assert.deepEqual((await getHostedEventInfo(draft.eventId))?.quote, quote, "unrelated settings saves preserve the live review");
+    for (const invalid of [{text:"",by:"Reader"},{text:"Review",by:""},{text:"Review",by:"Reader",highlight:"not present"}]) {
+      await assert.rejects(() => saveHostedEventSettings({ ...settings, eventId: draft.eventId, quote: invalid }), /Enter a review/);
+    }
+    console.log("PASS live review updates, retained attribution, omitted-review preservation and invalid review rejection");
 
     const userIds: number[] = [];
     const sessions: string[] = [];

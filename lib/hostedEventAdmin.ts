@@ -35,6 +35,14 @@ export async function saveHostedEventSettings(body: Record<string, unknown>) {
   const updateGist = Object.hasOwn(body, "gist");
   if (updateGist && (typeof body.gist !== "string" || !body.gist.trim() || body.gist.trim().length > 140))
     throw new EventTicketError("At a glance must be a sentence of 140 characters or fewer.");
+  const updateQuote = Object.hasOwn(body, "quote");
+  const quote = body.quote as Record<string, unknown> | null | undefined;
+  if (updateQuote && quote !== null && (
+    !quote || typeof quote !== "object" || Array.isArray(quote) ||
+    typeof quote.text !== "string" || !quote.text.trim() || quote.text.length > 2000 ||
+    typeof quote.by !== "string" || !quote.by.trim() || quote.by.length > 120 ||
+    (quote.highlight !== undefined && (typeof quote.highlight !== "string" || !quote.highlight.trim() || quote.highlight.length > 300 || !quote.text.includes(quote.highlight)))
+  )) throw new EventTicketError("Enter a review with its attribution and a highlight that appears in the review.");
   if (
     hostName.length < 2 ||
     hostName.length > 120 ||
@@ -97,6 +105,7 @@ export async function saveHostedEventSettings(body: Record<string, unknown>) {
       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb)
       ON CONFLICT(event_id) DO UPDATE SET host_name=EXCLUDED.host_name,host_person=EXCLUDED.host_person,price_paise=EXCLUDED.price_paise,
       capacity=EXCLUDED.capacity,registration_state=EXCLUDED.registration_state,description=EXCLUDED.description,gallery=EXCLUDED.gallery,
+      quote=CASE WHEN $13::boolean THEN EXCLUDED.quote ELSE hosted_events.quote END,
       refund_policy=EXCLUDED.refund_policy,terms=EXCLUDED.terms,updated_at=now()`,
       [
         id,
@@ -107,10 +116,11 @@ export async function saveHostedEventSettings(body: Record<string, unknown>) {
         state,
         description,
         JSON.stringify(gallery),
-        JSON.stringify(existing?.quote ?? null),
+        JSON.stringify(updateQuote ? quote : existing?.quote ?? null),
         JSON.stringify(existing?.goodToKnow ?? []),
         refund,
         JSON.stringify(terms),
+        updateQuote,
       ],
     );
     await client.query(
