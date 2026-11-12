@@ -79,6 +79,8 @@ copy the page shows as is.
 | `GET /api/events/[id]/tickets/[token]` | token | | `{ ticket }` | 404 → page forgets the token |
 | `GET /api/events/[id]/seats` | public | | `{ registeredCount, capacity }` | 404 → enrolled card hides "LIVE" and stops polling (it polls every 30 s) |
 | `GET /api/me/event-registrations` | session | | `{ registrations: MyEventTicket[] }` | 401/404 → My bookings shows no event tickets |
+| `POST /api/events/[id]/waitlist` | session | | `{ ok: true }` | 401 → sign-in popup · shown on the Readers enrolled card when sold out ("Join the waitlist") |
+| `DELETE /api/events/[id]/waitlist` | session | | `{ ok: true }` | "Undo" on the same card |
 
 `Ticket` = `{ code, name, phoneMasked, status: "confirmed" | "cancelled", qrValue }`.
 `ticketToken` is the secret in `?ticket=` links, so it must be unguessable.
@@ -118,7 +120,9 @@ sent; see `docs/whatsapp-templates.md`.
 
 Run `npm run dev` (404 in production for all three):
 
-- `/dev/hosted-event` — the event page on `mockRegistrationApi()`. Sign-in is
+- `/dev/hosted-event` — the event page on `mockRegistrationApi()`. Add `?seats=0`
+  (first visitor) or `?seats=20` (full house, waitlist) to preview the other
+  Readers enrolled states. Sign-in is
   simulated (signs in as a sample guest). Emails starting `soldout@` → sold
   out; `existing@` → already registered. The Razorpay sheet is a browser
   confirm box: OK pays, Cancel closes it.

@@ -46,3 +46,9 @@ export function joinedSince(previous: number | null, next: number): number {
   if (previous === null) return 0;
   return Math.max(0, next - previous);
 }
+
+/** Which Readers enrolled design to show: first visitor, filling up, or full house. */
+export function enrolledMode({ booked, capacity }: { booked: number; capacity: number }): "empty" | "filling" | "full" {
+  if (capacity > 0 && booked >= capacity) return "full";
+  return booked <= 0 ? "empty" : "filling";
+}

@@ -47,6 +47,9 @@ export interface RegistrationApi {
   getTicket(token: string): Promise<Ticket | null>;
   /** Live seat count for the enrolled card; null when the backend has none (404). */
   getSeats(): Promise<{ registeredCount: number; capacity: number } | null>;
+  /** Sold out: join / leave the waitlist. Requires the SCENE session (401 when signed out). */
+  joinWaitlist(): Promise<void>;
+  leaveWaitlist(): Promise<void>;
 }
 
 export class RegistrationError extends Error {
@@ -153,6 +156,12 @@ export function httpRegistrationApi(eventId: number): RegistrationApi {
       const { body } = await request<{ ticket: Ticket; ticketToken: string }>(`${base}/registrations/verify`, postJson(input));
       return body;
     },
+    async joinWaitlist() {
+      await request(`${base}/waitlist`, { method: "POST" });
+    },
+    async leaveWaitlist() {
+      await request(`${base}/waitlist`, { method: "DELETE" });
+    },
     async getSeats() {
       try {
         const { body } = await request<{ registeredCount: number; capacity: number }>(`${base}/seats`);
@@ -216,7 +225,7 @@ function saveMockTickets(tickets: Map<string, Ticket>): void {
   }
 }
 
-export function mockRegistrationApi(): RegistrationApi {
+export function mockRegistrationApi(seats: { registeredCount: number; capacity: number } = { registeredCount: 14, capacity: 20 }): RegistrationApi {
   const pending = new Map<string, RegistrationDetails>();
   const tickets = loadMockTickets();
   let counter = tickets.size;
@@ -251,8 +260,14 @@ export function mockRegistrationApi(): RegistrationApi {
       return { ticket, ticketToken };
     },
     async getSeats() {
-      // Fixed, like the fixture: the dev preview never invents people joining.
-      return { registeredCount: 14, capacity: 20 };
+      // Fixed for the session: the dev preview never invents people joining.
+      return { ...seats };
+    },
+    async joinWaitlist() {
+      await wait(400);
+    },
+    async leaveWaitlist() {
+      await wait(300);
     },
     async getTicket(token) {
       await wait(200);

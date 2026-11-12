@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { joinedSince, seatSegments, shelfSlots } from "../lib/client/enrolled";
+import { enrolledMode, joinedSince, seatSegments, shelfSlots } from "../lib/client/enrolled";
 
 // Segmented seat bar: one segment per seat.
 const segs = seatSegments({ booked: 14, capacity: 20 });
@@ -27,4 +27,12 @@ assert.equal(joinedSince(14, 14), 0);
 assert.equal(joinedSince(14, 13), 0, "a cancellation is not a join");
 assert.equal(joinedSince(null, 15), 0, "first reading is not a join");
 
-console.log("PASS seat bar, bookshelf and joins");
+// Card states from the owner's designs: first visitor, filling up, full house.
+assert.equal(enrolledMode({ booked: 0, capacity: 20 }), "empty");
+assert.equal(enrolledMode({ booked: 1, capacity: 20 }), "filling");
+assert.equal(enrolledMode({ booked: 19, capacity: 20 }), "filling");
+assert.equal(enrolledMode({ booked: 20, capacity: 20 }), "full");
+assert.equal(enrolledMode({ booked: 25, capacity: 20 }), "full");
+assert.equal(shelfSlots({ booked: 0, capacity: 20 })[0].kind, "you", "first visitor: the first seat is yours");
+
+console.log("PASS seat bar, bookshelf, joins and card states");

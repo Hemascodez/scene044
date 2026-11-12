@@ -99,6 +99,16 @@ async function main() {
   stubFetch(404, { error: "Not found" });
   assert.equal(await api.getSeats(), null);
 
+  // Waitlist (sold out): join and leave, signed in.
+  stubFetch(200, { ok: true });
+  await api.joinWaitlist();
+  assert.equal(calls.at(-1)!.url, "/api/events/42/waitlist");
+  assert.equal(calls.at(-1)!.init?.method, "POST");
+  await api.leaveWaitlist();
+  assert.equal(calls.at(-1)!.init?.method, "DELETE");
+  stubFetch(401, { error: "Sign in to continue." });
+  await assert.rejects(api.joinWaitlist(), (e) => e instanceof RegistrationError && e.status === 401);
+
   stubFetch(404, { error: "Not found" });
   assert.equal(await api.getTicket("missing"), null);
   assert.equal(calls.at(-1)!.url, "/api/events/42/tickets/missing");
@@ -127,6 +137,9 @@ async function main() {
   assert.equal((await mock.getTicket("mock-existing"))?.status, "confirmed");
   assert.equal(await mock.getTicket("nope"), null);
   assert.deepEqual(await mock.getSeats(), { registeredCount: 14, capacity: 20 }, "the mock never invents joins");
+  assert.deepEqual(await mockRegistrationApi({ registeredCount: 0, capacity: 20 }).getSeats(), { registeredCount: 0, capacity: 20 }, "preview can seed the seat count");
+  await mock.joinWaitlist();
+  await mock.leaveWaitlist();
   // A fresh mock (a page reload in the dev preview) still knows the ticket.
   assert.deepEqual(await mockRegistrationApi().getTicket(verified.ticketToken), verified.ticket);
 

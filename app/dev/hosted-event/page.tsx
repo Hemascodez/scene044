@@ -17,14 +17,19 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function HostedEventPreviewPage() {
+/** `?seats=0` (first visitor) or `?seats=20` (full house) previews the other card states. */
+export default async function HostedEventPreviewPage({ searchParams }: { searchParams: Promise<{ seats?: string }> }) {
   if (process.env.NODE_ENV === "production") notFound();
+  const requested = Number((await searchParams).seats);
+  const hosted = CHAPTER_LOUNGE_FIXTURE.hosted;
+  const registeredCount = Number.isFinite(requested) ? Math.max(0, Math.min(hosted.capacity, Math.round(requested))) : hosted.registeredCount;
+  const event = { ...CHAPTER_LOUNGE_FIXTURE, hosted: { ...hosted, registeredCount } };
   return (
     <div className="min-h-full">
       <SceneHeaderStatic />
       <div className="venue-surface hosted-root">
         <MockHostedAuth>
-          <HostedEventView event={CHAPTER_LOUNGE_FIXTURE} api="mock" />
+          <HostedEventView event={event} api="mock" />
         </MockHostedAuth>
       </div>
       <SceneFooter />

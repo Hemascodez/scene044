@@ -204,7 +204,10 @@ export function SwipeToPay({
   }
 
   const trans = dragging ? "none" : "transform .45s cubic-bezier(.2,.9,.25,1.1), opacity .3s ease";
-  const fillX = x - trackWidth + THUMB;
+  // The fill trails the thumb and ends at its centre, so it never peeks out
+  // around a resting thumb (that read as a drop shadow). Hidden until it moves.
+  const fillX = x - trackWidth + INSET + THUMB / 2;
+  const fillVisible = busy || x > 0;
 
   return (
     <div
@@ -214,7 +217,12 @@ export function SwipeToPay({
       <div
         aria-hidden="true"
         className="absolute inset-0"
-        style={{ background: "linear-gradient(90deg, rgba(255,45,22,0) 0%, rgba(255,45,22,.7) 100%)", transform: `translateX(${fillX}px)`, transition: trans }}
+        style={{
+          background: "linear-gradient(90deg, rgba(255,45,22,0) 0%, rgba(255,45,22,.7) 100%)",
+          transform: `translateX(${fillX}px)`,
+          opacity: fillVisible ? 1 : 0,
+          transition: trans,
+        }}
       />
       {dragging && dragX > 8 && (
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden" style={{ transform: `translateX(${fillX}px)` }}>

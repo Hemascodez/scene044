@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { httpRegistrationApi, mockRegistrationApi } from "@/lib/client/eventRegistration";
-import { joinedSince, shelfSlots } from "@/lib/client/enrolled";
+import { enrolledMode, joinedSince, shelfSlots } from "@/lib/client/enrolled";
+import { RegistrationError } from "@/lib/client/eventRegistration";
+import { REGISTER_OPEN_EVENT } from "@/components/scene/hosted/RegisterBar";
+import { useHostedAuth } from "@/components/scene/hosted/hostedAuth";
 import type { HostedEventDetail } from "@/lib/hostedEvents";
 import styles from "@/components/scene/hosted/ReadersEnrolled.module.css";
 
@@ -20,7 +23,17 @@ const RED_TEXT = "#ff8a77";
 
 export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDetail; api: "http" | "mock"; registerAnchorId?: string }) {
   const reduceMotion = useReducedMotion();
-  const api = useMemo(() => (apiKind === "mock" ? mockRegistrationApi() : httpRegistrationApi(event.id)), [apiKind, event.id]);
+  const api = useMemo(
+    () =>
+      apiKind === "mock"
+        ? mockRegistrationApi({ registeredCount: event.hosted.registeredCount, capacity: event.hosted.capacity })
+        : httpRegistrationApi(event.id),
+    [apiKind, event.id, event.hosted.registeredCount, event.hosted.capacity],
+  );
+  const { requireAuth } = useHostedAuth();
+  const [waitlisted, setWaitlisted] = useState(false);
+  const [waitBusy, setWaitBusy] = useState(false);
+  const [waitError, setWaitError] = useState("");
   const [seats, setSeats] = useState({ booked: event.hosted.registeredCount, capacity: event.hosted.capacity });
   const [live, setLive] = useState(false);
   const [joined, setJoined] = useState(0);
@@ -114,6 +127,30 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
   const slots = shelfSlots(seats);
   const display = reduceMotion ? seats.booked : shown;
   const open = Math.max(0, seats.capacity - seats.booked);
+  const mode = enrolledMode(seats);
+  const play = inView || reduceMotion;
+
+  /** First visitor taps their seat: same as swiping the Reader pass. */
+  function takeFirstSeat() {
+    window.dispatchEvent(new CustomEvent(REGISTER_OPEN_EVENT));
+    document.getElementById("register")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }
+
+  function toggleWaitlist() {
+    setWaitError("");
+    requireAuth(async () => {
+      setWaitBusy(true);
+      try {
+        if (waitlisted) await api.leaveWaitlist();
+        else await api.joinWaitlist();
+        setWaitlisted(!waitlisted);
+      } catch (error) {
+        setWaitError(error instanceof RegistrationError ? error.message : "Couldn't update the waitlist. Try again.");
+      } finally {
+        setWaitBusy(false);
+      }
+    });
+  }
 
   return (
     <section
@@ -131,10 +168,10 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
           <h2 id="enrolled-title" className="font-mono text-[11px] font-bold tracking-[0.16em]" style={{ color: MUTED }}>
             WHO&apos;S JOINING
           </h2>
-          {live && (
+          {(mode !== "filling" || live) && (
             <span className="inline-flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.12em]" style={{ color: RED_TEXT }}>
               <span className={`${styles.dot} size-2 rounded-full bg-primary shadow-[0_0_10px_#ff2d16]`} aria-hidden="true" />
-              LIVE
+              {mode === "empty" ? "OPEN FOR SIGN-UPS" : mode === "full" ? "SOLD OUT" : "LIVE"}
             </span>
           )}
         </div>
@@ -145,9 +182,9 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
           </span>
           <span className="font-display text-[20px] font-bold leading-[1.15] sm:text-[22px]">
             <span className="sr-only">{seats.booked} </span>
-            {seats.booked === 1 ? "reader" : "readers"}
+            {mode === "empty" ? "readers so far." : mode === "full" ? "readers in." : seats.booked === 1 ? "reader" : "readers"}
             <br />
-            <span style={{ color: RED_TEXT }}>already in.</span>
+            <span style={{ color: RED_TEXT }}>{mode === "empty" ? "Be the first." : mode === "full" ? "Every seat is taken." : "already in."}</span>
           </span>
           {joined > 0 && (
             <span
@@ -160,11 +197,12 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
           )}
         </div>
 
+        <div className="relative mt-6">
         <div
-          role="img"
-          aria-label={`${seats.booked} of ${seats.capacity} seats taken`}
-          data-play={inView || reduceMotion ? "true" : "false"}
-          className={`${styles.shelf} mt-6 flex h-[124px] items-end gap-1 px-0.5`}
+          role={mode === "empty" ? "group" : "img"}
+          aria-label={mode === "empty" ? `${seats.capacity} seats, all open` : `${seats.booked} of ${seats.capacity} seats taken`}
+          data-play={play ? "true" : "false"}
+          className={`${styles.shelf} flex h-[124px] items-end gap-1 px-0.5 ${mode === "empty" ? "pt-11" : ""}`}
         >
           {slots.map((slot, i) =>
             slot.kind === "taken" ? (
@@ -186,10 +224,27 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
                   <div className="absolute inset-x-[5px] bottom-3 h-2 opacity-35" style={{ background: slot.colour[1] }} />
                 </div>
               </div>
+            ) : slot.kind === "you" && mode === "empty" ? (
+              <button
+                key={i}
+                type="button"
+                onClick={takeFirstSeat}
+                aria-label="Take the first seat"
+                className={`${styles.open} ${styles.you} ${styles.youButton}`}
+                style={{ height: 104, animationDelay: "0ms" }}
+              >
+                <span className={styles.youTag} aria-hidden="true">YOU</span>
+              </button>
             ) : (
               <div key={i} className={`${styles.open} ${slot.kind === "you" ? styles.you : ""}`} style={{ height: 104, animationDelay: `${i * 55}ms` }} />
             ),
           )}
+        </div>
+        {mode === "full" && (
+          <div aria-hidden="true" data-play={play ? "true" : "false"} className={styles.stampWrap}>
+            <span className={styles.stamp}>FULL HOUSE</span>
+          </div>
+        )}
         </div>
         <div aria-hidden="true" className="h-2.5 bg-[linear-gradient(180deg,#7a4a2b_0%,#4a2a16_100%)] shadow-[0_12px_20px_-6px_rgba(0,0,0,.9),inset_0_1px_0_rgba(255,255,255,.2)]" />
 
@@ -204,7 +259,54 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
               {open} {open === 1 ? "seat" : "seats"} open
             </span>
           </div>
+          {mode === "empty" && (
+            <button
+              type="button"
+              onClick={takeFirstSeat}
+              className="inline-flex min-h-11 items-center font-mono text-[11px] font-bold tracking-[0.12em] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              style={{ color: RED_TEXT }}
+            >
+              TAKE THE FIRST SEAT →
+            </button>
+          )}
+          {mode === "full" &&
+            (waitlisted ? (
+              <span className="inline-flex flex-wrap items-center gap-2.5">
+                <span
+                  className={`${styles.toast} inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.08em]`}
+                  style={{ background: "rgba(74,222,128,.14)", borderColor: "rgba(74,222,128,.5)", color: "#86efac" }}
+                  role="status"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5" /></svg>
+                  YOU&apos;RE ON THE WAITLIST
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleWaitlist}
+                  disabled={waitBusy}
+                  className="min-h-11 px-1.5 text-[13px] font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  style={{ color: RED_TEXT }}
+                >
+                  Undo
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={toggleWaitlist}
+                disabled={waitBusy}
+                className={`${styles.waitBtn} inline-flex min-h-11 items-center gap-2 bg-[linear-gradient(135deg,#ff8a77,#ff5a43)] px-3.5 font-display text-sm font-bold text-[#1a0a08] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-70`}
+              >
+                {waitBusy ? "Joining…" : "Join the waitlist"}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            ))}
         </div>
+        {waitError && (
+          <p role="alert" className="mt-3 text-sm" style={{ color: RED_TEXT }}>
+            {waitError}
+          </p>
+        )}
       </div>
     </section>
   );
