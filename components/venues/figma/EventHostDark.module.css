@@ -1,0 +1,42 @@
+/*
+ * Motion for the owner's dark host designs ("Guest list check-in",
+ * "Day-before reminder WhatsApp"). Transform and opacity only; all of it
+ * stops under reduced motion.
+ */
+
+.card { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s ease; animation: gs-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.card:hover { transform: translateY(-3px); border-color: rgba(255, 106, 85, 0.45); }
+.chip { transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
+.chip:hover { transform: translateY(-1px); }
+.btn { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(255, 45, 22, 0.75); }
+.btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.pop { animation: gs-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.seg { transform-origin: bottom center; animation: gs-segin 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.dot { animation: gs-pulse 1.8s ease-in-out infinite; }
+
+.bubble { animation: rm-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.1) 0.2s both; }
+.tick { animation: rm-tick 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.typing span { display: inline-block; width: 6px; height: 6px; margin: 0 2px; border-radius: 50%; background: #8696a0; animation: rm-dot 1s ease-in-out infinite; }
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+.banner { animation: rm-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+/* Sending: the green fill sweeps while the real request runs (no fake per-guest count). */
+.sendingFill { transform-origin: left center; animation: rm-fill 1.6s ease-in-out infinite; }
+
+@keyframes gs-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes gs-pop { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes gs-segin { from { opacity: 0; transform: scaleY(0.3); } to { opacity: 1; transform: scaleY(1); } }
+@keyframes gs-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.45; } }
+@keyframes rm-in { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes rm-tick { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes rm-dot { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-3px); opacity: 1; } }
+@keyframes rm-pop { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+@keyframes rm-fill { 0% { transform: scaleX(0); opacity: 0.9; } 70% { transform: scaleX(0.92); opacity: 0.9; } 100% { transform: scaleX(1); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .pop, .seg, .dot, .bubble, .tick, .typing span, .banner, .sendingFill { animation: none; }
+  .card, .chip, .btn { transition: none; }
+  .card:hover, .chip:hover, .btn:hover:not(:disabled) { transform: none; }
+  .sendingFill { transform: scaleX(0.5); }
+}
