@@ -63,6 +63,12 @@ export function normalizeIndianMobile(input: string): string | null {
   return /^[6-9]\d{9}$/.test(digits) ? digits : null;
 }
 
+/** "+91 98765 43210" for display; unparseable input comes back as typed. */
+export function formatIndianMobile(input: string): string {
+  const digits = normalizeIndianMobile(input);
+  return digits ? `+91 ${digits.slice(0, 5)} ${digits.slice(5)}` : input;
+}
+
 export function validateDetails(input: RegistrationDetails): Partial<Record<keyof RegistrationDetails, string>> {
   const errors: Partial<Record<keyof RegistrationDetails, string>> = {};
   if (!input.name.trim()) errors.name = "Enter your name";
@@ -175,12 +181,34 @@ function maskPhone(phone: string): string {
  * Code 123456 passes; phones ending 0000 hit "sold out", 1111 "already
  * registered"; payment always verifies.
  */
-export function mockRegistrationApi(): RegistrationApi {
-  const pending = new Map<string, RegistrationDetails>();
+const MOCK_TICKETS_KEY = "scene044:mock-tickets";
+
+/** Mock tickets live in sessionStorage so a reload of the preview still finds them. */
+function loadMockTickets(): Map<string, Ticket> {
   const tickets = new Map<string, Ticket>([
     ["mock-existing", { code: "SCN-READ-0007", name: "Returning reader", phoneMasked: "+91 ••••• 11111", status: "confirmed", qrValue: "mock-existing" }],
   ]);
-  let counter = 0;
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(MOCK_TICKETS_KEY) ?? "{}") as Record<string, Ticket>;
+    for (const [token, ticket] of Object.entries(saved)) tickets.set(token, ticket);
+  } catch {
+    // no window or storage — in-memory only
+  }
+  return tickets;
+}
+
+function saveMockTickets(tickets: Map<string, Ticket>): void {
+  try {
+    window.sessionStorage.setItem(MOCK_TICKETS_KEY, JSON.stringify(Object.fromEntries(tickets)));
+  } catch {
+    // no window or storage — in-memory only
+  }
+}
+
+export function mockRegistrationApi(): RegistrationApi {
+  const pending = new Map<string, RegistrationDetails>();
+  const tickets = loadMockTickets();
+  let counter = tickets.size;
 
   return {
     async sendCode(phone) {
@@ -213,6 +241,7 @@ export function mockRegistrationApi(): RegistrationApi {
         qrValue: ticketToken,
       };
       tickets.set(ticketToken, ticket);
+      saveMockTickets(tickets);
       return { ticket, ticketToken };
     },
     async getTicket(token) {

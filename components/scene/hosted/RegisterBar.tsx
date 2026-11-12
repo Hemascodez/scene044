@@ -47,19 +47,19 @@ export function RegisterBar({
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-foreground bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-foreground bg-foreground px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-background sm:hidden"
         >
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="font-display text-xl font-black leading-none">{priceLabel}</p>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-background/70">
                 Refreshments included
               </p>
             </div>
             <button
               type="button"
               onClick={openCard}
-              className="min-h-11 shrink-0 border-2 border-foreground bg-foreground px-5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-background transition-colors hover:border-primary hover:bg-primary active:translate-y-0.5"
+              className="min-h-11 shrink-0 border-2 border-background bg-background px-5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-foreground transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-background focus-visible:ring-offset-2 focus-visible:ring-offset-foreground active:translate-y-0.5"
             >
               Register
             </button>

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   RegistrationError,
   clearStoredTicketToken,
+  formatIndianMobile,
   httpRegistrationApi,
   mockRegistrationApi,
   normalizeIndianMobile,
@@ -20,6 +21,10 @@ Object.defineProperty(globalThis, "window", {
       getItem: (key: string) => storage.get(key) ?? null,
       setItem: (key: string, value: string) => void storage.set(key, value),
       removeItem: (key: string) => void storage.delete(key),
+    },
+    sessionStorage: {
+      getItem: (key: string) => storage.get(`session:${key}`) ?? null,
+      setItem: (key: string, value: string) => void storage.set(`session:${key}`, value),
     },
   },
 });
@@ -40,6 +45,11 @@ async function main() {
   for (const raw of ["987654321", "4412345678", "", "+1 415 555 0172", "98765432101"]) {
     assert.equal(normalizeIndianMobile(raw), null, raw);
   }
+
+  // Display form for the "code sent to" hint: never doubles the +91.
+  assert.equal(formatIndianMobile("+91 98765 43210"), "+91 98765 43210");
+  assert.equal(formatIndianMobile("9876543210"), "+91 98765 43210");
+  assert.equal(formatIndianMobile("12"), "12", "unparseable input is shown as typed");
 
   assert.deepEqual(validateDetails({ name: " ", email: "a@", phone: "123" }), {
     name: "Enter your name",
@@ -109,6 +119,8 @@ async function main() {
   assert.deepEqual(await mock.getTicket(verified.ticketToken), verified.ticket);
   assert.equal((await mock.getTicket("mock-existing"))?.status, "confirmed");
   assert.equal(await mock.getTicket("nope"), null);
+  // A fresh mock (a page reload in the dev preview) still knows the ticket.
+  assert.deepEqual(await mockRegistrationApi().getTicket(verified.ticketToken), verified.ticket);
 
   console.log("PASS event registration client");
 }

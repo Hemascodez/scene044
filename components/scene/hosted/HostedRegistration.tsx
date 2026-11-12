@@ -5,6 +5,7 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import {
   RegistrationError,
   clearStoredTicketToken,
+  formatIndianMobile,
   httpRegistrationApi,
   mockRegistrationApi,
   readStoredTicketToken,
@@ -111,7 +112,11 @@ export function HostedRegistration({
 
   async function sendCode() {
     setShowErrors(true);
-    if (Object.keys(errors).length > 0) return;
+    const firstInvalid = (["name", "email", "phone"] as const).find((field) => errors[field]);
+    if (firstInvalid) {
+      document.getElementById(`reg-${firstInvalid}`)?.focus();
+      return;
+    }
     dispatch({ type: "busy", busy: true });
     try {
       await api.sendCode(state.details.phone);
@@ -301,7 +306,7 @@ export function HostedRegistration({
                 </Field>
 
                 {state.step === "code_sent" && (
-                  <Field id="reg-code" label="6-digit code" hint={`Sent on WhatsApp to +91 ${state.details.phone}.`}>
+                  <Field id="reg-code" label="6-digit code" hint={`Sent on WhatsApp to ${formatIndianMobile(state.details.phone)}.`}>
                     <input
                       ref={codeRef}
                       id="reg-code"
