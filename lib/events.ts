@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 import { CATEGORIES, type Category, type PriceType } from "@/lib/types";
 import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS } from "@/lib/eventDates";
+import type { HostedEventInfo } from "@/lib/hostedEvents";
 
 /**
  * Lifecycle states we surface publicly.
@@ -58,6 +59,8 @@ export interface PublicEvent {
   status: PublicEventPageStatus;
   discoveredAt: string;
   lastVerifiedAt: string | null;
+  /** Set only for events SCENE hosts itself; drives the feed's Hosted badge. */
+  hostedPricePaise?: number | null;
 }
 
 /** Fields only the server-rendered event page needs. They stay out of the
@@ -70,6 +73,9 @@ export interface PublicEventDetail extends PublicEvent {
   /** One scannable sentence opening the "At a glance" block. Null on older
    * events and on curator-added ones, which never ran the editorial pass. */
   gist: string | null;
+  /** Present only for events SCENE hosts itself (registration + payment on
+   * the page). Filled by the backend; see lib/hostedEvents.ts. */
+  hosted?: HostedEventInfo | null;
 }
 
 export interface PublicEventSitemapEntry {
