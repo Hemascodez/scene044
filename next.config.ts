@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       { pathname: '/api/poster/**', search: '' },
       { pathname: '/venues/**', search: '' },
       { pathname: '/stock/**', search: '' },
+      { pathname: '/events/chapter-lounge/**', search: '' },
     ],
   },
 };

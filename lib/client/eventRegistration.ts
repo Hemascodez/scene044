@@ -170,7 +170,7 @@ export function httpRegistrationApi(eventId: number): RegistrationApi {
     },
     async getSeats() {
       try {
-        const { body } = await request<{ registeredCount: number; capacity: number }>(`${base}/seats`);
+        const { body } = await request<{ registeredCount: number; capacity: number }>(`${base}/seats`, { cache: "no-store", signal: AbortSignal.timeout(12_000) });
         return { registeredCount: body.registeredCount, capacity: body.capacity };
       } catch (error) {
         if (error instanceof RegistrationError && error.status === 404) return null;

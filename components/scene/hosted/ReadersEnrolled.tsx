@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
-import { httpRegistrationApi, mockRegistrationApi } from "@/lib/client/eventRegistration";
+import { useHostedSeatStats } from "@/components/scene/hosted/HostedSeatStats";
 import { enrolledMode, joinedSince, shelfSlots } from "@/lib/client/enrolled";
 import { RegistrationError } from "@/lib/client/eventRegistration";
 import { REGISTER_OPEN_EVENT } from "@/components/scene/hosted/RegisterBar";
@@ -18,26 +18,18 @@ import { hostedCardSolid } from "@/components/scene/hosted/hostedCard";
  * while that works, and "+1 just joined" only when the real count goes up.
  */
 
-const POLL_MS = 30_000;
 const MUTED = "#b5aeaa";
 const RED_TEXT = "#ff8a77";
 
-export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDetail; api: "http" | "mock"; registerAnchorId?: string }) {
+export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "http" | "mock"; registerAnchorId?: string }) {
   const reduceMotion = useReducedMotion();
-  const api = useMemo(
-    () =>
-      apiKind === "mock"
-        ? mockRegistrationApi({ registeredCount: event.hosted.registeredCount, capacity: event.hosted.capacity })
-        : httpRegistrationApi(event.id),
-    [apiKind, event.id, event.hosted.registeredCount, event.hosted.capacity],
-  );
+  const { api, hosted, live } = useHostedSeatStats();
   const { requireAuth,profile } = useHostedAuth();
   const [waitlisted, setWaitlisted] = useState(false);
   const [waitBusy, setWaitBusy] = useState(false);
   const [waitError, setWaitError] = useState("");
   useEffect(()=>{let active=true;void api.getWaitlist().then(value=>{if(active)setWaitlisted(value);}).catch(()=>{});return()=>{active=false};},[api,profile?.phone]);
-  const [seats, setSeats] = useState({ booked: event.hosted.registeredCount, capacity: event.hosted.capacity });
-  const [live, setLive] = useState(false);
+  const seats = { booked: hosted.registeredCount, capacity: hosted.capacity };
   const [joined, setJoined] = useState(0);
   const [freshFrom, setFreshFrom] = useState<number | null>(null);
   const [shown, setShown] = useState(0);
@@ -89,42 +81,26 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
     };
   }, [reduceMotion, inView]);
 
-  // Poll the real seat count.
+  // Animate changes from the one shared real-registration snapshot.
   useEffect(() => {
-    let active = true;
     let hideJoined: ReturnType<typeof setTimeout> | undefined;
-    const poll = async () => {
-      try {
-        const result = await api.getSeats();
-        if (!active || !result) {
-          if (active) setLive(false);
-          return;
-        }
-        setLive(true);
-        const delta = joinedSince(lastCount.current, result.registeredCount);
+    const timer = setTimeout(() => {
+        const delta = joinedSince(lastCount.current, hosted.registeredCount);
         if (delta > 0 && lastCount.current !== null) {
           setFreshFrom(lastCount.current);
           setJoined(delta);
-          setShown(result.registeredCount);
-          clearTimeout(hideJoined);
-          hideJoined = setTimeout(() => active && setJoined(0), 4200);
-        } else if (lastCount.current !== null || inView) {
-          setShown(result.registeredCount);
+          setShown(hosted.registeredCount);
+          hideJoined = setTimeout(() => setJoined(0), 4200);
+        } else if (lastCount.current !== null) {
+          setShown(hosted.registeredCount);
         }
-        lastCount.current = result.registeredCount;
-        setSeats({ booked: result.registeredCount, capacity: result.capacity });
-      } catch {
-        if (active) setLive(false);
-      }
-    };
-    void poll();
-    const id = setInterval(poll, POLL_MS);
+        lastCount.current = hosted.registeredCount;
+    }, 0);
     return () => {
-      active = false;
-      clearInterval(id);
+      clearTimeout(timer);
       clearTimeout(hideJoined);
     };
-  }, [api,inView]);
+  }, [hosted.registeredCount]);
 
   const slots = shelfSlots(seats);
   const display = reduceMotion ? seats.booked : shown;
@@ -157,6 +133,7 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
   return (
     <section
       ref={sectionRef}
+      data-event-id={event.id}
       aria-labelledby="enrolled-title"
       className={`relative overflow-hidden border-2 border-foreground p-5 text-white sm:p-7 ${hostedCardSolid}`}
     >

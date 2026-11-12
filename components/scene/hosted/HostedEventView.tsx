@@ -4,15 +4,17 @@ import "@fontsource-variable/work-sans";
 import "@fontsource/space-mono/400.css";
 import "@fontsource/space-mono/700.css";
 import Link from "next/link";
+import { getImageProps } from "next/image";
 import { formatSceneDateLong, formatSceneTime } from "@/lib/client/istTime";
 import { hostedGlanceFacts } from "@/lib/client/sceneEvent";
-import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedEvents";
+import { formatRupees, type HostedEventDetail } from "@/lib/hostedEvents";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { EventGlance } from "@/components/scene/EventGlance";
 import { Flipbook } from "@/components/scene/hosted/Flipbook";
 import { HandwrittenNote } from "@/components/scene/hosted/HandwrittenNote";
 import { HostedPageActions } from "@/components/scene/hosted/HostedPageActions";
 import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration";
+import { HostedSeatBadge, HostedSeatStatsProvider } from "@/components/scene/hosted/HostedSeatStats";
 import { ReadersEnrolled } from "@/components/scene/hosted/ReadersEnrolled";
 import { hostedCard } from "@/components/scene/hosted/hostedCard";
 import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
@@ -28,11 +30,15 @@ import { ChevronDown } from "@/components/venues/figma/icons";
  */
 export function HostedEventView({ event, api }: { event: HostedEventDetail; api: "http" | "mock" }) {
   const { hosted } = event;
-  const seat = seatSummary(hosted, event.endAt, undefined, event.status);
   const price = formatRupees(hosted.pricePaise);
+  const landscape = event.posterImageUrl === "/events/chapter-lounge/poster.jpg";
+  const imageCommon = { alt: `Poster for ${event.title}`, sizes: "(min-width: 1024px) 976px, calc(100vw - 32px)", loading: "eager" as const, fetchPriority: "high" as const };
+  const desktopPoster = landscape ? getImageProps({ ...imageCommon, src: "/events/chapter-lounge/poster-landscape.png", width: 2880, height: 1280 }).props : null;
+  const portraitPoster = landscape ? getImageProps({ ...imageCommon, src: event.posterImageUrl!, width: 1120, height: 1400 }).props : null;
   const paragraphs = hosted.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 
   return (
+    <HostedSeatStatsProvider key={event.id} event={event} api={api}>
     <main className="hosted-surface hosted-dark pb-28 sm:pb-0">
       <section className="border-b border-white/10 text-[#f4f2ea]">
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6 lg:py-8">
@@ -48,13 +54,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
             <span className="border border-background/50 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-background">
               {price}
             </span>
-            <span
-              className={`px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white ${
-                seat.state === "open" ? "bg-warn-ink" : seat.state === "sold_out" ? "bg-primary-ink" : "bg-background/20"
-              }`}
-            >
-              {seat.state === "open" ? `${seat.spotsLeft} spots left` : seat.label}
-            </span>
+            <HostedSeatBadge event={event} />
           </div>
           <h1 className="mt-3 max-w-4xl font-display text-3xl font-black leading-[0.98] tracking-tighter sm:text-4xl lg:text-5xl">
             {event.title}
@@ -78,13 +78,18 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
 
       {event.posterImageUrl && (
         <div className="mx-auto max-w-5xl px-4 pt-8 lg:px-6 lg:pt-10">
-          <div className={`overflow-hidden border-2 border-foreground bg-secondary shadow-[6px_6px_0_0_var(--color-foreground)] sm:aspect-[21/9] sm:max-h-[440px] ${hostedCard}`}>
+          <div className={`overflow-hidden border-2 border-foreground bg-secondary shadow-[6px_6px_0_0_var(--color-foreground)] ${landscape ? "aspect-[4/5] sm:aspect-[9/4]" : "sm:aspect-[21/9] sm:max-h-[440px]"} ${hostedCard}`}>
+            {desktopPoster && portraitPoster ? <picture>
+              <source media="(min-width: 640px)" srcSet={desktopPoster.srcSet} sizes={desktopPoster.sizes} />
+              <img {...portraitPoster} alt={imageCommon.alt} className="block h-full w-full object-contain" />
+            </picture> : (<>
             {/* eslint-disable-next-line @next/next/no-img-element -- poster keeps its own shape; never cropped */}
             <img
               src={event.posterImageUrl}
               alt={`Poster for ${event.title}`}
               className="block h-auto w-full sm:h-full sm:object-contain"
             />
+            </>)}
           </div>
         </div>
       )}
@@ -167,5 +172,6 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
         <AlertsBanner categoryHint="hosted events" />
       </div>
     </main>
+    </HostedSeatStatsProvider>
   );
 }

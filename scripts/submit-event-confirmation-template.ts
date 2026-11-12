@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { eventRegistrationTemplate as template } from "../lib/eventRegistrationTemplate";
+import { eventRegistrationTemplate as template, matchesEventRegistrationTemplate } from "../lib/eventRegistrationTemplate";
 
 // Loads no env file: use only an explicitly selected service's existing Meta credentials.
 // Default is read-only. --submit creates this one template, never sends a message.
@@ -29,7 +29,7 @@ async function main() {
   const existing = await graph(`${waba}/message_templates?name=${template.name}&fields=id,name,status,category,language,components&limit=100`);
   const found = existing.data?.find((item: {name: string; language: string}) => item.name === template.name && item.language === template.language);
   if (found) {
-    console.log(JSON.stringify({ name: found.name, id: found.id, status: found.status, category: found.category, language: found.language, existing: true }));
+    console.log(JSON.stringify({ name: found.name, id: found.id, status: found.status, category: found.category, language: found.language, matchesDefinition: matchesEventRegistrationTemplate(found), existing: true }));
     return;
   }
   if (!args.includes("--submit")) {

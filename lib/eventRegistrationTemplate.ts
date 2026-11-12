@@ -27,3 +27,22 @@ export const eventRegistrationTemplate = {
     },
   ],
 } as const;
+
+/** Ignore Meta's review examples, but require the exact sending contract/content. */
+export function matchesEventRegistrationTemplate(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.name !== eventRegistrationTemplate.name || candidate.language !== "en" || candidate.category !== "UTILITY" || !Array.isArray(candidate.components)) return false;
+  const components = candidate.components as Record<string, unknown>[];
+  if (components.length !== eventRegistrationTemplate.components.length) return false;
+  return eventRegistrationTemplate.components.every(expected => {
+    const actual = components.find(component => component.type === expected.type);
+    if (!actual) return false;
+    if (expected.type === "BUTTONS") {
+      if (!Array.isArray(actual.buttons) || actual.buttons.length !== 1) return false;
+      const button = actual.buttons[0] as Record<string, unknown>;
+      return button.type === "URL" && button.text === expected.buttons[0].text && button.url === expected.buttons[0].url;
+    }
+    return actual.text === expected.text && (expected.type !== "HEADER" || actual.format === expected.format);
+  });
+}

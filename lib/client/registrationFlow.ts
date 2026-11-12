@@ -42,6 +42,7 @@ export type FlowAction =
   | { type: "verify_failed"; message: string }
   | { type: "confirmed"; ticket: Ticket }
   | { type: "sold_out" }
+  | { type: "seat_changed"; state: RegistrationState | "ended" }
   | { type: "busy"; busy: boolean }
   | { type: "error"; message: string };
 
@@ -92,6 +93,12 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
       };
     case "sold_out":
       return { ...state, step: "sold_out", busy: false, message: null };
+    case "seat_changed": {
+      // Never interrupt an owned payment/hold, form or already confirmed ticket.
+      if (!["idle", "sold_out", "closed", "ended"].includes(state.step)) return state;
+      const step = action.state === "open" ? "idle" : action.state;
+      return step === state.step ? state : { ...state, step, message: null };
+    }
     case "busy":
       return { ...state, busy: action.busy, ...(action.busy ? { message: null } : {}) };
     case "error":

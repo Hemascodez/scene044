@@ -21,6 +21,7 @@
     "test:hosted-event": "node --import tsx scripts/test-hosted-event.ts && node --import tsx scripts/test-event-registration.ts && node --import tsx scripts/test-registration-flow.ts && node --import tsx scripts/test-ticket-sound.ts && node --import tsx scripts/test-swipe.ts && node --import tsx scripts/test-enrolled.ts && node --import tsx scripts/test-my-event-tickets.ts && node --import tsx scripts/test-event-host.ts",
     "test:hosted-event-backend": "node --import tsx scripts/test-hosted-event-backend.ts",
     "test:brand": "node --import tsx scripts/test-brand.tsx",
+    "test:hosted-live-stats": "node --import tsx scripts/test-hosted-live-stats.ts && node --import tsx scripts/test-event-confirmation-template.ts",
     "test:whatsapp-digest": "node --import tsx scripts/test-whatsapp-digest.ts",
     "test:venue-auth": "node --import tsx scripts/test-venue-auth.ts",
     "test:venue-concession": "node --import tsx scripts/test-yoga-concession.ts",

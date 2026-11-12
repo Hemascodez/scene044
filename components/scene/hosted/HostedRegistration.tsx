@@ -1,17 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import {
   RegistrationError,
   clearStoredTicketToken,
   formatIndianMobile,
-  httpRegistrationApi,
-  mockRegistrationApi,
   readStoredTicketToken,
   storeTicketToken,
   validateDetails,
-  type RegistrationApi,
   type Ticket,
 } from "@/lib/client/eventRegistration";
 import { formatSceneDateLong } from "@/lib/client/istTime";
@@ -25,6 +22,7 @@ import { REGISTER_OPEN_EVENT, RegisterBar } from "@/components/scene/hosted/Regi
 import { TicketView } from "@/components/scene/hosted/TicketView";
 import { hostedCard } from "@/components/scene/hosted/hostedCard";
 import { useHostedAuth } from "@/components/scene/hosted/hostedAuth";
+import { useHostedSeatStats } from "@/components/scene/hosted/HostedSeatStats";
 import { PassFooter, ReaderPass, SwipeToPay } from "@/components/scene/hosted/ReaderPass";
 
 
@@ -95,15 +93,12 @@ export function HostedRegistration({
   api: "http" | "mock";
   anchorId: string;
 }) {
-  const hosted = event.hosted;
+  const { hosted, api, refresh } = useHostedSeatStats();
   const seat = seatSummary(hosted, event.endAt, undefined, event.status);
   const price = formatRupees(hosted.pricePaise);
-  const api: RegistrationApi = useMemo(
-    () => (apiKind === "mock" ? mockRegistrationApi() : httpRegistrationApi(event.id)),
-    [apiKind, event.id],
-  );
 
   const [state, dispatch] = useReducer(flowReducer, seat, (s) => initialFlow(s, null));
+  useEffect(() => { dispatch({ type: "seat_changed", state: seat.state }); }, [seat.state]);
   const [checkingTicket, setCheckingTicket] = useState(true);
   const [showErrors, setShowErrors] = useState(false);
   const [whatsappOptIn,setWhatsappOptIn]=useState(false);
@@ -247,6 +242,7 @@ export function HostedRegistration({
       const { ticket, ticketToken } = await api.verify({ registrationToken, ...payment });
       storeTicketToken(event.id, ticketToken);
       dispatch({ type: "confirmed", ticket });
+      void refresh();
     } catch (error) {
       dispatch({ type: "verify_failed", message: error instanceof Error ? error.message : "Network" });
     }

@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
-import { eventRegistrationTemplate as template } from "../lib/eventRegistrationTemplate";
+import { eventRegistrationTemplate as template, matchesEventRegistrationTemplate } from "../lib/eventRegistrationTemplate";
 import { buildWhatsappTemplatePayload } from "../lib/whatsappSend";
 
 assert.equal(template.category, "UTILITY");
 assert.equal(template.language, "en");
+assert.equal(matchesEventRegistrationTemplate(template),true);
+assert.equal(matchesEventRegistrationTemplate({...template,category:"MARKETING"}),false);
+assert.equal(matchesEventRegistrationTemplate({...template,components:[]}),false);
+assert.equal(matchesEventRegistrationTemplate({...template,components:template.components.map(c=>c.type==="BODY"?{...c,text:"A different template"}:c)}),false);
 const body = template.components[1];
 assert.deepEqual([...body.text.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])), [1,2,3,4,5]);
 assert.equal(body.example.body_text[0].length, 5);
