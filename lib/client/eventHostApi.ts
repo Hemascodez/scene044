@@ -104,8 +104,11 @@ export function filterGuests(guests: HostGuest[], query: string, filter: GuestFi
   });
 }
 
+/** Quotes commas/quotes/newlines, and prefixes formula starters (= + - @) with ' so
+ *  spreadsheets show text: no injected formulas, and +91 numbers stay intact. */
 function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 export function guestsCsv(guests: HostGuest[]): string {

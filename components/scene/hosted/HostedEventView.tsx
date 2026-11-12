@@ -26,7 +26,7 @@ import { Quote } from "@/components/venues/figma/icons";
  */
 export function HostedEventView({ event, api }: { event: HostedEventDetail; api: "http" | "mock" }) {
   const { hosted } = event;
-  const seat = seatSummary(hosted, event.endAt);
+  const seat = seatSummary(hosted, event.endAt, undefined, event.status);
   const price = formatRupees(hosted.pricePaise);
   const paragraphs = hosted.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 

@@ -61,11 +61,17 @@ export function formatRupees(paise: number): string {
  * everything; then the server's own state; a full house counts as sold out
  * even if the server hasn't flipped its state yet.
  */
-export function seatSummary(hosted: HostedEventInfo, endAt: string | null, now: Date = new Date()): SeatSummary {
+export function seatSummary(
+  hosted: HostedEventInfo,
+  endAt: string | null,
+  now: Date = new Date(),
+  eventStatus?: string,
+): SeatSummary {
   if (endAt && Date.parse(endAt) <= now.getTime()) {
     return { state: "ended", spotsLeft: 0, label: "This event has ended" };
   }
   const spotsLeft = Math.max(0, hosted.capacity - hosted.registeredCount);
+  if (eventStatus === "cancelled") return { state: "closed", spotsLeft, label: "Event cancelled" };
   if (hosted.registrationState === "closed") {
     return { state: "closed", spotsLeft, label: "Registration closed" };
   }

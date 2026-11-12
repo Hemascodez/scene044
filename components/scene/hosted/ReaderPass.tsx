@@ -27,7 +27,7 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
   const segments = seatSegments(seats);
 
   return (
-    <div className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-5 text-white shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-7">
+    <div className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-5 text-white sm:p-7">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"

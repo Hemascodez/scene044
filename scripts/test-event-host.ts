@@ -43,6 +43,10 @@ async function main() {
   assert.equal(csv.length, 2);
   assert.ok(csv[1].startsWith('"Raman, ""Asha""",+919876543210,asha@example.com,SCN-READ-0101,confirmed,'));
 
+  // CSV is safe to open in Excel/Sheets: no formulas, phones stay text.
+  const risky = guestsCsv([guest({ name: "=HYPERLINK(1)", phone: "+919876543210" })]).split("\n")[1];
+  assert.ok(risky.startsWith("'=HYPERLINK(1),'+919876543210,"), risky);
+
   // QR: ticket links on SCENE (or this dev host), or a bare token.
   assert.equal(parseTicketQr("https://scene044.in/events/lets-do-more-reading-9044?ticket=abc123"), "abc123");
   assert.equal(parseTicketQr("http://localhost:3000/events/x-9044?ticket=abc123", "localhost"), "abc123");

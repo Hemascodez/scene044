@@ -18,7 +18,7 @@ const POLL_MS = 30_000;
 const MUTED = "#b5aeaa";
 const RED_TEXT = "#ff8a77";
 
-export function ReadersEnrolled({ event, api: apiKind, registerAnchorId }: { event: HostedEventDetail; api: "http" | "mock"; registerAnchorId: string }) {
+export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDetail; api: "http" | "mock"; registerAnchorId?: string }) {
   const reduceMotion = useReducedMotion();
   const api = useMemo(() => (apiKind === "mock" ? mockRegistrationApi() : httpRegistrationApi(event.id)), [apiKind, event.id]);
   const [seats, setSeats] = useState({ booked: event.hosted.registeredCount, capacity: event.hosted.capacity });
@@ -92,7 +92,7 @@ export function ReadersEnrolled({ event, api: apiKind, registerAnchorId }: { eve
   return (
     <section
       aria-labelledby="enrolled-title"
-      className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-5 text-white shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-7"
+      className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-5 text-white sm:p-7"
     >
       <div
         aria-hidden="true"
@@ -172,15 +172,6 @@ export function ReadersEnrolled({ event, api: apiKind, registerAnchorId }: { eve
               {open} {open === 1 ? "seat" : "seats"} open
             </span>
           </div>
-          {open > 0 && (
-            <a
-              href={`#${registerAnchorId}`}
-              className="inline-flex min-h-11 items-center font-mono text-[11px] font-bold tracking-[0.12em] hover:underline"
-              style={{ color: RED_TEXT }}
-            >
-              SAVE YOUR SEAT →
-            </a>
-          )}
         </div>
       </div>
     </section>

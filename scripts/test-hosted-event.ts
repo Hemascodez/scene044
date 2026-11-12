@@ -19,6 +19,10 @@ assert.deepEqual(seatSummary({ ...hosted, registrationState: "closed" }, END, BE
 assert.deepEqual(seatSummary(hosted, END, AFTER_END), { state: "ended", spotsLeft: 0, label: "This event has ended" });
 assert.equal(seatSummary({ ...hosted, registrationState: "closed" }, END, AFTER_END).state, "ended", "ended wins over closed");
 
+// A cancelled event never offers booking, whatever the registration state says.
+assert.deepEqual(seatSummary(hosted, END, BEFORE, "cancelled"), { state: "closed", spotsLeft: 6, label: "Event cancelled" });
+assert.equal(seatSummary(hosted, END, BEFORE, "live").state, "open");
+
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.pricePaise, 29900);
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.capacity, 20);
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.gallery.length, 7);

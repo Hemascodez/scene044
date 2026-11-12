@@ -95,7 +95,7 @@ export function HostedRegistration({
   anchorId: string;
 }) {
   const hosted = event.hosted;
-  const seat = seatSummary(hosted, event.endAt);
+  const seat = seatSummary(hosted, event.endAt, undefined, event.status);
   const price = formatRupees(hosted.pricePaise);
   const api: RegistrationApi = useMemo(
     () => (apiKind === "mock" ? mockRegistrationApi() : httpRegistrationApi(event.id)),
