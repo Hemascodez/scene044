@@ -113,14 +113,15 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
     registeredCount: 14,
     registrationState: "open",
     description: CHAPTER_LOUNGE_DESCRIPTION,
+    // In flipbook page order (I–VII), as in the "Previous events book flip" design.
     gallery: [
-      { src: `${PHOTOS}/last-time-1.jpg`, alt: "Readers from the last Chapter Lounge session gathered around the table at Madras Adda" },
       { src: `${PHOTOS}/last-time-2.jpg`, alt: "Stacks of books on the table beside the Chapter Shelf sign" },
-      { src: `${PHOTOS}/last-time-3.jpg`, alt: "Handwritten sticky notes from readers about the session" },
-      { src: `${PHOTOS}/last-time-4.jpg`, alt: "Readers mid-conversation and lost in their books" },
+      { src: `${PHOTOS}/last-time-1.jpg`, alt: "Readers from the last Chapter Lounge session gathered around the table at Madras Adda" },
       { src: `${PHOTOS}/last-time-5.jpg`, alt: "Readers holding up the books they brought" },
       { src: `${PHOTOS}/last-time-6.jpg`, alt: "More readers with their books, from Murakami to Agatha Christie" },
+      { src: `${PHOTOS}/last-time-4.jpg`, alt: "Readers mid-conversation and lost in their books" },
       { src: `${PHOTOS}/last-time-7.jpg`, alt: "Group photo at the end of the session" },
+      { src: `${PHOTOS}/last-time-3.jpg`, alt: "Handwritten sticky notes from readers about the session" },
     ],
     quote: {
       text: "Very calm and warm space, filled with bookish people with intense love for books.",

@@ -147,6 +147,28 @@ body {
 }
 
 /*
+ * Hosted event pages (components/scene/hosted/HostedEventView.tsx) use the
+ * venue typography — Montserrat / Space Mono / Work Sans — but keep the event
+ * colours and hard-edged grammar, so only the fonts are re-pointed here. The
+ * fonts are imported by HostedEventView, not globally.
+ */
+.hosted-surface {
+  --venue-font-display: "Montserrat Variable", "Montserrat", Arial, sans-serif;
+  --venue-font-mono: "Space Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --venue-font-body: "Work Sans Variable", "Work Sans", Arial, sans-serif;
+  font-family: var(--venue-font-body);
+}
+.hosted-surface .font-display {
+  font-family: var(--venue-font-display);
+}
+.hosted-surface .font-mono {
+  font-family: var(--venue-font-mono);
+}
+.hosted-surface .font-sans {
+  font-family: var(--venue-font-body);
+}
+
+/*
  * Press feedback for hard-shadow controls. Lifts toward the light on hover and
  * sinks into the page on press, which is what a drop-shadow-free "button" needs
  * to feel clickable. `translate` (not `transform`) matches Tailwind v4's

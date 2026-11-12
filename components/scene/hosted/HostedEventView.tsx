@@ -1,10 +1,15 @@
+// Venue typography, self-hosted (see app/globals.css `.hosted-surface`).
+import "@fontsource-variable/montserrat";
+import "@fontsource-variable/work-sans";
+import "@fontsource/space-mono/400.css";
+import "@fontsource/space-mono/700.css";
 import Link from "next/link";
 import { formatSceneDateLong, formatSceneTime } from "@/lib/client/istTime";
 import { hostedGlanceFacts } from "@/lib/client/sceneEvent";
 import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedEvents";
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { EventGlance } from "@/components/scene/EventGlance";
-import { HostedGallery } from "@/components/scene/hosted/HostedGallery";
+import { Flipbook } from "@/components/scene/hosted/Flipbook";
 import { HostedPageActions } from "@/components/scene/hosted/HostedPageActions";
 import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration";
 import { Mono } from "@/components/scene/ui";
@@ -26,7 +31,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
   const paragraphs = hosted.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 
   return (
-    <main className="pb-28 sm:pb-0">
+    <main className="hosted-surface pb-28 sm:pb-0">
       <section className="border-b-2 border-foreground bg-foreground text-background">
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6 lg:py-8">
           <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-background/60">
@@ -112,7 +117,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
               Last time at {hosted.hostName}
             </h2>
             <div className="mt-4">
-              <HostedGallery photos={hosted.gallery} />
+              <Flipbook photos={hosted.gallery} />
             </div>
             {hosted.quote && (
               <figure className="mt-5 border-l-4 border-foreground bg-card px-4 py-3">

@@ -1,0 +1,151 @@
+/*
+ * "Previous events book flip", ported from the design reference. Keyframes and
+ * values are the design's own: a 30s loop where the cover opens and four
+ * leaves turn in sequence, then the book fades and starts again.
+ * Transform and opacity only. Paused via [data-paused] (Pause button, or the
+ * book being off screen).
+ */
+
+.stage {
+  position: relative;
+  width: 640px;
+  height: 490px;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+.stage[data-paused="true"] * {
+  animation-play-state: paused !important;
+}
+
+.artboard {
+  position: absolute;
+  left: -120px;
+  top: -70px;
+  width: 880px;
+  height: 620px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.fade { animation: fb-fade 30s linear infinite; }
+.shift { animation: fb-shift 30s linear infinite; }
+
+.leaf {
+  position: absolute;
+  left: 300px;
+  top: 0;
+  width: 300px;
+  height: 400px;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+}
+.lf0 { animation: fb-lf0 30s linear infinite; }
+.lf1 { animation: fb-lf1 30s linear infinite; }
+.lf2 { animation: fb-lf2 30s linear infinite; }
+.lf3 { animation: fb-lf3 30s linear infinite; }
+.lf4 { animation: fb-lf4 30s linear infinite; }
+
+.face {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 300px;
+  height: 400px;
+  box-sizing: border-box;
+  background: #f7f0e1;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.back { transform: rotateY(180deg); }
+
+.shadeR {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 14%);
+  pointer-events: none;
+}
+.shadeL {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 14%);
+  pointer-events: none;
+}
+
+.photo {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  right: 16px;
+  bottom: 44px;
+  border: 2px solid #8a6a1f;
+  outline: 1px solid #8a6a1f;
+  outline-offset: 3px;
+  overflow: hidden;
+  background: #ddd;
+}
+.photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pageNo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  text-align: center;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  color: #6b5a3a;
+}
+
+.frame { position: absolute; left: 0; top: 0; }
+
+.script { font-family: "Pinyon Script", cursive; }
+
+@keyframes fb-fade {
+  0% { opacity: 0; }
+  2%, 93% { opacity: 1; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes fb-shift {
+  0%, 4% { transform: translateX(-150px); animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  8%, 100% { transform: translateX(0); }
+}
+@keyframes fb-lf0 {
+  0%, 4% { transform: translateZ(0) rotateY(0deg); animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  8%, 100% { transform: translateZ(0) rotateY(-180deg); }
+}
+@keyframes fb-lf1 {
+  0%, 20% { transform: translateZ(-2px) rotateY(0deg); animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  24%, 100% { transform: translateZ(2px) rotateY(-180deg); }
+}
+@keyframes fb-lf2 {
+  0%, 36% { transform: translateZ(-4px) rotateY(0deg); animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  40%, 100% { transform: translateZ(4px) rotateY(-180deg); }
+}
+@keyframes fb-lf3 {
+  0%, 52% { transform: translateZ(-6px) rotateY(0deg); animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  56%, 100% { transform: translateZ(6px) rotateY(-180deg); }
+}
+@keyframes fb-lf4 {
+  0%, 68% { transform: translateZ(-8px) rotateY(0deg); animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  72%, 100% { transform: translateZ(8px) rotateY(-180deg); }
+}
+
+/* The design's own reduced-motion state: the book open at pages I and II. */
+@media (prefers-reduced-motion: reduce) {
+  .fade, .shift, .lf0, .lf1, .lf2, .lf3, .lf4 { animation: none; }
+  .fade { opacity: 1; }
+  .shift { transform: translateX(0); }
+  .lf0 { transform: translateZ(0) rotateY(-180deg); }
+  .lf1 { transform: translateZ(-2px); }
+  .lf2 { transform: translateZ(-4px); }
+  .lf3 { transform: translateZ(-6px); }
+  .lf4 { transform: translateZ(-8px); }
+}

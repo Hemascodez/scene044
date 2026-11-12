@@ -1,7 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { PRINT_TIMING } from "@/lib/client/ticketSound";
+import { useStageScale } from "@/lib/client/useStageScale";
 import styles from "@/components/scene/hosted/TicketPrinter.module.css";
 
 /**
@@ -21,7 +22,7 @@ const STAGE_H = 740;
 const INK = "#14130d"; // --color-foreground
 const ACCENT = "#ff2d16"; // --color-primary
 const PAPER = "#fbfaf5"; // --color-card
-const MONO = "ui-monospace, SFMono-Regular, Consolas, monospace";
+const MONO = "'Space Mono', ui-monospace, SFMono-Regular, Consolas, monospace";
 
 export function TicketPrinter({
   phase,
@@ -34,18 +35,7 @@ export function TicketPrinter({
   guestName: string;
   eventDate: string;
 }) {
-  const frameRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0);
-
-  useLayoutEffect(() => {
-    const frame = frameRef.current;
-    if (!frame) return;
-    const measure = () => setScale(Math.min(1, frame.clientWidth / STAGE_W));
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, []);
+  const { frameRef, scale } = useStageScale<HTMLDivElement>(STAGE_W);
 
   const timing = {
     "--tp-feed": `${PRINT_TIMING.feedMs}ms`,
