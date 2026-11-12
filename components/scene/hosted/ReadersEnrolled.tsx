@@ -27,26 +27,52 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
   const [freshFrom, setFreshFrom] = useState<number | null>(null);
   const [shown, setShown] = useState(0);
   const lastCount = useRef<number | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const bookedRef = useRef(seats.booked);
+  useEffect(() => {
+    bookedRef.current = seats.booked;
+  }, [seats.booked]);
+  // The shelf fills and the number counts up when the card scrolls into view,
+  // not on page load (by then nobody is looking at it). Once only.
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const node = sectionRef.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const timer = setTimeout(() => setInView(true), 0);
+      return () => clearTimeout(timer);
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.35 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // Count up to the real number once, as in the design.
   useEffect(() => {
-    if (reduceMotion) return;
+    if (reduceMotion || !inView) return;
     let n = 0;
     let interval: ReturnType<typeof setInterval> | undefined;
     const start = setTimeout(() => {
       interval = setInterval(() => {
         n += 1;
-        setShown(Math.min(n, seats.booked));
-        if (n >= seats.booked && interval) clearInterval(interval);
+        setShown(Math.min(n, bookedRef.current));
+        if (n >= bookedRef.current && interval) clearInterval(interval);
       }, 70);
-    }, 350);
+    }, 250);
     return () => {
       clearTimeout(start);
       if (interval) clearInterval(interval);
     };
-    // Only the first count animates; later changes update `shown` directly below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reduceMotion]);
+  }, [reduceMotion, inView]);
 
   // Poll the real seat count.
   useEffect(() => {
@@ -91,6 +117,7 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
 
   return (
     <section
+      ref={sectionRef}
       aria-labelledby="enrolled-title"
       className="relative overflow-hidden border-2 border-foreground bg-[linear-gradient(160deg,#211813_0%,#14130d_55%,#170f0c_100%)] p-5 text-white sm:p-7"
     >
@@ -133,7 +160,12 @@ export function ReadersEnrolled({ event, api: apiKind, }: { event: HostedEventDe
           )}
         </div>
 
-        <div role="img" aria-label={`${seats.booked} of ${seats.capacity} seats taken`} className="mt-6 flex h-[124px] items-end gap-1 px-0.5">
+        <div
+          role="img"
+          aria-label={`${seats.booked} of ${seats.capacity} seats taken`}
+          data-play={inView || reduceMotion ? "true" : "false"}
+          className={`${styles.shelf} mt-6 flex h-[124px] items-end gap-1 px-0.5`}
+        >
           {slots.map((slot, i) =>
             slot.kind === "taken" ? (
               <div

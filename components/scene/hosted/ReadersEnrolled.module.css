@@ -3,6 +3,13 @@
  * opacity only; everything stops under reduced motion.
  */
 
+/* Nothing on the shelf until the card scrolls into view; then the books rise in one by one. */
+.shelf[data-play="false"] .spine,
+.shelf[data-play="false"] .open {
+  animation: none;
+  opacity: 0;
+}
+
 .spine {
   position: relative;
   flex: 1;
