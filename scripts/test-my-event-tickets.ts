@@ -27,7 +27,7 @@ const later = { ...base, eventId: 2, startAt: "2026-12-06T05:30:00.000Z", endAt:
 assert.deepEqual(splitEventTickets([later, base], before).upcoming.map((t) => t.eventId), [9044, 2], "upcoming soonest first");
 assert.deepEqual(splitEventTickets([base, later], new Date("2027-01-01T00:00:00Z")).past.map((t) => t.eventId), [2, 9044], "past most recent first");
 
-assert.equal(eventTicketHref(base), "/events/lets-do-more-reading-9044?ticket=tok%2Fen%201");
+assert.equal(eventTicketHref(base), "/events/lets-do-more-reading-9044/ticket?ticket=tok%2Fen%201");
 
 async function main() {
   const originalFetch = globalThis.fetch;

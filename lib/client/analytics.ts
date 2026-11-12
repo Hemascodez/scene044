@@ -28,7 +28,7 @@ export function gaInlineScript(id: string): string {
     `window.dataLayer=window.dataLayer||[];` +
     `function gtag(){dataLayer.push(arguments)}` +
     // Ticket URLs are bearer credentials; never initialise GA on those visits.
-    `if(!new URLSearchParams(window.location.search).has('ticket')){` +
+    `if(!new URLSearchParams(window.location.search).has('ticket')&&!/\\/ticket\\/?$/.test(window.location.pathname||'')){` +
     `gtag('js',new Date());` +
     `gtag('config','${id}');}`
   );

@@ -2,7 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { seatSegments } from "@/lib/client/enrolled";
-import { resolveSwipe } from "@/lib/client/swipe";
+import { resolveSwipe, SWIPE_COMPLETE_AT } from "@/lib/client/swipe";
 import { playSwipeBurst, setSwipeWhoosh, startSwipeWhoosh, stopSwipeWhoosh } from "@/lib/client/ticketSound";
 import { useElementWidth } from "@/lib/client/useStageScale";
 import { formatRupees, seatProgress, type HostedEventInfo } from "@/lib/hostedEvents";
@@ -120,7 +120,7 @@ export function PassFooter({ dark = true }: { dark?: boolean }) {
       <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? GREEN : "var(--color-signal-ink)"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z" />
       </svg>
-      Your ticket appears here and in My bookings. WhatsApp updates are optional.
+      After payment, your ticket opens on its own page and in My bookings. WhatsApp updates are optional.
     </p>
   );
 }
@@ -148,23 +148,26 @@ export function SwipeToPay({
   const drag = useRef<{ startX: number; lastX: number; lastT: number; velocity: number } | null>(null);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const suppressClick = useRef(false);
 
   const maxX = Math.max(0, trackWidth - THUMB - INSET * 2);
   const x = busy ? maxX : dragX;
 
   function complete() {
-    stopSwipeWhoosh();
-    playSwipeBurst();
+    drag.current = null;
     setDragX(0);
     setDragging(false);
+    // Sound is decorative; never let an unavailable audio context block booking.
+    try { stopSwipeWhoosh(); playSwipeBurst(); } catch { /* silent fallback */ }
     onComplete();
   }
 
   function onPointerDown(e: PointerEvent<HTMLButtonElement>) {
     if (busy) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    suppressClick.current = false;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* native click still works */ }
     drag.current = { startX: e.clientX, lastX: 0, lastT: performance.now(), velocity: 0 };
-    startSwipeWhoosh();
+    try { startSwipeWhoosh(); } catch { /* sound cannot block registration */ }
     setDragging(true);
   }
   function onPointerMove(e: PointerEvent<HTMLButtonElement>) {
@@ -176,13 +179,19 @@ export function SwipeToPay({
     d.velocity = d.velocity * 0.6 + instant * 0.4;
     d.lastX = nx;
     d.lastT = now;
-    setSwipeWhoosh(d.velocity, maxX ? nx / maxX : 0);
+    try { setSwipeWhoosh(d.velocity, maxX ? nx / maxX : 0); } catch { /* silent fallback */ }
     setDragX(nx);
+    // Open immediately at the threshold, even if pointer-up/capture is lost.
+    if (maxX > 0 && nx >= maxX * SWIPE_COMPLETE_AT) {
+      suppressClick.current = true;
+      complete();
+    }
   }
   function onPointerUp(e: PointerEvent<HTMLButtonElement>) {
     const d = drag.current;
     if (!d) return;
     drag.current = null;
+    suppressClick.current = true;
     if (resolveSwipe({ dx: e.clientX - d.startX, max: maxX }) === "complete") complete();
     else {
       stopSwipeWhoosh();
@@ -197,7 +206,7 @@ export function SwipeToPay({
     setDragging(false);
   }
   function onKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
-    if (busy) return;
+    if (busy || e.repeat) return;
     if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") {
       e.preventDefault();
       complete();
@@ -250,11 +259,18 @@ export function SwipeToPay({
         type="button"
         aria-label={busy ? busyLabel : ariaLabel}
         aria-disabled={busy}
+        disabled={busy}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onLostPointerCapture={onPointerCancel}
         onKeyDown={onKeyDown}
+        onClick={(e) => {
+          if (busy) return;
+          if (suppressClick.current && e.detail !== 0) { suppressClick.current = false; return; }
+          complete();
+        }}
         className={`${styles.thumb} absolute left-1 top-1 flex size-[50px] items-center justify-center bg-[linear-gradient(135deg,#ff7a66,#ff2d16)] text-white`}
         style={{ transform: `translateX(${x}px) scale(${dragging ? 1.05 : 1})`, transition: trans }}
       >

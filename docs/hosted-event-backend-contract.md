@@ -67,6 +67,11 @@ Guests sign in with the **shared SCENE sign-in** (the existing WhatsApp OTP,
 event-specific OTP. All bodies are JSON; errors are `{ error: string }` with
 copy the page shows as is.
 
+Attendees use a keyboard-safe dark popup: details → WhatsApp code → Razorpay.
+No venue/host role is shown in that popup; the existing guest account role is
+used internally, without requesting host access. Phone autofill, leading `0`,
+country codes and pasting a six-digit OTP are supported. Venue host login is unchanged.
+
 | Call | Auth | Body | Success | Errors the page handles |
 |---|---|---|---|---|
 | `POST /api/events/[id]/registrations` | session | `{ name, email, whatsappOptIn?: boolean }` (phone comes from the session; opt-in defaults false) | `CreatedRegistration` = `{ registrationToken, orderId, amount, currency, keyId }` | 401 → reopens sign-in · 409 `{ soldOut: true }` · 409 `{ existingTicketToken }` when this account already holds a confirmed ticket |
@@ -80,8 +85,12 @@ copy the page shows as is.
 
 `Ticket` = `{ code, name, phoneMasked, status: "confirmed" | "cancelled", qrValue }`.
 `ticketToken` is the secret in `?ticket=` links, so it must be unguessable.
-`qrValue` should be the ticket link (`https://scene044.in/events/<slug>?ticket=<ticketToken>`):
+`qrValue` should be the ticket link (`https://scene044.in/events/<slug>/ticket?ticket=<ticketToken>`):
 the door scanner reads the token from it (`parseTicketQr`).
+Legacy `/events/<slug>?ticket=…` links redirect to this separate private page.
+Newly verified payments print the ticket before transitioning to the QR screen;
+returning ticket visits show the QR directly. Cancelled/unverified tickets never
+show a valid-entry QR. The QR is generated from server data, not the design mockup.
 
 Rules the page relies on:
 
@@ -94,7 +103,7 @@ Rules the page relies on:
 - The WhatsApp confirmation includes the ticket link above.
 - No email is sent. Email is collected for the organiser's records only.
 - `POST /api/razorpay/webhook` requires raw-body HMAC with `RAZORPAY_WEBHOOK_SECRET`, and handles `payment.captured` / `order.paid`. It ignores unrelated venue orders. Duplicate callbacks are idempotent. My bookings also reconciles the account's pending orders; the optional persistent worker covers absent browsers.
-- Public bearer passes expose only name, masked phone, code and QR. Shared URL tokens are not saved as the viewer's own ticket. Ticket-query visits do not initialise GA, and hosted pages use no-referrer metadata.
+- Public bearer passes expose only name, masked phone, code and QR. Shared URL tokens are not saved as the viewer's own ticket. Registered-state checks use the authenticated My bookings endpoint, not browser storage. Ticket-query visits and dedicated ticket pages do not initialise GA, and hosted pages use no-referrer metadata.
 
 ## 3. Organiser endpoints (`/api/host/events`)
 
@@ -106,6 +115,10 @@ All require the session **and** event-host approval for the event in the path
 | `GET /api/host/events` | | `{ events: HostEvent[] }` — events this number may run, with `registeredCount` and `checkedInCount` |
 | `GET /api/host/events/[id]/guests` | | `{ guests: HostGuest[] }` |
 | `POST /api/host/events/[id]/checkin` | `{ token }` or `{ code }` | `{ guest, alreadyCheckedIn }`. A second check-in returns `alreadyCheckedIn: true` and does not change counts. 404 unknown, 409 cancelled. |
+
+The guest-list action opens the scan screen; it never calls check-in itself.
+Camera permission is requested only after `Scan ticket QR`. The manual fallback
+requires entering the attendee's ticket code, finding it, and explicitly confirming arrival.
 | `GET /api/host/events/[id]/reminders` | | `{ templates: ReminderTemplate[], history: ReminderSend[] }` |
 | `POST /api/host/events/[id]/reminders` | `{ templateId }` | `ReminderSend`. Queues an approved template for confirmed, opted-in guests, once per event/template. Returns `pending`, not a fabricated delivery count. |
 | `GET /api/host/events/[id]/payments` | | `MoneySummary` — verified capture records, actual recorded Razorpay fees, net, count, review count and payments. Unknown fees remain unknown. This is not a bank-settlement confirmation. |

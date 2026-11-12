@@ -218,7 +218,7 @@ export async function drainEventNotifications(sender = sendWhatsappTemplate) {
             : r.venue_name || "Venue to be confirmed",
           r.code,
         ],
-        urlButtonSuffix: `${eventPath({ id: r.event_id, title: r.title }).split("/").at(-1)}?ticket=${r.ticket_token}`,
+        urlButtonSuffix: `${eventPath({ id: r.event_id, title: r.title }).split("/").at(-1)}/ticket?ticket=${r.ticket_token}`,
         opaqueCallbackData: `event-notification:${row.id}`,
       });
       if (result.ok) await update("accepted", null, result.providerMessageId);

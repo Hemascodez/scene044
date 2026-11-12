@@ -106,7 +106,7 @@ export function publicEventTicket(
     name: row.name,
     phoneMasked: `+91 ••••• ${row.phone_e164.slice(-5)}`,
     status: cancelled || row.status === "cancelled" ? "cancelled" : "confirmed",
-    qrValue: `https://scene044.in${eventPath({ id: eventId, title })}?ticket=${row.ticket_token}`,
+    qrValue: `https://scene044.in${eventPath({ id: eventId, title })}/ticket?ticket=${row.ticket_token}`,
   };
 }
 

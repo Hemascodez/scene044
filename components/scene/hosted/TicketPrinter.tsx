@@ -64,7 +64,7 @@ export function TicketPrinter({
 
         <p
           className={`${styles.tag} font-display`}
-          style={{ position: "absolute", left: 0, right: 0, top: 0, margin: 0, textAlign: "center", fontSize: 15, fontWeight: 900, letterSpacing: ".06em", color: INK }}
+          style={{ position: "absolute", left: 0, right: 0, top: 0, margin: 0, textAlign: "center", fontSize: 15, fontWeight: 900, letterSpacing: ".06em", color: "var(--tp-label, #14130d)" }}
         >
           PAYMENT SUCCESSFUL
         </p>

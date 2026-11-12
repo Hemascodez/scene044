@@ -70,6 +70,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
   const [pollError, setPollError] = useState('')
   const [code, setCode] = useState('')
   const [found, setFound] = useState<{ guest: HostGuest | null; code: string } | null>(null)
+  const [arriving, setArriving] = useState(false)
 
   const event = events.find((e) => e.id === selectedId) ?? events[0] ?? null
 
@@ -142,12 +143,16 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
   }
 
   async function confirmArrival(g: HostGuest) {
+    if (arriving) return
+    setArriving(true)
     try {
       await checkIn({ code: g.code })
       setFound(null)
       setCode('')
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not check in this ticket.')
+    } finally {
+      setArriving(false)
     }
   }
 
@@ -227,7 +232,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
               <select
                 id="event-switcher"
                 value={event?.id ?? ''}
-                onChange={(e) => setSelectedId(Number(e.target.value))}
+                onChange={(e) => { setSelectedId(Number(e.target.value)); setFound(null); setCode(''); }}
                 className="min-h-11 w-full border-[1.5px] border-ink bg-paper px-3 font-head text-sm sm:w-auto"
               >
                 {events.map((ev) => (
@@ -351,12 +356,11 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                   <div className="mt-4">
                     <EventGuestList
                       guests={guests}
-                      onCheckIn={async (g) => {
-                        try {
-                          await checkIn({ code: g.code })
-                        } catch (error) {
-                          showToast(error instanceof Error ? error.message : 'Could not check in this ticket.')
-                        }
+                      onCheckIn={async () => {
+                        // Opening check-in is navigation, never proof of arrival.
+                        setCode('')
+                        setFound(null)
+                        setTab('checkin')
                       }}
                     />
                   </div>
@@ -374,7 +378,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                   </p>
                 </div>
 
-                <HostQrScanner
+                <HostQrScanner key={event.id}
                   label="Scan ticket QR"
                   onRefresh={() => void refresh()}
                   onToken={async (text) => {
@@ -385,6 +389,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                 />
 
                 <form onSubmit={findByCode} className="space-y-3 border-[1.5px] border-ink bg-white p-6 shadow-hard">
+                  <p className="text-sm text-stone">Can&apos;t scan? Ask the guest to show their ticket, enter its code, then confirm arrival.</p>
                   <label htmlFor="ticket-code" className="block font-mono-b text-xs uppercase text-stone">Or enter ticket code</label>
                   <div className="flex gap-2">
                     <input
@@ -411,10 +416,11 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                           {found.guest.status === 'confirmed' && (
                             <button
                               type="button"
+                              disabled={arriving}
                               onClick={() => found.guest && void confirmArrival(found.guest)}
                               className="press mt-3 min-h-11 w-full border border-moss bg-moss py-2 font-head text-xs uppercase text-white shadow-hard-sm"
                             >
-                              Confirm arrival
+                              {arriving ? 'Confirming…' : 'Confirm arrival'}
                             </button>
                           )}
                           {found.guest.status === 'checked_in' && <p className="pt-2 text-ink">Already checked in{found.guest.checkedInAt ? ` at ${formatSceneTime(found.guest.checkedInAt)}` : ''}.</p>}

@@ -30,6 +30,7 @@ export function EventPageAuth({ children }: { children: ReactNode }) {
     <VenueAppProvider
       authClassName="venue-surface"
       defaultAuthCopy={EVENT_AUTH_COPY}
+      attendeeAuth
     >
       <SceneHeaderStatic accountControls={<EventAccountControls />} />
       {children}

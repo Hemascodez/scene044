@@ -1,480 +1,188 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
-import {
-  RegistrationError,
-  clearStoredTicketToken,
-  formatIndianMobile,
-  readStoredTicketToken,
-  storeTicketToken,
-  validateDetails,
-  type Ticket,
-} from "@/lib/client/eventRegistration";
-import { formatSceneDateLong } from "@/lib/client/istTime";
-import { PRINT_TIMING, playTicketPrint, primeTicketSound } from "@/lib/client/ticketSound";
-import { TicketPrinter } from "@/components/scene/hosted/TicketPrinter";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import type { Profile } from "@/components/venues/figma/AuthModal";
+import { RegistrationError, clearStoredTicketToken, readStoredTicketToken, storeTicketToken, type CreatedRegistration, type RegistrationDetails } from "@/lib/client/eventRegistration";
+import { mockAttendeeAuth } from "@/lib/client/attendeeAuth";
+import { eventTicketLocation } from "@/lib/eventTicketLocation";
+import { eventPath } from "@/lib/seo";
+import { fetchMyEventTickets } from "@/lib/client/myEventTickets";
 import { openRazorpayCheckout, type RazorpaySuccessResponse } from "@/lib/client/razorpay";
-import { flowReducer, initialFlow, type FlowStep } from "@/lib/client/registrationFlow";
+import { flowReducer, initialFlow } from "@/lib/client/registrationFlow";
 import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedEvents";
-import { Btn, Mono } from "@/components/scene/ui";
-import { REGISTER_OPEN_EVENT, RegisterBar } from "@/components/scene/hosted/RegisterBar";
-import { TicketView } from "@/components/scene/hosted/TicketView";
-import { hostedCard } from "@/components/scene/hosted/hostedCard";
-import { useHostedAuth } from "@/components/scene/hosted/hostedAuth";
-import { useHostedSeatStats } from "@/components/scene/hosted/HostedSeatStats";
-import { PassFooter, ReaderPass, SwipeToPay } from "@/components/scene/hosted/ReaderPass";
+import { REGISTER_OPEN_EVENT, RegisterBar } from "./RegisterBar";
+import { useHostedAuth } from "./hostedAuth";
+import { useHostedSeatStats } from "./HostedSeatStats";
+import { ReaderPass } from "./ReaderPass";
+import { AttendeeForm } from "./AttendeeForm";
+import { EventFlowDialog } from "./EventFlowDialog";
 
+const action = "mt-4 min-h-12 w-full border border-white/20 bg-[#c41b09] px-4 py-3 font-mono text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-60";
 
-const inputClass =
-  "mt-1 block min-h-11 w-full border-2 border-foreground bg-card px-3 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary aria-[invalid=true]:border-primary-ink disabled:opacity-60";
-const labelClass = "font-mono text-[10px] font-semibold uppercase tracking-[0.12em]";
-
-/** Groups steps that share one panel, so the panel only animates on real changes. */
-function panelOf(step: FlowStep): string {
-  if (step === "details") return "form";
-  // Same panel, so the ticket printer carries on from printing to printed.
-  if (step === "confirming" || step === "confirmed") return "ticket";
-  return step;
-}
-
-/**
- * The ticket printer while the payment is confirmed, then the printed ticket,
- * then the real ticket (QR, calendar) fading in underneath. Rendered in both
- * the confirming and confirmed steps so React keeps the same printer on screen.
- */
-function CelebrationPanel({
-  phase,
-  event,
-  guestName,
-  ticket,
-}: {
-  phase: "printing" | "printed";
-  event: HostedEventDetail;
-  guestName: string;
-  ticket: Ticket | null;
-}) {
-  const reduceMotion = useReducedMotion();
-  const [revealed, setRevealed] = useState(false);
-
-  useEffect(() => {
-    if (phase !== "printed") return;
-    const delay = reduceMotion ? 0 : PRINT_TIMING.feedMs + PRINT_TIMING.settleMs + 500;
-    const timer = setTimeout(() => setRevealed(true), delay);
-    return () => clearTimeout(timer);
-  }, [phase, reduceMotion]);
-
-  return (
-    <div>
-      <p role="status" aria-live="polite" className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-ink">
-        {phase === "printing" ? "Confirming your payment…" : <span className="text-signal-ink">Payment successful · ticket printed</span>}
-      </p>
-      <TicketPrinter
-        phase={phase}
-        eventTitle={event.title}
-        guestName={guestName}
-        eventDate={event.startAt ? formatSceneDateLong(event.startAt) : "Date to be announced"}
-      />
-      {revealed && ticket && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="mt-2">
-          <TicketView ticket={ticket} event={event} />
-        </motion.div>
-      )}
-    </div>
-  );
-}
-
-export function HostedRegistration({
-  event,
-  api: apiKind,
-  anchorId,
-}: {
-  event: HostedEventDetail;
-  api: "http" | "mock";
-  anchorId: string;
-}) {
+/** One attendee popup → OTP → the real Razorpay sheet → a separate, verified ticket page. */
+export function HostedRegistration({ event, api: apiKind, anchorId }: { event: HostedEventDetail; api: "http" | "mock"; anchorId: string }) {
   const { hosted, api, refresh } = useHostedSeatStats();
+  const { profile, acceptVerifiedProfile } = useHostedAuth();
   const seat = seatSummary(hosted, event.endAt, undefined, event.status);
   const price = formatRupees(hosted.pricePaise);
-
-  const [state, dispatch] = useReducer(flowReducer, seat, (s) => initialFlow(s, null));
-  useEffect(() => { dispatch({ type: "seat_changed", state: seat.state }); }, [seat.state]);
+  const [state, dispatch] = useReducer(flowReducer, seat, s => initialFlow(s, null));
+  const [open, setOpen] = useState(false);
+  const [forceOtp, setForceOtp] = useState(false);
+  const [formVersion, setFormVersion] = useState(0);
+  const [existingToken, setExistingToken] = useState<string | null>(null);
   const [checkingTicket, setCheckingTicket] = useState(true);
-  const [showErrors, setShowErrors] = useState(false);
-  const [whatsappOptIn,setWhatsappOptIn]=useState(false);
-  const { requireAuth } = useHostedAuth();
+  const creating = useRef(false);
+  const checkout = useRef(false);
+  const verifying = useRef(false);
+  const attempt = useRef(0);
   const paymentRef = useRef<RazorpaySuccessResponse | null>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { dispatch({ type: "seat_changed", state: seat.state }); }, [seat.state]);
 
-  /** Swipe or the phone bar: sign in if needed, then open the details. */
-  const startRegistration = useCallback(() => {
-    requireAuth((profile) => {
-      dispatch({ type: "prefill", details: { name: profile.name, email: profile.email ?? "", phone: profile.phone } });
-      setTimeout(() => nameRef.current?.focus({ preventScroll: true }), 250);
-    });
-  }, [requireAuth]);
+  const ticketHref = useCallback((token: string, fresh = false) => {
+    const path = apiKind === "mock" ? `/dev/hosted-ticket?ticket=${encodeURIComponent(token)}` : eventTicketLocation(event, token);
+    return path + (fresh ? "&new=1" : "");
+  }, [apiKind, event]);
+  function openTicket(token: string, fresh = false) {
+    // Full navigation prevents analytics on the previous public page seeing a bearer URL.
+    window.location.assign(ticketHref(token, fresh));
+  }
 
-  const showTicket = useCallback(
-    async (token: string,remember=false) => {
-      const ticket = await api.getTicket(token);
-      if (ticket?.status === "confirmed") {
-        if (remember) storeTicketToken(event.id, token);
-        dispatch({ type: "confirmed", ticket });
-        return true;
-      }
-      if (readStoredTicketToken(event.id)===token) clearStoredTicketToken(event.id);
-      return false;
-    },
-    [api, event.id],
-  );
-
-  // A returning guest (WhatsApp link ?ticket=… or this device) sees their ticket.
   useEffect(() => {
-    const fromUrl = new URLSearchParams(window.location.search).get("ticket");
-    if(fromUrl){const url=new URL(window.location.href);url.searchParams.delete('ticket');window.history.replaceState(window.history.state,'',`${url.pathname}${url.search}${url.hash}`);}
-    const token = fromUrl || readStoredTicketToken(event.id);
+    let active = true;
     void (async () => {
-      if (token) {
-        // Offline or server error: keep the stored token, show the normal card.
-        await showTicket(token).catch(() => false);
+      if (apiKind === "http") {
+        // Only the authenticated account's registration counts as "you're
+        // registered". Browser storage is not proof of ownership on a shared device.
+        try {
+          const own = (await fetchMyEventTickets()).find(t => t.eventId === event.id && t.ticket.status === "confirmed");
+          if (active) setExistingToken(own?.ticketToken ?? null);
+        } catch { /* Server create still protects against duplicate payments. */ }
+      } else {
+        const token = readStoredTicketToken(event.id);
+        if (token) {
+        try {
+          const ticket = await api.getTicket(token);
+          if (ticket?.status === "confirmed") { if (active) setExistingToken(token); }
+          else if (readStoredTicketToken(event.id) === token) clearStoredTicketToken(event.id);
+        } catch { /* Keep the private token during network trouble; API still guards duplicates. */ }
+        }
       }
-      setCheckingTicket(false);
+      if (active) setCheckingTicket(false);
     })();
-  }, [event.id, showTicket]);
+    return () => { active = false; };
+  }, [api, apiKind, event.id, profile?.phone]);
 
-  // The phone bar asks the card to open.
+  const startRegistration = useCallback(() => {
+    if (existingToken) { window.location.assign(ticketHref(existingToken)); return; }
+    if (state.busy || (seat.state !== "open" && !state.registration)) return;
+    if (state.step === "idle") dispatch({ type: "prefill", details: { name: profile?.name ?? "", email: profile?.email ?? "", phone: profile?.phone ?? "" } });
+    setOpen(true);
+  }, [existingToken, ticketHref, profile, state.busy, state.step, state.registration, seat.state]);
   useEffect(() => {
     window.addEventListener(REGISTER_OPEN_EVENT, startRegistration);
     return () => window.removeEventListener(REGISTER_OPEN_EVENT, startRegistration);
   }, [startRegistration]);
 
-  // The ticket printer's sound, once, when a ticket was just paid for here.
-  const playedRef = useRef(false);
-  useEffect(() => {
-    if (state.step !== "confirmed" || !state.celebrate || playedRef.current) return;
-    playedRef.current = true;
-    playTicketPrint();
-  }, [state.step, state.celebrate]);
+  function closeDialog() { attempt.current++; setOpen(false); }
 
-  const errors = validateDetails(state.details);
-  const visibleErrors = showErrors ? errors : {};
-
-  function edit(field: "name" | "email", value: string) {
-    dispatch({ type: "edit", field, value });
-  }
-
-  async function continueToPay() {
-    setShowErrors(true);
-    const firstInvalid = (["name", "email"] as const).find((field) => errors[field]);
-    if (firstInvalid) {
-      document.getElementById(`reg-${firstInvalid}`)?.focus();
-      return;
-    }
-    primeTicketSound();
+  async function ready(details: RegistrationDetails, whatsappOptIn: boolean, verified?: Profile) {
+    if (creating.current || checkout.current || verifying.current) return;
+    if (verified) { acceptVerifiedProfile(verified); setForceOtp(false); }
+    creating.current = true;
+    const current = attempt.current;
+    dispatch({ type: "prefill", details });
     dispatch({ type: "busy", busy: true });
     try {
-      const registration = await api.create({ name: state.details.name, email: state.details.email,whatsappOptIn });
+      // Session phone and amount are authoritative on the server, never client-submitted.
+      const registration = await api.create({ name: details.name, email: details.email, whatsappOptIn });
+      if (!mounted.current) return;
       dispatch({ type: "registration_created", registration });
-      void pay(registration);
+      if (current === attempt.current) void pay(registration, details);
     } catch (error) {
+      if (!mounted.current) return;
       if (error instanceof RegistrationError && error.status === 401) {
-        dispatch({ type: "error", message: "Your sign-in expired. Sign in again to continue." });
-        requireAuth(profile=>dispatch({type:'prefill',details:{name:profile.name,email:profile.email??'',phone:profile.phone}}),true);
+        setForceOtp(true); setFormVersion(n => n + 1);
+        dispatch({ type: "error", message: "Your sign-in expired. Verify your WhatsApp number again to continue." });
       } else if (error instanceof RegistrationError && error.soldOut) {
-        dispatch({ type: "sold_out" });
+        dispatch({ type: "sold_out" }); void refresh();
       } else if (error instanceof RegistrationError && error.existingTicketToken) {
-        const shown = await showTicket(error.existingTicketToken,true).catch(() => false);
-        if (!shown) dispatch({ type: "error", message: error.message });
-      } else {
-        dispatch({ type: "error", message: error instanceof Error ? error.message : "Something went wrong. Try again." });
-      }
-    }
-  }
-
-  function retryConfirmation() {
-    const payment = paymentRef.current;
-    if (!state.registration || !payment) return;
-    dispatch({ type: "busy", busy: true });
-    void confirmPaymentWith(state.registration.registrationToken, payment);
-  }
-
-  async function pay(registration = state.registration) {
-    if (!registration) return;
-    dispatch({ type: "busy", busy: true });
-    const onSuccess = (response: RazorpaySuccessResponse) => {
-      paymentRef.current = response;
-      dispatch({ type: "payment_succeeded", paymentId: response.razorpay_payment_id });
-      void confirmPaymentWith(registration.registrationToken, response);
-    };
-
-    if (apiKind === "mock") {
-      // Dev preview only: stand-in for the Razorpay sheet.
-      setTimeout(() => {
-        if (window.confirm(`Mock Razorpay: pay ${price}?\nOK = pay, Cancel = close the sheet`)) {
-          onSuccess({ razorpay_order_id: registration.orderId, razorpay_payment_id: "pay_mock", razorpay_signature: "sig_mock" });
-        } else {
-          dispatch({ type: "payment_dismissed" });
-        }
-      }, 50);
-      return;
-    }
-
-    try {
-      await openRazorpayCheckout({
-        keyId: registration.keyId,
-        orderId: registration.orderId,
-        amount: registration.amount,
-        currency: registration.currency,
-        name: "SCENE",
-        description: event.title,
-        prefill: { name: state.details.name, email: state.details.email, contact: state.details.phone },
-        onSuccess,
-        onDismiss: () => dispatch({ type: "payment_dismissed" }),
-        onFailed: (message) => dispatch({ type: "payment_failed", message }),
-      });
-    } catch (error) {
-      dispatch({ type: "payment_failed", message: error instanceof Error ? error.message : "Couldn't open payment. Try again." });
-    }
+        storeTicketToken(event.id, error.existingTicketToken);
+        openTicket(error.existingTicketToken);
+      } else dispatch({ type: "error", message: error instanceof Error ? error.message : "Couldn't start payment. Try again." });
+    } finally { creating.current = false; }
   }
 
   async function confirmPaymentWith(registrationToken: string, payment: RazorpaySuccessResponse) {
+    if (verifying.current) return;
+    verifying.current = true;
+    dispatch({ type: "busy", busy: true });
     try {
       const { ticket, ticketToken } = await api.verify({ registrationToken, ...payment });
       storeTicketToken(event.id, ticketToken);
       dispatch({ type: "confirmed", ticket });
       void refresh();
+      openTicket(ticketToken, true);
     } catch (error) {
       dispatch({ type: "verify_failed", message: error instanceof Error ? error.message : "Network" });
-    }
+      setOpen(true);
+    } finally { verifying.current = false; }
   }
 
-  const barHidden = checkingTicket || state.step !== "idle";
+  async function pay(registration: CreatedRegistration, details = state.details) {
+    if (checkout.current || verifying.current) return;
+    checkout.current = true;
+    dispatch({ type: "busy", busy: true });
+    // Remove the form's focus trap before the provider opens its own payment dialog.
+    setOpen(false);
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    const onSuccess = (response: RazorpaySuccessResponse) => {
+      checkout.current = false;
+      paymentRef.current = response;
+      dispatch({ type: "payment_succeeded", paymentId: response.razorpay_payment_id });
+      void confirmPaymentWith(registration.registrationToken, response);
+    };
+    let failureMessage: string | null = null;
+    const onDismiss = () => {
+      checkout.current = false;
+      if (paymentRef.current) return;
+      if (failureMessage) dispatch({ type: "payment_failed", message: failureMessage });
+      else dispatch({ type: "payment_dismissed" });
+      setOpen(true);
+    };
+    // Razorpay may keep its sheet open for another payment attempt after failure.
+    // Do not open our focus-trapped dialog over the provider's retry screen.
+    const onFailed = (message: string) => { failureMessage = message; };
+    // Let the closing popup release focus and the mobile keyboard before checkout.
+    await new Promise<void>(resolve => window.setTimeout(resolve, 220));
+    if (!mounted.current) { checkout.current = false; return; }
+    if (apiKind === "mock") {
+      if (window.confirm(`LOCAL PREVIEW ONLY: simulate payment of ${price}?\nOK = simulate success, Cancel = dismiss. No real charge.`)) onSuccess({ razorpay_order_id: registration.orderId, razorpay_payment_id: "pay_mock", razorpay_signature: "sig_mock" });
+      else onDismiss();
+      return;
+    }
+    try {
+      await openRazorpayCheckout({ keyId: registration.keyId, orderId: registration.orderId, amount: registration.amount, currency: registration.currency, name: "SCENE", description: event.title, prefill: { name: details.name, email: details.email, contact: details.phone }, onSuccess, onDismiss, onFailed });
+    } catch (error) { onFailed(error instanceof Error ? error.message : "Couldn't open payment. Try again."); onDismiss(); }
+  }
 
-  return (
-    <MotionConfig reducedMotion="user">
-      <section
-        id={anchorId}
-        aria-labelledby="hosted-registration-title"
-        className={`scroll-mt-20 ${
-          !checkingTicket && state.step === "idle"
-            ? "" // the Reader pass is its own dark card
-            : `border-2 border-foreground bg-card p-4 shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-6 ${hostedCard}`
-        }`}
-      >
-        <h2 id="hosted-registration-title" className="sr-only">
-          Registration
-        </h2>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={checkingTicket ? "checking" : panelOf(state.step)}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            {checkingTicket ? (
-              <p className="py-6 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                Checking for your ticket…
-              </p>
-            ) : state.step === "confirmed" && state.ticket ? (
-              state.celebrate ? (
-                <CelebrationPanel phase="printed" event={event} guestName={state.ticket.name} ticket={state.ticket} />
-              ) : (
-                <TicketView ticket={state.ticket} event={event} />
-              )
-            ) : state.step === "confirming" && !state.message ? (
-              <CelebrationPanel phase="printing" event={event} guestName={state.details.name} ticket={null} />
-            ) : state.step === "idle" ? (
-              <ReaderPass
-                hosted={hosted}
-                onSwipe={startRegistration}
-              />
-            ) : state.step === "details" ? (
-              <form
-                noValidate
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void continueToPay();
-                }}
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <Mono className="text-[10px] text-primary-ink">Your details</Mono>
-                  <span className="font-display text-lg font-black">{price}</span>
-                </div>
-
-                <Field id="reg-name" label="Name" error={visibleErrors.name}>
-                  <input
-                    ref={nameRef}
-                    id="reg-name"
-                    name="name"
-                    autoComplete="name"
-                    value={state.details.name}
-                    onChange={(e) => edit("name", e.target.value)}
-                    aria-invalid={Boolean(visibleErrors.name)}
-                    aria-describedby={visibleErrors.name ? "reg-name-error" : undefined}
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field id="reg-email" label="Email" error={visibleErrors.email}>
-                  <input
-                    id="reg-email"
-                    name="email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    value={state.details.email}
-                    onChange={(e) => edit("email", e.target.value)}
-                    aria-invalid={Boolean(visibleErrors.email)}
-                    aria-describedby={visibleErrors.email ? "reg-email-error" : undefined}
-                    className={inputClass}
-                  />
-                </Field>
-
-                <p className="mt-3 border-2 border-foreground bg-secondary px-3 py-2 text-sm">
-                  <span className={labelClass}>WhatsApp</span>{" "}
-                  <span className="font-mono">{formatIndianMobile(state.details.phone)}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">Verified number for this registration.</span>
-                </p>
-                <label className="mt-3 flex min-h-11 cursor-pointer items-start gap-3 text-sm"><input className="mt-1 size-4 shrink-0" type="checkbox" checked={whatsappOptIn} onChange={e=>setWhatsappOptIn(e.target.checked)} /><span>Send my ticket and event reminders to this WhatsApp number. You can still find your ticket here and in My bookings without WhatsApp updates.</span></label>
-
-                <FlowMessage message={state.message} />
-
-                <Btn type="submit" className="mt-4 min-h-12 w-full text-sm" disabled={state.busy}>
-                  {state.busy ? "Starting payment…" : `Continue to pay ${price}`}
-                </Btn>
-
-                <TermsConsent />
-              </form>
-            ) : state.step === "paying" ? (
-              <div>
-                <Mono className="text-[10px] text-primary-ink">Payment</Mono>
-                <p className="mt-1 text-sm">
-                  Reader pass for <strong>{state.details.name}</strong>
-                </p>
-                <PriceRow price={price} seatLabel="Includes refreshments" />
-                <FlowMessage message={state.message} />
-                <div className="mt-5">
-                  <SwipeToPay
-                    label={`Swipe to pay ${price}`}
-                    ariaLabel={`Swipe right, or press Enter, to pay ${price}`}
-                    busy={state.busy}
-                    onComplete={() => {
-                      primeTicketSound();
-                      void pay();
-                    }}
-                  />
-                </div>
-                <TermsConsent />
-                <PassFooter />
-              </div>
-            ) : state.step === "confirming" ? (
-              <div role="status" aria-live="polite">
-                <Mono className="text-[10px] text-primary-ink">Payment received</Mono>
-                <FlowMessage message={state.message} />
-                <Btn className="mt-4 min-h-12 w-full text-sm" onClick={retryConfirmation} disabled={state.busy}>
-                  {state.busy ? "Retrying…" : "Retry confirmation"}
-                </Btn>
-              </div>
-            ) : (
-              <ClosedState step={state.step} label={seat.label} />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </section>
-      <RegisterBar anchorId={anchorId} priceLabel={price} hidden={barHidden} />
-    </MotionConfig>
-  );
-}
-
-function PriceRow({ price, seatLabel, lowSeats = false }: { price: string; seatLabel: string; lowSeats?: boolean }) {
-  return (
-    <div className="mt-2 flex items-end justify-between gap-3">
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Reader pass</p>
-        <p className="font-display text-4xl font-black leading-none tracking-tight">{price}</p>
-      </div>
-      <p className={`text-right font-mono text-[11px] font-semibold uppercase tracking-[0.1em] ${lowSeats ? "text-warn-ink" : "text-muted-foreground"}`}>
-        {seatLabel}
-      </p>
-    </div>
-  );
-}
-
-function Field({
-  id,
-  label,
-  error,
-  hint,
-  children,
-}: {
-  id: string;
-  label: string;
-  error?: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="mt-3">
-      <label htmlFor={id} className={labelClass}>
-        {label}
-      </label>
-      {children}
-      {hint && (
-        <p id={`${id}-hint`} className="mt-1 text-xs text-muted-foreground">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-xs font-semibold text-primary-ink">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function TermsConsent() {
-  return (
-    <p className="mt-3 text-center text-xs text-muted-foreground">
-      By paying, you agree to the{" "}
-      <a
-        href="#terms"
-        onClick={() => {
-          // The terms sit in a collapsed card; open it so the link lands on them.
-          const details = document.getElementById("terms");
-          if (details instanceof HTMLDetailsElement) details.open = true;
-        }}
-        className="font-semibold text-foreground underline underline-offset-2 hover:text-primary-ink"
-      >
-        Terms &amp; conditions
-      </a>
-      .
-    </p>
-  );
-}
-
-function FlowMessage({ message }: { message: string | null }) {
-  if (!message) return null;
-  return (
-    <p role="alert" className="mt-3 border-l-4 border-primary-ink bg-primary/10 px-3 py-2 text-sm">
-      {message}
-    </p>
-  );
-}
-
-function ClosedState({ step, label }: { step: FlowStep; label: string }) {
-  const body =
-    step === "sold_out"
-      ? "Every seat is taken. Turn on alerts below to hear about the next session first."
-      : step === "ended"
-        ? "Thanks to everyone who came. Turn on alerts below for the next one."
-        : "Registration isn't open right now.";
-  return (
-    <div>
-      <p className="font-display text-2xl font-black leading-tight tracking-tight">{label}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-    </div>
-  );
+  const canRegister = ["idle", "details", "paying", "confirming"].includes(state.step);
+  return <>
+    <section id={anchorId} aria-labelledby="hosted-registration-title" className="scroll-mt-20">
+      <h2 id="hosted-registration-title" className="sr-only">Registration</h2>
+      {existingToken ? <div className="border border-white/20 bg-card p-5"><p className="font-display text-xl font-bold">You’re registered</p><a href={ticketHref(existingToken)} className={`${action} inline-flex items-center justify-center`}>View your ticket</a></div>
+        : canRegister ? <>
+          <ReaderPass hosted={hosted} onSwipe={startRegistration} />
+          {state.step !== "idle" && state.step !== "details" && <button type="button" onClick={startRegistration} className={action} disabled={state.busy}>{state.step === "confirming" ? "Continue payment confirmation" : state.busy ? "Opening payment…" : "Continue payment"}</button>}
+        </> : <div className="border border-white/20 bg-card p-5"><p className="font-display text-2xl font-black">{seat.label}</p><p className="mt-2 text-sm text-muted-foreground">{state.step === "sold_out" ? "Every seat is taken. Turn on alerts below to hear about the next session." : "Registration isn't open right now."}</p></div>}
+    </section>
+    <EventFlowDialog open={open} title={state.step === "paying" ? "Complete your booking" : state.step === "confirming" ? "Confirming your payment" : "Get your reader pass"} onClose={closeDialog}>
+      {open && state.step === "details" && <AttendeeForm key={formVersion} saved={forceOtp ? null : profile} initialDetails={state.details} price={price} eventTitle={event.title} termsHref={`${eventPath(event)}#terms`} auth={apiKind === "mock" ? mockAttendeeAuth : undefined} error={state.message} onReady={ready} />}
+      {state.step === "paying" && <><p className="text-sm leading-relaxed">Your reader pass is {price}. Finish payment to confirm your place.</p>{state.message && <p role="alert" className="mt-3 text-sm text-[#ffb2a4]">{state.message}</p>}<button type="button" className={action} disabled={state.busy} onClick={() => { if (state.registration) void pay(state.registration); }}>{state.busy ? "Opening payment…" : `Pay ${price} with Razorpay`}</button><p className="mt-3 text-xs text-muted-foreground">UPI, cards and other methods supported by Razorpay.</p></>}
+      {state.step === "confirming" && <div role="status"><p className="text-sm leading-relaxed">{state.message ?? "Verifying your payment. Your ticket will open on its own page once confirmed."}</p>{state.message && <button type="button" className={action} disabled={state.busy} onClick={() => { if (state.registration && paymentRef.current) void confirmPaymentWith(state.registration.registrationToken, paymentRef.current); }}>{state.busy ? "Retrying…" : "Retry confirmation — do not pay again"}</button>}</div>}
+      {state.step === "sold_out" && <p>Sorry, the remaining seats were just taken. You haven&apos;t been charged.</p>}
+    </EventFlowDialog>
+    <RegisterBar anchorId={anchorId} priceLabel={price} hidden={checkingTicket || open || state.busy || !canRegister || Boolean(existingToken)} />
+  </>;
 }

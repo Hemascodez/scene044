@@ -7,7 +7,7 @@ import { eventTicketHref, type MyEventTicket } from '@/lib/client/myEventTickets
  * A hosted-event ticket in My bookings, built from MyBookings' BookingCard
  * markup (same border, shadow, photo frame, mono kicker, meta row and status
  * dot) so it sits naturally between venue bookings. No pay / withdraw /
- * review: the ticket is paid, and its QR lives on the event page.
+ * review: the ticket is paid, and its QR lives on a private ticket page.
  */
 
 const mono = 'font-mono-b text-[10px] leading-[15px] tracking-[0.6px] uppercase'

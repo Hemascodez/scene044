@@ -36,9 +36,9 @@ export function splitEventTickets(tickets: MyEventTicket[], now: Date = new Date
   return { upcoming, past };
 }
 
-/** The event page shows the QR ticket for this link. */
+/** A separate private page shows the QR ticket. */
 export function eventTicketHref(t: MyEventTicket): string {
-  return `/events/${t.slug}?ticket=${encodeURIComponent(t.ticketToken)}`;
+  return `/events/${t.slug}/ticket?ticket=${encodeURIComponent(t.ticketToken)}`;
 }
 
 /** [] when the endpoint doesn't exist yet (404), so My bookings keeps working. */

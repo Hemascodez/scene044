@@ -5,6 +5,7 @@ import { HostedEventView } from "@/components/scene/hosted/HostedEventView";
 import { MockHostedAuth } from "@/components/scene/hosted/hostedAuth";
 import { SceneFooter } from "@/components/scene/SceneHero";
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
+import { HostedPreviewReset } from "@/components/scene/hosted/HostedPreviewReset";
 
 /**
  * Dev-only preview of a hosted event page on the in-memory mock, so the full
@@ -27,6 +28,7 @@ export default async function HostedEventPreviewPage({ searchParams }: { searchP
   return (
     <div className="min-h-full">
       <SceneHeaderStatic />
+      <HostedPreviewReset eventId={event.id} />
       <div className="venue-surface hosted-root">
         <MockHostedAuth>
           <HostedEventView event={event} api="mock" />

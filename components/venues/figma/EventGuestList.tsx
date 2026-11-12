@@ -176,10 +176,10 @@ export function EventGuestList({ guests, onCheckIn }: { guests: HostGuest[]; onC
                         type="button"
                         onClick={() => void checkIn(g)}
                         disabled={busy === g.code}
-                        aria-label={`Check in ${g.name}`}
+                        aria-label={`Scan ticket to check in ${g.name}`}
                         className={`${styles.btn} inline-flex min-h-11 items-center gap-2 bg-[linear-gradient(135deg,#ff8a77,#ff5a43)] px-4 font-display text-[15px] font-bold text-[#1a0a08] shadow-[0_8px_18px_-8px_rgba(255,45,22,.7),inset_0_1px_0_rgba(255,255,255,.35)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-70`}
                       >
-                        {busy === g.code ? 'Checking in…' : 'Check in'}
+                        {busy === g.code ? 'Opening scanner…' : 'Scan to check in'}
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                       </button>
                     </>

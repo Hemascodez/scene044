@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import AuthModal, { type AuthCopy, type Profile } from "./AuthModal";
+import { AttendeeAuthDialog } from "@/components/scene/hosted/AttendeeForm";
 
 /**
  * App-level state the Figma Make prototype kept in App.tsx, rebuilt for Next's
@@ -16,6 +17,8 @@ interface VenueAppValue {
   profile: Profile | null;
   authReady: boolean;
   saveProfile: (p: Profile) => Promise<void>;
+  /** Adopt the response only after the OTP API has issued the server session. */
+  acceptVerifiedProfile: (p: Profile) => void;
   openAuth: () => void;
   /** `copy` optionally replaces the sign-in popup's heading and line (e.g. on event pages). */
   requireAuth: (then: (p: Profile) => void, copy?: AuthCopy) => void;
@@ -48,7 +51,7 @@ export function useVenueApp(): VenueAppValue {
   return value;
 }
 
-export function VenueAppProvider({ children, authClassName, defaultAuthCopy }: { children: ReactNode; authClassName?: string; defaultAuthCopy?: AuthCopy }) {
+export function VenueAppProvider({ children, authClassName, defaultAuthCopy, attendeeAuth = false }: { children: ReactNode; authClassName?: string; defaultAuthCopy?: AuthCopy; attendeeAuth?: boolean }) {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -58,6 +61,12 @@ export function VenueAppProvider({ children, authClassName, defaultAuthCopy }: {
   const [notice, setNotice] = useState("");
   const pending = useRef<((p: Profile) => void) | null>(null);
   const sessionRevision = useRef(0);
+  const acceptVerifiedProfile = useCallback((p: Profile) => {
+    sessionRevision.current++;
+    migrateLegacyLocalData(p);
+    setProfile(p);
+    setAuthReady(true);
+  }, []);
 
   // The server session is authoritative, including after a new device signs in.
   useEffect(() => {
@@ -137,13 +146,18 @@ export function VenueAppProvider({ children, authClassName, defaultAuthCopy }: {
   }, [router, notify]);
 
   return (
-    <Ctx.Provider value={{ profile, authReady, saveProfile, openAuth, requireAuth, logout, notify }}>
+    <Ctx.Provider value={{ profile, authReady, saveProfile, acceptVerifiedProfile, openAuth, requireAuth, logout, notify }}>
       {children}
       <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4">
         {notice && <p className="anim-pop border-[2.5px] border-ink bg-white px-5 py-3 font-body-sb text-sm text-ink shadow-hard">{notice}</p>}
       </div>
       <div className={authClassName}>
-      <AuthModal
+      {attendeeAuth ? <AttendeeAuthDialog open={open} saved={profile} onClose={() => { setOpen(false); pending.current = null; }} onVerified={p => {
+        acceptVerifiedProfile(p);
+        setOpen(false);
+        const then = pending.current; pending.current = null;
+        then?.(p);
+      }} /> : <AuthModal
         open={open}
         saved={profile}
         submitting={submitting}
@@ -156,9 +170,7 @@ export function VenueAppProvider({ children, authClassName, defaultAuthCopy }: {
         onVerified={(p) => {
           // Verification already saved the profile and set the session cookie.
           // Avoid a second, unawaited PATCH racing the first authenticated read.
-          sessionRevision.current++;
-          migrateLegacyLocalData(p);
-          setProfile(p);
+          acceptVerifiedProfile(p);
           setOpen(false);
           const then = pending.current;
           pending.current = null;
@@ -169,7 +181,7 @@ export function VenueAppProvider({ children, authClassName, defaultAuthCopy }: {
           }
           else then?.(p);
         }}
-      />
+      />}
       </div>
     </Ctx.Provider>
   );

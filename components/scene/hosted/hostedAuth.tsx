@@ -19,6 +19,7 @@ export interface HostedProfile {
 
 interface HostedAuthValue {
   profile: HostedProfile | null;
+  acceptVerifiedProfile: (profile: Profile) => void;
   /** Runs `then` now if signed in, else after the guest signs in. */
   requireAuth: (then: (profile: HostedProfile) => void,force?:boolean) => void;
 }
@@ -42,16 +43,17 @@ function toHosted(profile: Profile): HostedProfile {
 
 /** Real page: the shared SCENE account. Must sit inside VenueAppProvider. */
 export function VenueAuthBridge({ children }: { children: ReactNode }) {
-  const { profile, requireAuth } = useVenueApp();
+  const { profile, requireAuth, acceptVerifiedProfile } = useVenueApp();
   const value = useMemo<HostedAuthValue>(
     () => ({
       profile: profile ? toHosted(profile) : null,
+      acceptVerifiedProfile,
       requireAuth: (then,force=false) => {
         if (profile && !force) then(toHosted(profile));
         else requireAuth((p) => then(toHosted(p)), SIGN_IN_COPY);
       },
     }),
-    [profile, requireAuth],
+    [profile, requireAuth, acceptVerifiedProfile],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -65,6 +67,7 @@ export function MockHostedAuth({ children }: { children: ReactNode }) {
     setProfile(MOCK_PROFILE);
     then(MOCK_PROFILE);
   }, []);
-  const value = useMemo(() => ({ profile, requireAuth }), [profile, requireAuth]);
+  const acceptVerifiedProfile = useCallback((p: Profile) => setProfile(toHosted(p)), []);
+  const value = useMemo(() => ({ profile, requireAuth, acceptVerifiedProfile }), [profile, requireAuth, acceptVerifiedProfile]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

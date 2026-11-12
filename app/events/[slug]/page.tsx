@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cache } from "react";
 import Link from "next/link";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { eventTicketLocation, validEventTicketToken } from "@/lib/eventTicketLocation";
 import { getPublicEventById } from "@/lib/events";
 import { formatSceneDateLong, formatSceneTime, relativeChecked } from "@/lib/client/istTime";
 import {
@@ -91,6 +92,9 @@ export default async function EventPage({ params,searchParams }: EventPageProps)
 
   const event = await getEvent(id);
   if (!event) notFound();
+  const ticket = (await searchParams)?.ticket;
+  // Keep already-delivered WhatsApp links working, without displaying a ticket inline.
+  if (event.hosted && validEventTicketToken(ticket)) redirect(eventTicketLocation(event, ticket));
   if (slug !== eventSlug(event)) {
     const ticket=(await searchParams)?.ticket;
     permanentRedirect(eventPath(event)+(event.hosted && typeof ticket==='string' && /^[a-f0-9]{64}$/.test(ticket) ? `?ticket=${ticket}` : ''));
