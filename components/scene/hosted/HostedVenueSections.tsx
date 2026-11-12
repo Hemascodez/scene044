@@ -45,7 +45,7 @@ const ICONS: Record<GoodToKnowIcon, ComponentType<IconProps>> = {
   pin: MapPin,
 };
 
-export function HostedGoodToKnow({ groups, badge }: { groups: GoodToKnowGroup[]; badge: string }) {
+export function HostedGoodToKnow({ groups }: { groups: GoodToKnowGroup[] }) {
   return (
     <section aria-labelledby="good-to-know-title" className="border-t border-line pt-10">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -53,9 +53,6 @@ export function HostedGoodToKnow({ groups, badge }: { groups: GoodToKnowGroup[];
           <h2 id="good-to-know-title" className="font-head text-xl">Good to know</h2>
           <p className="mt-1 text-sm text-stone">Everything you need for the morning.</p>
         </div>
-        <span className="inline-flex items-center gap-1.5 border-[1.5px] border-ink bg-white px-2.5 py-1 font-mono-b text-[11px] tracking-[0.7px] uppercase">
-          <Check className="size-3.5 text-moss" /> {badge}
-        </span>
       </div>
       <div className="mt-7 space-y-9">
         {groups.map(({ group, note, items }, gi) => (

@@ -152,7 +152,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
           </section>
         )}
 
-        <HostedGoodToKnow groups={hosted.goodToKnow} badge="Refreshments included" />
+        <HostedGoodToKnow groups={hosted.goodToKnow} />
 
         {!event.isOnline && event.venueName && (
           <HostedWhere venueName={event.venueName} address={event.venueAddress} city={event.city} />
