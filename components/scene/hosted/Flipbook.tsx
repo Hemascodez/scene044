@@ -4,7 +4,6 @@
 import "@fontsource/pinyon-script/400.css";
 import "@fontsource/cormorant-garamond/600.css";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { useReducedMotion } from "motion/react";
 import { useStageScale } from "@/lib/client/useStageScale";
 import styles from "@/components/scene/hosted/Flipbook.module.css";
 
@@ -13,8 +12,9 @@ import styles from "@/components/scene/hosted/Flipbook.module.css";
  * flip" design: a maroon and gold cover opens and the pages turn on their own.
  * Holds up to seven photos (pages I–VII); the last page invites the reader in.
  *
- * Moving content needs a way to stop it (WCAG 2.2.2), so there's a Pause
- * button, and the book also pauses while it's off screen.
+ * It loops forever with no controls (owner request). It waits on its closed
+ * cover until it's scrolled properly into view, then pauses whenever it's off
+ * screen. Reduced-motion users get the book standing open at pages I and II.
  */
 
 const STAGE_W = 640;
@@ -30,16 +30,27 @@ type Photo = { src: string; alt: string };
 
 export function Flipbook({ photos }: { photos: Photo[] }) {
   const { frameRef, scale } = useStageScale<HTMLDivElement>(STAGE_W);
-  const reduceMotion = useReducedMotion();
-  const [paused, setPaused] = useState(false);
-  /** Bumped by Replay: remounts the book so its animations start again from the cover. */
-  const [run, setRun] = useState(0);
-  const [offscreen, setOffscreen] = useState(false);
+  /** False until the book is first scrolled into view; it waits on its cover till then. */
+  const [started, setStarted] = useState(false);
+  const [offscreen, setOffscreen] = useState(true);
 
   useEffect(() => {
     const frame = frameRef.current;
-    if (!frame || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => setOffscreen(!entry.isIntersecting));
+    if (!frame) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const timer = setTimeout(() => {
+        setStarted(true);
+        setOffscreen(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setOffscreen(!entry.isIntersecting);
+        if (entry.intersectionRatio >= 0.5) setStarted(true);
+      },
+      { threshold: [0, 0.5] },
+    );
     observer.observe(frame);
     return () => observer.disconnect();
   }, [frameRef]);
@@ -63,10 +74,11 @@ export function Flipbook({ photos }: { photos: Photo[] }) {
       <div ref={frameRef} className="relative w-full" style={{ height: STAGE_H * scale }} aria-hidden>
         <div
           className={styles.stage}
-          data-paused={paused || offscreen}
+          data-started={started}
+          data-paused={started && offscreen}
           style={{ transform: `scale(${scale})`, visibility: scale ? "visible" : "hidden" }}
         >
-          <div key={run} className={styles.artboard}>
+          <div className={styles.artboard}>
             <FrameDefs />
             <div
               style={{
@@ -100,37 +112,6 @@ export function Flipbook({ photos }: { photos: Photo[] }) {
         </div>
       </div>
 
-      {!reduceMotion && (
-        <div role="group" aria-label="Flipbook controls" className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setPaused((p) => !p)}
-            aria-pressed={paused}
-            className="inline-flex min-h-11 items-center gap-2 border-2 border-[#c41b09] bg-[#c41b09] px-4 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:border-[#ff2d16] hover:bg-[#ff2d16] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            {paused ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" /><rect x="14" y="4.5" width="4" height="15" /></svg>
-            )}
-            {paused ? "Play" : "Pause"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setRun((n) => n + 1);
-              setPaused(false);
-            }}
-            className="inline-flex min-h-11 items-center gap-2 border-2 border-white/40 bg-white/10 px-4 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-[#f4f2ea] transition-colors hover:border-white/70 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3 12a9 9 0 1 0 3-6.7" />
-              <path d="M3 4v5h5" />
-            </svg>
-            Replay
-          </button>
-        </div>
-      )}
     </div>
   );
 }

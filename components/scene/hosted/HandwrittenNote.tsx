@@ -3,7 +3,7 @@
 // The design's handwriting, self-hosted and loaded only with this component.
 import "@fontsource/caveat/500.css";
 import "@fontsource/caveat/700.css";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useStageScale } from "@/lib/client/useStageScale";
 import styles from "@/components/scene/hosted/HandwrittenNote.module.css";
 
@@ -11,12 +11,15 @@ import styles from "@/components/scene/hosted/HandwrittenNote.module.css";
  * A reader's review as a handwritten note on a torn, ruled notebook page with
  * washi tape — the owner's "Review handwritten note" design. The note drops in
  * and writes itself word by word when scrolled into view (once). The page is
- * laid out at the design's size (540 × 316) and scaled to fit the column. The
+ * laid out at the design's width (540) and scaled to fit the column; it grows
+ * taller than the design's 316 when the review needs more room. The
  * text stays real text for screen readers.
  */
 
 const NOTE_W = 540;
-const NOTE_H = 316;
+const NOTE_H = 316; // the design's height; the minimum
+const TEXT_TOP = 60;
+const TEXT_BOTTOM = 34; // room under the signature
 const PAD = 28; // room for the tape and the drop shadow
 const WORD_MS = 110;
 
@@ -45,6 +48,21 @@ function words(text: string, highlight?: string) {
 export function HandwrittenNote({ text, by, highlight }: { text: string; by: string; highlight?: string }) {
   const { frameRef, scale } = useStageScale<HTMLDivElement>(NOTE_W + PAD * 2);
   const [play, setPlay] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
+  const [noteH, setNoteH] = useState(NOTE_H);
+
+  // Grow the page to fit the review and signature (layout size, unaffected by
+  // the scale transform). The text keeps its space while hidden, so this is
+  // measured before writing starts.
+  useEffect(() => {
+    const node = textRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setNoteH(Math.max(NOTE_H, Math.ceil(TEXT_TOP + node.offsetHeight + TEXT_BOTTOM)));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // Start writing only when the note is properly on screen: wait for its real
   // size (a zero-height frame can report as "visible"), then need 60% of it in
@@ -76,7 +94,7 @@ export function HandwrittenNote({ text, by, highlight }: { text: string; by: str
 
   return (
     <figure className="m-0">
-      <div ref={frameRef} className="relative w-full" style={{ height: (NOTE_H + PAD * 2) * scale }}>
+      <div ref={frameRef} className="relative w-full" style={{ height: (noteH + PAD * 2) * scale }}>
         <div
           className={styles.stage}
           data-play={play ? "true" : "false"}
@@ -85,7 +103,7 @@ export function HandwrittenNote({ text, by, highlight }: { text: string; by: str
             left: 0,
             top: 0,
             width: NOTE_W + PAD * 2,
-            height: NOTE_H + PAD * 2,
+            height: noteH + PAD * 2,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
             visibility: scale ? "visible" : "hidden",
@@ -93,7 +111,7 @@ export function HandwrittenNote({ text, by, highlight }: { text: string; by: str
         >
           <div
             className={styles.note}
-            style={{ position: "absolute", left: PAD, top: PAD, width: NOTE_W, height: NOTE_H, filter: "drop-shadow(0 22px 26px rgba(0,0,0,.6))" }}
+            style={{ position: "absolute", left: PAD, top: PAD, width: NOTE_W, height: noteH, filter: "drop-shadow(0 22px 26px rgba(0,0,0,.6))" }}
           >
             {/* Torn, ruled notebook page. */}
             <div
@@ -119,7 +137,7 @@ export function HandwrittenNote({ text, by, highlight }: { text: string; by: str
               <div aria-hidden="true" style={{ ...HOLE, top: 140 }} />
               <div aria-hidden="true" style={{ ...HOLE, top: 236 }} />
 
-              <div style={{ position: "absolute", left: 86, right: 34, top: 60, fontFamily: "'Caveat', 'Segoe Script', cursive" }}>
+              <div ref={textRef} style={{ position: "absolute", left: 86, right: 34, top: TEXT_TOP, fontFamily: "'Caveat', 'Segoe Script', cursive" }}>
                 <blockquote style={{ margin: 0, fontSize: 36, lineHeight: "42px", fontWeight: 500, color: "#1f2a5c" }}>
                   {list.map(({ word, marked }, i) => (
                     <span key={i}>

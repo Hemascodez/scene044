@@ -2,8 +2,9 @@
  * "Previous events book flip", ported from the design reference. Keyframes and
  * values are the design's own: a 30s loop where the cover opens and four
  * leaves turn in sequence, then the book fades and starts again.
- * Transform and opacity only. Paused via [data-paused] (Pause button, or the
- * book being off screen).
+ * Transform and opacity only. Before [data-started] the book waits on its
+ * closed cover; once started it loops, paused via [data-paused] while off
+ * screen.
  */
 
 .stage {
@@ -17,6 +18,19 @@
 .stage[data-paused="true"] * {
   animation-play-state: paused !important;
 }
+
+/* Waiting to be scrolled into view: the closed cover, as at the loop's start. */
+.stage[data-started="false"] .fade,
+.stage[data-started="false"] .shift,
+.stage[data-started="false"] .leaf { animation: none; }
+.stage[data-started="false"] .shift { transform: translateX(-150px); }
+
+/* Join the loop just after its fade-in (2% of 30s), so the first start doesn't
+   blink; later loops fade as designed. Every layer shares the offset, so they
+   stay in step. */
+.stage[data-started="true"] .fade,
+.stage[data-started="true"] .shift,
+.stage[data-started="true"] .leaf { animation-delay: -0.6s; }
 
 .artboard {
   position: absolute;
@@ -142,7 +156,7 @@
 @media (prefers-reduced-motion: reduce) {
   .fade, .shift, .lf0, .lf1, .lf2, .lf3, .lf4 { animation: none; }
   .fade { opacity: 1; }
-  .shift { transform: translateX(0); }
+  .shift, .stage[data-started] .shift { transform: translateX(0); }
   .lf0 { transform: translateZ(0) rotateY(-180deg); }
   .lf1 { transform: translateZ(-2px); }
   .lf2 { transform: translateZ(-4px); }

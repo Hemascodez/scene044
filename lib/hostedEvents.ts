@@ -165,9 +165,9 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
       { src: `${PHOTOS}/last-time-3.jpg`, alt: "Handwritten sticky notes from readers about the session" },
     ],
     quote: {
-      text: "Very calm and warm space, filled with bookish people with intense love for books.",
+      text: "It's warm to see people immerse themselves in books. Stories, conversations and some chai. Thank you Sadhana and Chapter Lounge for this beautiful Sunday morning.",
       by: "A reader from last time",
-      highlight: "bookish people",
+      highlight: "immerse themselves in books",
     },
     goodToKnow: [
       {
