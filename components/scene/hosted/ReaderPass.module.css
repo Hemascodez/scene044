@@ -1,0 +1,60 @@
+/*
+ * "Reader pass register card", ported from the design reference with SCENE's
+ * colours (primary-ink track, primary price, signal-ink accents). Transform
+ * and opacity only, except the label shimmer (background-position on text,
+ * as designed); all of it stops under reduced motion.
+ */
+
+.dot { animation: rc-pulse 1.8s ease-in-out infinite; }
+.fill { transform-origin: left center; animation: rc-grow 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.nudge { animation: rc-nudge 1.6s ease-in-out infinite; }
+.chev { animation: rc-chev 1.4s ease-in-out infinite; }
+.spin { transform-origin: center; animation: rc-rot 0.8s linear infinite; }
+
+.label {
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.62) 30%, #ffffff 50%, rgba(255, 255, 255, 0.62) 70%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rc-shimmer 2.4s linear infinite;
+}
+
+.thumb {
+  touch-action: none;
+  cursor: grab;
+}
+.thumb:active { cursor: grabbing; }
+.thumb:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@keyframes rc-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.45; }
+}
+@keyframes rc-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes rc-nudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(5px); }
+}
+@keyframes rc-shimmer {
+  0% { background-position: 220% 0; }
+  100% { background-position: -120% 0; }
+}
+@keyframes rc-chev {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+@keyframes rc-rot {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot, .fill, .nudge, .label, .chev { animation: none; }
+  .label { background: none; color: #ffffff; }
+}

@@ -12,6 +12,7 @@ import { EventGlance } from "@/components/scene/EventGlance";
 import { Flipbook } from "@/components/scene/hosted/Flipbook";
 import { HostedPageActions } from "@/components/scene/hosted/HostedPageActions";
 import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration";
+import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
 import { Mono } from "@/components/scene/ui";
 
 /**
@@ -25,13 +26,10 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
   const { hosted } = event;
   const seat = seatSummary(hosted, event.endAt);
   const price = formatRupees(hosted.pricePaise);
-  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    [event.venueName, event.venueAddress ?? event.city].filter(Boolean).join(", "),
-  )}`;
   const paragraphs = hosted.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 
   return (
-    <main className="hosted-surface pb-28 sm:pb-0">
+    <main className="hosted-surface bg-white pb-28 sm:pb-0">
       <section className="border-b-2 border-foreground bg-foreground text-background">
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6 lg:py-8">
           <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-background/60">
@@ -130,32 +128,13 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
           </section>
         )}
 
-        <section aria-labelledby="hosted-good-to-know">
-          <Mono className="text-[10px] text-primary-ink">Before you come</Mono>
-          <h2 id="hosted-good-to-know" className="mt-1.5 font-display text-xl font-black leading-tight tracking-tight sm:text-2xl">
-            Good to know
-          </h2>
-          <ul className="mt-3 border-2 border-foreground bg-card">
-            {hosted.goodToKnow.map((item) => (
-              <li key={item} className="border-b-2 border-foreground px-4 py-3 text-sm leading-relaxed last:border-b-0">
-                {item}
-              </li>
-            ))}
-            <li className="border-b-2 border-foreground px-4 py-3 text-sm leading-relaxed">{hosted.refundPolicy}</li>
-            <li className="px-4 py-3 text-sm leading-relaxed">
-              <span className="font-semibold">{event.venueName}</span>
-              {event.venueAddress && <span className="text-muted-foreground"> · {event.venueAddress}</span>}
-              <a
-                href={mapsHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 flex min-h-11 items-center font-mono text-[11px] font-semibold uppercase tracking-[0.12em] underline underline-offset-4 hover:text-primary-ink"
-              >
-                Open in Maps ↗<span className="sr-only"> (opens in a new tab)</span>
-              </a>
-            </li>
-          </ul>
-        </section>
+        <HostedGoodToKnow groups={hosted.goodToKnow} badge="Refreshments included" />
+
+        {!event.isOnline && event.venueName && (
+          <HostedWhere venueName={event.venueName} address={event.venueAddress} city={event.city} />
+        )}
+
+        <HostedTerms terms={hosted.terms} refundPolicy={hosted.refundPolicy} />
 
         <HostedPageActions id={event.id} title={event.title} startAt={event.startAt} />
       </article>

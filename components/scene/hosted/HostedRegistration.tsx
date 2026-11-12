@@ -24,6 +24,7 @@ import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedE
 import { Btn, Mono } from "@/components/scene/ui";
 import { REGISTER_OPEN_EVENT, RegisterBar } from "@/components/scene/hosted/RegisterBar";
 import { TicketView } from "@/components/scene/hosted/TicketView";
+import { PassFooter, ReaderPass, SwipeToPay } from "@/components/scene/hosted/ReaderPass";
 
 const RESEND_SECONDS = 30;
 
@@ -273,7 +274,7 @@ export function HostedRegistration({
       <section
         id={anchorId}
         aria-labelledby="hosted-registration-title"
-        className="scroll-mt-20 border-2 border-foreground bg-secondary p-4 shadow-[5px_5px_0_0_var(--color-foreground)] sm:p-5"
+        className="scroll-mt-20 rounded-[24px] border border-line bg-white p-5 shadow-[inset_0_1px_0_#ffffff,0_30px_60px_-28px_rgba(20,19,13,.35),0_8px_18px_-10px_rgba(20,19,13,.18)] sm:p-7"
       >
         <h2 id="hosted-registration-title" className="sr-only">
           Registration
@@ -299,13 +300,13 @@ export function HostedRegistration({
             ) : state.step === "confirming" && !state.message ? (
               <CelebrationPanel phase="printing" event={event} guestName={state.details.name} ticket={null} />
             ) : state.step === "idle" ? (
-              <div>
-                <PriceRow price={price} seatLabel={seat.label} lowSeats={seat.spotsLeft <= 5} />
-                <Btn className="mt-4 min-h-12 w-full text-sm" onClick={() => dispatch({ type: "open" })}>
-                  Register · {price}
-                </Btn>
-                <p className="mt-2 text-center text-xs text-muted-foreground">Pay by UPI or card · confirmation on WhatsApp</p>
-              </div>
+              <ReaderPass
+                hosted={hosted}
+                onSwipe={() => {
+                  dispatch({ type: "open" });
+                  setTimeout(() => nameRef.current?.focus(), 250);
+                }}
+              />
             ) : state.step === "details" || state.step === "code_sent" ? (
               <form
                 noValidate
@@ -403,6 +404,8 @@ export function HostedRegistration({
                       : `Verify and pay ${price}`}
                 </Btn>
 
+                {state.step === "code_sent" && <TermsConsent />}
+
                 {state.step === "code_sent" && (
                   <button
                     type="button"
@@ -422,14 +425,19 @@ export function HostedRegistration({
                 </p>
                 <PriceRow price={price} seatLabel="Includes refreshments" />
                 <FlowMessage message={state.message} />
-                <Btn className="mt-4 min-h-12 w-full text-sm" onClick={() => {
-                    primeTicketSound();
-                    void pay();
-                  }}
-                  disabled={state.busy}
-                >
-                  {state.busy ? "Opening payment…" : `Pay ${price}`}
-                </Btn>
+                <div className="mt-5">
+                  <SwipeToPay
+                    label={`Swipe to pay ${price}`}
+                    ariaLabel={`Swipe right, or press Enter, to pay ${price}`}
+                    busy={state.busy}
+                    onComplete={() => {
+                      primeTicketSound();
+                      void pay();
+                    }}
+                  />
+                </div>
+                <TermsConsent />
+                <PassFooter />
               </div>
             ) : state.step === "confirming" ? (
               <div role="status" aria-live="polite">
@@ -494,6 +502,18 @@ function Field({
         </p>
       )}
     </div>
+  );
+}
+
+function TermsConsent() {
+  return (
+    <p className="mt-3 text-center text-xs text-muted-foreground">
+      By paying, you agree to the{" "}
+      <a href="#terms" className="font-semibold text-foreground underline underline-offset-2 hover:text-primary-ink">
+        Terms &amp; conditions
+      </a>
+      .
+    </p>
   );
 }
 

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "components/scene/hosted/ReaderPass.module.css"
+        ],
+        "createdAt": "2026-11-12T12:29:42.823Z",
+        "reason": "Owner supplied the Reader pass register card design and asked to use its design and interaction; the shimmering swipe label is part of it and is plain white under reduced motion"
+      }
+    ]
+  }
+}

@@ -24,6 +24,21 @@ assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.capacity, 20);
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.gallery.length, 7);
 assert.ok(CHAPTER_LOUNGE_FIXTURE.hosted.gallery.every((photo) => photo.alt.trim().length > 0), "every gallery photo has alt text");
 
+// Good to know: numbered groups of icon cards, as on the venue page.
+const knownIcons = new Set(["book", "coffee", "clock", "qr", "users", "seating", "sparkle", "pin"]);
+const groups = CHAPTER_LOUNGE_FIXTURE.hosted.goodToKnow;
+assert.deepEqual(groups.map((g) => g.group), ["What to bring", "What's included", "Getting in"]);
+assert.ok(groups.every((g) => g.note.length > 0 && g.items.length > 0));
+assert.ok(groups.flatMap((g) => g.items).every((item) => knownIcons.has(item.icon)), "every card uses a known icon");
+assert.ok(groups[2].items.some((item) => /30 minutes/.test(item.text)), "arrival advice matches the terms");
+
+// Terms: the owner's ten, verbatim order; refunds follow term 1.
+const { terms, refundPolicy } = CHAPTER_LOUNGE_FIXTURE.hosted;
+assert.equal(terms.length, 10);
+assert.equal(terms[0], "Tickets once booked cannot be exchanged or refunded.");
+assert.match(terms[9], /^These Terms & Conditions are subject to change/);
+assert.equal(refundPolicy, "Tickets once booked cannot be exchanged or refunded.");
+
 const facts = hostedGlanceFacts(CHAPTER_LOUNGE_FIXTURE);
 assert.deepEqual(facts.map((fact) => fact.label), ["When", "Where", "Price", "Bring"]);
 assert.equal(facts[0].value, "Sun, 22 Nov · 11:00 am – 1:00 pm");

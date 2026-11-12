@@ -22,8 +22,21 @@ export interface HostedEventInfo {
   description: string;
   gallery: { src: string; alt: string }[];
   quote: { text: string; by: string } | null;
-  goodToKnow: string[];
+  /** Numbered groups of icon cards, laid out like the venue page's "What this space offers". */
+  goodToKnow: GoodToKnowGroup[];
+  /** Shown beside the terms, under "Refunds". */
   refundPolicy: string;
+  /** Terms & conditions, in order, verbatim from the organiser. */
+  terms: string[];
+}
+
+/** Icon keys the page knows how to draw (components/scene/hosted/HostedGoodToKnow.tsx). */
+export type GoodToKnowIcon = "book" | "coffee" | "clock" | "qr" | "users" | "seating" | "sparkle" | "pin";
+
+export interface GoodToKnowGroup {
+  group: string;
+  note: string;
+  items: { icon: GoodToKnowIcon; text: string }[];
 }
 
 export type HostedEventDetail = PublicEventDetail & { hosted: HostedEventInfo };
@@ -60,6 +73,18 @@ export function seatSummary(hosted: HostedEventInfo, endAt: string | null, now: 
     state: "open",
     spotsLeft,
     label: spotsLeft === 1 ? "1 spot left" : `${spotsLeft} of ${hosted.capacity} spots left`,
+  };
+}
+
+/** What the registration card's progress bar shows. */
+export function seatProgress(hosted: HostedEventInfo): { booked: number; capacity: number; left: number; percent: number } {
+  const capacity = Math.max(0, hosted.capacity);
+  const booked = Math.min(capacity, Math.max(0, hosted.registeredCount));
+  return {
+    booked,
+    capacity,
+    left: capacity - booked,
+    percent: capacity === 0 ? 0 : Math.round((booked / capacity) * 100),
   };
 }
 
@@ -128,10 +153,44 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
       by: "A reader from last time",
     },
     goodToKnow: [
-      "Bring any book, poetry collection or your Kindle. There's no assigned reading.",
-      "Refreshments are included.",
-      "Doors open at 10:50 am. Reading starts at 11.",
+      {
+        group: "What to bring",
+        note: "Your book, your pace",
+        items: [
+          { icon: "book", text: "Any book, poetry collection or your Kindle" },
+          { icon: "sparkle", text: "No assigned book, no reading goals" },
+        ],
+      },
+      {
+        group: "What's included",
+        note: "Refreshments and good company",
+        items: [
+          { icon: "coffee", text: "Refreshments through the morning" },
+          { icon: "seating", text: "A cosy spot to read for two hours" },
+          { icon: "users", text: "Little conversations, if you feel like it" },
+        ],
+      },
+      {
+        group: "Getting in",
+        note: "Arrival and entry",
+        items: [
+          { icon: "clock", text: "Arrive 30 minutes early for a smooth entry" },
+          { icon: "qr", text: "Show your QR ticket at the door" },
+        ],
+      },
     ],
-    refundPolicy: "Can't make it? Message us on WhatsApp up to 24 hours before and we'll refund you.",
+    refundPolicy: "Tickets once booked cannot be exchanged or refunded.",
+    terms: [
+      "Tickets once booked cannot be exchanged or refunded.",
+      "An internet handling fee per ticket may be levied. Please check the total amount payable before completing your payment.",
+      "We recommend arriving at least 30 minutes prior to the event for a smooth and seamless entry.",
+      "Unlawful resale (or attempted unlawful resale) of a ticket will result in the seizure or cancellation of the ticket without refund or other compensation.",
+      "Persons suspected of carrying items that may be used offensively or dangerously, or of carrying out illegal activities within the event premises, may be subject to security checks.",
+      "Rights of admission are reserved, even for valid ticket holders.",
+      "Photography and videography may take place during the event for documentation, promotional and social media purposes. By purchasing a ticket and attending the event, you acknowledge and agree that you may appear in photographs or videos captured during the event and that Chapter Lounge may use such content on its social media and other promotional platforms.",
+      "Chapter Lounge is a reading and community space. Attendees are requested not to use the event to promote or sell personal businesses, products, services, books, events, or other projects.",
+      "Chapter Lounge and the venue are not responsible for the loss, theft, or damage of any personal belongings brought to the event.",
+      "These Terms & Conditions are subject to change from time to time at the discretion of the organiser.",
+    ],
   },
 };
