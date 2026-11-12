@@ -5,7 +5,8 @@ import { hostedGlanceFacts } from "../lib/client/sceneEvent";
 const END = "2026-11-22T07:30:00.000Z"; // 1:00 pm IST
 const BEFORE = new Date("2026-11-20T06:00:00.000Z");
 const AFTER_END = new Date("2026-11-22T08:00:00.000Z");
-const hosted = { ...CHAPTER_LOUNGE_FIXTURE.hosted };
+// Seats are set here, not read from the fixture, so these checks hold whatever the fixture says.
+const hosted = { ...CHAPTER_LOUNGE_FIXTURE.hosted, capacity: 20, registeredCount: 14 };
 
 assert.equal(formatRupees(29900), "₹299");
 assert.equal(formatRupees(150000), "₹1,500");
