@@ -10,12 +10,13 @@ import { formatRupees, seatSummary, type HostedEventDetail } from "@/lib/hostedE
 import { AlertsBanner } from "@/components/scene/AlertsBanner";
 import { EventGlance } from "@/components/scene/EventGlance";
 import { Flipbook } from "@/components/scene/hosted/Flipbook";
+import { HandwrittenNote } from "@/components/scene/hosted/HandwrittenNote";
 import { HostedPageActions } from "@/components/scene/hosted/HostedPageActions";
 import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration";
 import { ReadersEnrolled } from "@/components/scene/hosted/ReadersEnrolled";
 import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
 import { Mono } from "@/components/scene/ui";
-import { ChevronDown, Quote } from "@/components/venues/figma/icons";
+import { ChevronDown } from "@/components/venues/figma/icons";
 
 /**
  * The event page for events SCENE hosts itself. Same grammar as the regular
@@ -142,11 +143,9 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
               <Flipbook photos={hosted.gallery} />
             </div>
             {hosted.quote && (
-              <figure className="mt-5 border-[1.5px] border-ink bg-white p-5">
-                <Quote className="size-6 text-flame" />
-                <blockquote className="mt-3 font-head text-[15px] leading-6 text-ink">{hosted.quote.text}</blockquote>
-                <figcaption className="mt-3 text-xs text-stone">{hosted.quote.by}</figcaption>
-              </figure>
+              <div className="mt-5">
+                <HandwrittenNote text={hosted.quote.text} by={hosted.quote.by} highlight={hosted.quote.highlight} />
+              </div>
             )}
             </div>
           </section>

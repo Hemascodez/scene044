@@ -1,0 +1,35 @@
+/*
+ * "Review handwritten note", ported from the owner's design. Plays once when
+ * scrolled into view (the design loops every 16 s; a review that keeps
+ * vanishing and rewriting itself is distracting and would need a pause
+ * control). Transform and opacity only, plus the heart's stroke draw. Under
+ * reduced motion everything is simply shown.
+ */
+
+.note { transform: rotate(-1.2deg); }
+.stage[data-play="false"] .note { opacity: 0; }
+.stage[data-play="true"] .note { animation: rv-drop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+.word { display: inline-block; }
+.stage[data-play="false"] .word,
+.stage[data-play="false"] .sig { opacity: 0; }
+.stage[data-play="true"] .word { animation: rv-word 0.28s ease-out both; }
+.stage[data-play="true"] .sig { animation: rv-word 0.5s ease-out both; }
+
+.heart { stroke-dasharray: 90; stroke-dashoffset: 90; }
+.stage[data-play="true"] .heart { animation: rv-draw 0.8s ease-out both; }
+
+@keyframes rv-drop {
+  from { opacity: 0; transform: translateY(-40px) rotate(-5deg); }
+  to { opacity: 1; transform: translateY(0) rotate(-1.2deg); }
+}
+@keyframes rv-word {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes rv-draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .stage .note, .stage .word, .stage .sig, .stage .heart { animation: none !important; opacity: 1 !important; }
+  .heart { stroke-dashoffset: 0; }
+}

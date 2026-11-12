@@ -24,7 +24,8 @@ export interface HostedEventInfo {
   /** Full About text, plain paragraphs separated by blank lines. */
   description: string;
   gallery: { src: string; alt: string }[];
-  quote: { text: string; by: string } | null;
+  /** `highlight` (optional): words in `text` marked with a highlighter on the note. */
+  quote: { text: string; by: string; highlight?: string } | null;
   /** Numbered groups of icon cards, laid out like the venue page's "What this space offers". */
   goodToKnow: GoodToKnowGroup[];
   /** Shown beside the terms, under "Refunds". */
@@ -161,6 +162,7 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
     quote: {
       text: "Very calm and warm space, filled with bookish people with intense love for books.",
       by: "A reader from last time",
+      highlight: "bookish people",
     },
     goodToKnow: [
       {
