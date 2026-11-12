@@ -41,7 +41,7 @@ async function main() {
   const csv = guestsCsv([guest({ name: 'Raman, "Asha"' })]).split("\n");
   assert.equal(csv[0], "Name,Phone,Email,Ticket,Status,Registered,Checked in");
   assert.equal(csv.length, 2);
-  assert.ok(csv[1].startsWith('"Raman, ""Asha""",+919876543210,asha@example.com,SCN-READ-0101,confirmed,'));
+  assert.ok(csv[1].startsWith('"Raman, ""Asha""",'+919876543210,asha@example.com,SCN-READ-0101,confirmed,'));
 
   // CSV is safe to open in Excel/Sheets: no formulas, phones stay text.
   const risky = guestsCsv([guest({ name: "=HYPERLINK(1)", phone: "+919876543210" })]).split("\n")[1];
