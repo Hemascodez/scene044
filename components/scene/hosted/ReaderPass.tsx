@@ -246,7 +246,7 @@ export function SwipeToPay({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onKeyDown={onKeyDown}
-        className={`${styles.thumb} absolute left-1 top-1 flex size-[50px] items-center justify-center bg-[linear-gradient(135deg,#ff7a66,#ff2d16)] text-white shadow-[0_6px_18px_-4px_rgba(255,45,22,.75),inset_0_1px_0_rgba(255,255,255,.35)]`}
+        className={`${styles.thumb} absolute left-1 top-1 flex size-[50px] items-center justify-center bg-[linear-gradient(135deg,#ff7a66,#ff2d16)] text-white`}
         style={{ transform: `translateX(${x}px) scale(${dragging ? 1.05 : 1})`, transition: trans }}
       >
         {busy ? (

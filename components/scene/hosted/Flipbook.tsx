@@ -32,6 +32,8 @@ export function Flipbook({ photos }: { photos: Photo[] }) {
   const { frameRef, scale } = useStageScale<HTMLDivElement>(STAGE_W);
   const reduceMotion = useReducedMotion();
   const [paused, setPaused] = useState(false);
+  /** Bumped by Replay: remounts the book so its animations start again from the cover. */
+  const [run, setRun] = useState(0);
   const [offscreen, setOffscreen] = useState(false);
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export function Flipbook({ photos }: { photos: Photo[] }) {
           data-paused={paused || offscreen}
           style={{ transform: `scale(${scale})`, visibility: scale ? "visible" : "hidden" }}
         >
-          <div className={styles.artboard}>
+          <div key={run} className={styles.artboard}>
             <FrameDefs />
             <div
               style={{
@@ -99,14 +101,35 @@ export function Flipbook({ photos }: { photos: Photo[] }) {
       </div>
 
       {!reduceMotion && (
-        <button
-          type="button"
-          onClick={() => setPaused((p) => !p)}
-          aria-pressed={paused}
-          className="mt-2 inline-flex min-h-11 items-center gap-2 border-2 border-foreground px-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-foreground hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          {paused ? "Play the book" : "Pause the book"}
-        </button>
+        <div role="group" aria-label="Flipbook controls" className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setPaused((p) => !p)}
+            aria-pressed={paused}
+            className="inline-flex min-h-11 items-center gap-2 border-2 border-[#c41b09] bg-[#c41b09] px-4 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:border-[#ff2d16] hover:bg-[#ff2d16] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            {paused ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" /><rect x="14" y="4.5" width="4" height="15" /></svg>
+            )}
+            {paused ? "Play" : "Pause"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRun((n) => n + 1);
+              setPaused(false);
+            }}
+            className="inline-flex min-h-11 items-center gap-2 border-2 border-white/40 bg-white/10 px-4 font-mono text-[12px] font-bold uppercase tracking-[0.12em] text-[#f4f2ea] transition-colors hover:border-white/70 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 4v5h5" />
+            </svg>
+            Replay
+          </button>
+        </div>
       )}
     </div>
   );
