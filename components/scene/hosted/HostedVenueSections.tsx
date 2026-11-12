@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { GoodToKnowGroup, GoodToKnowIcon } from "@/lib/hostedEvents";
 import { venueMapEmbedUrl } from "@/lib/venueMaps";
-import { hostedCard } from "@/components/scene/hosted/hostedCard";
+import { hostedCard, hostedGlassButton } from "@/components/scene/hosted/hostedCard";
 import { VenueMap } from "@/components/venues/VenueMap";
 import { Check, ChevronDown, Clock, Coffee, MapPin, QrCode, Seating, Sparkle, Users } from "@/components/venues/figma/icons";
 
@@ -113,7 +113,7 @@ export function HostedWhere({ venueName, address, city }: { venueName: string; a
           href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
           target="_blank"
           rel="noreferrer"
-          className="absolute bottom-3 left-3 flex min-h-11 items-center gap-2 border-[1.5px] border-ink bg-flame px-4 py-2.5 font-mono-b text-[11px] tracking-[0.7px] uppercase text-white shadow-hard-sm transition-transform hover:-translate-x-px hover:-translate-y-px active:translate-x-0.5 active:translate-y-0.5"
+          className={`absolute bottom-3 left-3 flex min-h-11 items-center gap-2 px-4 py-2.5 font-mono-b text-[11px] tracking-[0.7px] uppercase ${hostedGlassButton}`}
         >
           <MapPin className="size-4" /> Open in Google Maps<span className="sr-only"> (opens in a new tab)</span>
         </a>

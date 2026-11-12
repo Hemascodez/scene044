@@ -44,8 +44,14 @@
 
 /* Liquid glass: flat clear fill, strong blur, light on the edges. */
 :global(.hosted-dark) .card.card {
-  /* No saturation boost: it amplified the red glow behind into a red card. */
-  background: rgba(255, 255, 255, 0.045);
+  /* On a black page there is little behind the card to blur, so the frost is
+     drawn into the card itself: a fine frosted grain, a soft sheen falling
+     from the top-left, and a faint warm catch-light near the red corner.
+     No saturation boost: it amplified the red glow behind into a red card. */
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .055 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(120% 60% at 0% 0%, rgba(255, 59, 37, 0.07), rgba(255, 59, 37, 0) 55%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.045) 38%, rgba(255, 255, 255, 0.025) 100%);
   -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
   box-shadow:
@@ -61,6 +67,25 @@
   background: linear-gradient(160deg, #211813 0%, #14130d 55%, #170f0c 100%);
   box-shadow: none;
 }
+
+/* A dark frosted button for use over busy content (the map): red stays in
+   the icon, not the whole fill. */
+:global(.hosted-dark) .glassButton.glassButton {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(14, 12, 11, 0.72);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 20px -10px rgba(0, 0, 0, 0.8);
+  color: #f4f2ea;
+  transition: background-color 160ms ease-out, border-color 160ms ease-out, transform 160ms ease-out;
+}
+:global(.hosted-dark) .glassButton.glassButton svg { color: #ff6a55; }
+:global(.hosted-dark) .glassButton.glassButton:hover {
+  background: rgba(14, 12, 11, 0.86);
+  border-color: rgba(255, 106, 85, 0.6);
+}
+:global(.hosted-dark) .glassButton.glassButton:active { transform: scale(0.98); }
 
 /* Browsers without backdrop blur: a solid dark base keeps text readable. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

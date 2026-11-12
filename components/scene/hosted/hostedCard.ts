@@ -5,3 +5,6 @@ export const hostedCard = styles.card;
 
 /** The original dark card colour with the same corners and stroke — "Who's joining" and the Reader pass. */
 export const hostedCardSolid = styles.solid;
+
+/** Dark frosted button for use over busy content such as the map. */
+export const hostedGlassButton = styles.glassButton;
