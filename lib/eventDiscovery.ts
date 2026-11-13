@@ -4,8 +4,8 @@ import { classifyDateBucket, formatSceneDateLong, getISTParts } from '@/lib/clie
 import { byPromotedThenSoonest, isHiddenFromFeed } from '@/lib/client/sceneEvent';
 import { isChennaiDiscoveryEvent } from '@/lib/eventLocations';
 
-export const EVENTS_SEARCH_TITLE = 'Events in Chennai This Week | Meetups & Workshops — SCENE';
-export const EVENTS_SEARCH_DESCRIPTION = 'Find events in Chennai this week: tech and AI meetups, startup networking, design workshops and finance events. Check dates, venues and registration links.';
+export const EVENTS_SEARCH_TITLE = 'Events in Chennai | Tech, Arts & Workshops — SCENE';
+export const EVENTS_SEARCH_DESCRIPTION = 'Discover events in Chennai this week and beyond: tech meetups, arts, book clubs, startup networking and workshops. See dates, venues, tickets and registration.';
 
 export interface EventCollection {
   key: string;
@@ -22,11 +22,11 @@ export interface EventCollection {
 export const EVENT_COLLECTIONS: readonly EventCollection[] = [
   {
     key: 'this-week', label: 'Events this week', title: 'Events in Chennai This Week', period: 'week',
-    description: 'Explore Chennai events over the next seven days: tech meetups, AI sessions, founder networking, design workshops and more. Dates and times are in IST; registration stays with the original organiser.',
+    description: 'Explore Chennai events over the next seven days: tech meetups, arts, book clubs, startup networking and workshops. Compare dates, venues and tickets. Register on SCENE for hosted events or follow the organiser’s link.',
   },
   {
     key: 'this-weekend', label: 'Events this weekend', title: 'Events in Chennai This Weekend', period: 'weekend',
-    description: 'Plan your Chennai weekend with upcoming Saturday and Sunday meetups, workshops and community events. Compare the published dates, venues and prices, then open the original registration page.',
+    description: 'Plan your Chennai weekend with Saturday and Sunday meetups, arts, reading sessions and workshops. Compare dates, venues and tickets. Register on SCENE for hosted events or follow the organiser’s link.',
   },
   {
     key: 'today', label: 'Events today', title: 'Events in Chennai Today', period: 'today',

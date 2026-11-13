@@ -104,6 +104,15 @@ async function main() {
       assert.equal(entries.filter(entry => entry.url === `https://scene044.in${eventCollectionPath(collection)}`).length, 1);
     }
     assert.equal(entries.some(entry => entry.url.includes('/category/ai,finance')), false);
+    globalThis.__pgPool = { query: async (sql: string) => ({ rows: sql.includes('FROM events e') ? [
+      { ...base, id: 201, startAt: '2099-10-21T12:30:00Z' },
+      { ...base, id: 202, startAt: '2000-10-21T12:30:00Z' },
+      { ...base, id: 203, startAt: '2099-10-21T12:30:00Z', city: 'Bengaluru' },
+    ] : [] }) } as unknown as Pool;
+    const category = load(renderToStaticMarkup(await CategoryPage({ params: Promise.resolve({ key: 'tech' }) })));
+    const categorySchema = JSON.parse(category('script[type="application/ld+json"]').first().text());
+    assert.equal(categorySchema.mainEntity.numberOfItems, 1, 'category schema excludes past and intercity events just like its cards');
+    assert.equal(category('article').length, 1);
     const encodedCategory = await CategoryPage({ params: Promise.resolve({ key: 'ai%2Cfinance' }) });
     assert.ok(encodedCategory, 'encoded commas must not cause a canonical redirect loop');
     globalThis.__pgPool = { query: async () => { throw new Error('Fixture database outage'); } } as unknown as Pool;

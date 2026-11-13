@@ -30,6 +30,19 @@ export type AdminEventUpdateResult =
   | { ok: true; value: NormalizedAdminEventUpdate }
   | { ok: false; error: string };
 
+/** Title-only edits cannot accidentally replace ticketing, dates or other curator content. */
+export function normalizeAdminEventRename(input: unknown):
+  | { ok: true; value: { eventId: number; title: string; expectedTitle: string } }
+  | { ok: false; error: string } {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return { ok: false, error: 'invalid JSON body' };
+  const body = input as Record<string, unknown>;
+  if (Object.keys(body).some(key => !['eventId', 'title', 'expectedTitle'].includes(key))) return { ok: false, error: 'Only the event title can be changed here' };
+  if (!Number.isSafeInteger(body.eventId) || Number(body.eventId) <= 0) return { ok: false, error: 'invalid eventId' };
+  if (typeof body.title !== 'string' || !body.title.trim() || body.title.trim().length > 200 || /[\u0000-\u001f\u007f]/.test(body.title)) return { ok: false, error: 'Enter an event title of 1–200 characters' };
+  if (typeof body.expectedTitle !== 'string' || !body.expectedTitle.trim()) return { ok: false, error: 'The current title is required to prevent overwriting another edit' };
+  return { ok: true, value: { eventId: Number(body.eventId), title: body.title.trim(), expectedTitle: body.expectedTitle } };
+}
+
 const fail = (error: string): AdminEventUpdateResult => ({ ok: false, error });
 const cleanNullable = (value: unknown): string | null =>
   typeof value === "string" ? value.trim() || null : null;

@@ -2,7 +2,6 @@ import type { MetadataRoute } from "next";
 import { FIELD_CARDS } from "@/lib/fieldCards";
 import { getPublicEventSitemapEntries } from "@/lib/events";
 import { absoluteUrl, eventPath, venuePath, SITE_URL as BASE_URL } from "@/lib/seo";
-import { stockPosterFor } from "@/lib/stockPosters";
 import { listPublicVenues } from "@/lib/venueCatalog";
 import { escapeSitemapUrls } from "@/lib/sitemapXml";
 import { EVENT_COLLECTIONS, eventCollectionPath } from '@/lib/eventDiscovery';
@@ -84,9 +83,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...(validDate(event.updatedAt) ? { lastModified: validDate(event.updatedAt) } : {}),
       changeFrequency: "weekly" as const,
       priority: 0.7,
-      images: [
-        absoluteUrl(event.posterImageUrl ?? stockPosterFor(event.category, event.id)),
-      ],
+      ...(event.posterImageUrl ? { images: [absoluteUrl(event.posterImageUrl)] } : {}),
     })),
   ]);
 }

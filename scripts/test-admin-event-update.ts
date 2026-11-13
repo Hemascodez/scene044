@@ -1,4 +1,4 @@
-import { normalizeAdminEventUpdate } from "../lib/adminEventUpdate";
+import { normalizeAdminEventRename, normalizeAdminEventUpdate } from "../lib/adminEventUpdate";
 
 let pass = 0;
 let fail = 0;
@@ -32,6 +32,12 @@ const valid = {
 };
 
 const normalized = normalizeAdminEventUpdate(valid);
+const rename = { eventId: 164, title: 'Chapter Lounge - Sunday Reads', expectedTitle: "Let's do more reading" };
+check('accepts a guarded title-only rename', normalizeAdminEventRename(rename).ok);
+check('rename cannot change pricing or registration settings', !normalizeAdminEventRename({ ...rename, pricePaise: 100 }).ok);
+check('rename requires the exact current title', !normalizeAdminEventRename({ ...rename, expectedTitle: undefined }).ok);
+check('rename rejects unsafe IDs', !normalizeAdminEventRename({ ...rename, eventId: '164' }).ok);
+check('rename rejects control characters and oversized titles', !normalizeAdminEventRename({ ...rename, title: 'bad\ntitle' }).ok && !normalizeAdminEventRename({ ...rename, title: 'x'.repeat(201) }).ok);
 check("accepts a complete published-event update", normalized.ok);
 check("strips tracking parameters and fragments", normalized.ok && normalized.value.primarySourceUrl === "https://example.com/event");
 check("keeps self-hosted poster URLs", normalized.ok && normalized.value.posterImageUrl === "/api/poster/12");

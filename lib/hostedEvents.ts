@@ -121,7 +121,7 @@ const PHOTOS = "/events/chapter-lounge";
  */
 export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
   id: 9044,
-  title: "Let's do more reading",
+  title: "Chapter Lounge - Sunday Reads",
   summary: "A slow Sunday morning with your favourite book.",
   highlights: [],
   tags: [],

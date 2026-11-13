@@ -25,6 +25,19 @@ const CITY_ALIASES: Record<string, string> = {
 export const EVENT_CITY_SUGGESTIONS = [...new Set(Object.values(CITY_ALIASES))]
   .sort((a, b) => a.localeCompare(b, "en-IN"));
 
+/** Known Indian cities only. A new/unknown city must not silently inherit Tamil Nadu. */
+export function eventAddressRegion(city: string): string | undefined {
+  const regions: Record<string, string> = {
+    Chennai: 'Tamil Nadu', Coimbatore: 'Tamil Nadu', Tiruchirappalli: 'Tamil Nadu', Madurai: 'Tamil Nadu',
+    Bengaluru: 'Karnataka', Mumbai: 'Maharashtra', Pune: 'Maharashtra', Nagpur: 'Maharashtra',
+    Hyderabad: 'Telangana', Delhi: 'Delhi', 'New Delhi': 'Delhi', Gurugram: 'Haryana',
+    Kolkata: 'West Bengal', Kochi: 'Kerala', Thiruvananthapuram: 'Kerala',
+    Puducherry: 'Puducherry', Ahmedabad: 'Gujarat', Chandigarh: 'Chandigarh',
+    Jaipur: 'Rajasthan', Indore: 'Madhya Pradesh', Lucknow: 'Uttar Pradesh',
+  };
+  return regions[normalizeEventCity(city) ?? ''];
+}
+
 /** Only use the location field, never cities mentioned in an event's copy.
  * Unknown cities remain valid so publishing in a new city needs no code change. */
 export function normalizeEventCity(value: unknown): string | null {

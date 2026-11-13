@@ -5,6 +5,8 @@ import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
 import type { CatalogVenue } from "@/lib/venueCatalog";
 import { venueSearchDescription, venueSearchIntent, VENUES_SEARCH_DESCRIPTION, VENUES_SEARCH_TITLE } from "@/lib/venueDiscovery";
 import { eventCollectionPath, EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE, type EventCollection } from '@/lib/eventDiscovery';
+import { eventAddressRegion, normalizeEventCity } from '@/lib/eventLocations';
+import { seatSummary } from '@/lib/hostedEvents';
 
 export const SITE_NAME = "SCENE";
 export const SITE_URL = "https://scene044.in";
@@ -61,7 +63,8 @@ export function eventSeoDescription(event: PublicEvent): string {
   const when = event.startAt
     ? `${formatSceneDateLong(event.startAt)}, ${formatSceneTime(event.startAt)} IST`
     : "date to be announced";
-  const where = event.isOnline ? "online" : [event.venueName, event.city].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).join(', ');
+  const venue = publishedVenueName(event.venueName, event.city);
+  const where = event.isOnline ? "online" : [venue, event.city].filter(Boolean).join(', ');
   return truncateSeoText(
     `${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary || `${event.title}. See event details and the original registration link on SCENE.`}`,
   );
@@ -119,12 +122,12 @@ export function categorySeoDescription(card: FieldCard): string {
     arts: 'arts events, book clubs, reading circles, literature sessions and creative workshops',
   };
   return truncateSeoText(
-    `Find upcoming ${topics[card.key] ?? `${card.label.toLowerCase()} events`} in Chennai. Check dates, venues and original registration links on SCENE.`,
+    `Find upcoming ${topics[card.key] ?? `${card.label.toLowerCase()} events`} in Chennai. See dates, venues, ticket prices and registration details on SCENE.`,
   );
 }
 
 export function categorySeoHeading(card: FieldCard): string {
-  return `${card.key === 'tech' ? 'Tech & Developer' : card.label} Events in Chennai`;
+  return `${card.key === 'tech' ? 'Tech & Developer' : card.key === 'arts' ? 'Arts & Culture' : card.label} Events in Chennai`;
 }
 
 function eventListingStructuredData(name: string, description: string, path: string, events: PublicEvent[]): Record<string, unknown> {
@@ -176,12 +179,27 @@ function eventStatusUrl(status: PublicEventDetail["status"]): string {
   return "https://schema.org/EventScheduled";
 }
 
+function isLocationPlaceholder(value: string): boolean {
+  return /^(?:tba|tbd|unknown|to be (?:announced|confirmed)|register to (?:see|view)(?: (?:the )?address)?|address (?:shared|provided) (?:after|on) registration)[.!\s]*$/i.test(value.trim());
+}
+
+/** A city or a withheld-address notice is not the name of a physical venue. */
+function publishedVenueName(value: string | null, city: string): string | null {
+  if (!value || isLocationPlaceholder(value)) return null;
+  const segments = value.split(',').map(part => part.trim()).filter(Boolean);
+  if (segments.length && normalizeEventCity(segments[0]) === normalizeEventCity(city)
+    && segments.slice(1).every(part => /^(?:india|tamil nadu|karnataka|maharashtra)$/i.test(part))) return null;
+  return value;
+}
+
 /** Google requires startDate for an Event rich result. Honest undated
  * listings still get a useful page, but no knowingly-invalid Event object. */
-export function eventStructuredData(event: PublicEventDetail): Record<string, unknown> | null {
+export function eventStructuredData(event: PublicEventDetail, now = new Date()): Record<string, unknown> | null {
   if (!event.startAt || !Number.isFinite(Date.parse(event.startAt))) return null;
 
   const canonicalUrl = absoluteUrl(eventPath(event));
+  const venueName = publishedVenueName(event.venueName, event.city);
+  const region = eventAddressRegion(event.city);
   const location = event.isOnline
     ? {
         "@type": "VirtualLocation",
@@ -189,18 +207,28 @@ export function eventStructuredData(event: PublicEventDetail): Record<string, un
       }
     : {
         "@type": "Place",
-        name: event.venueName ?? event.city,
+        ...(venueName ? { name: venueName } : {}),
         address: {
           "@type": "PostalAddress",
-          ...(event.venueAddress ? { streetAddress: event.venueAddress } : {}),
+          ...(event.venueAddress && !isLocationPlaceholder(event.venueAddress) ? { streetAddress: event.venueAddress } : {}),
           addressLocality: event.city,
-          addressRegion: "Tamil Nadu",
+          ...(region ? { addressRegion: region } : {}),
           addressCountry: "IN",
         },
       };
 
   const paidPrice = event.priceType === "paid" ? numericInrPrice(event.priceNote) : null;
-  const offers =
+  const seats = event.hosted ? seatSummary(event.hosted, event.endAt, now, event.status) : null;
+  // Only SCENE knows its own live inventory. Never infer availability at an external organiser.
+  const offers = event.hosted
+    ? seats?.state === 'open' || seats?.state === 'sold_out'
+      ? {
+          '@type': 'Offer', url: canonicalUrl,
+          price: (event.hosted.pricePaise / 100).toFixed(2), priceCurrency: 'INR',
+          availability: seats.state === 'sold_out' ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+        }
+      : undefined
+    :
     event.priceType === "free" || paidPrice
       ? {
           "@type": "Offer",
@@ -229,7 +257,7 @@ export function eventStructuredData(event: PublicEventDetail): Record<string, un
     ...(event.organizerName
       ? { organizer: { "@type": "Organization", name: event.organizerName } }
       : {}),
-    ...(event.priceType ? { isAccessibleForFree: event.priceType === "free" } : {}),
+    ...(event.hosted ? { isAccessibleForFree: event.hosted.pricePaise === 0 } : event.priceType ? { isAccessibleForFree: event.priceType === "free" } : {}),
     ...(offers ? { offers } : {}),
   };
 }
@@ -298,7 +326,7 @@ export function websiteStructuredData(): Record<string, unknown> {
         "@id": `${SITE_URL}/#organization`,
         name: SITE_NAME,
         url: SITE_URL,
-        description: "A discovery layer for Chennai's professional and technology events.",
+        description: "Discover Chennai events, from tech meetups and startup networking to arts, book clubs and workshops. Register for SCENE-hosted events and find venues for your own gathering.",
       },
       {
         "@type": "WebSite",

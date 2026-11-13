@@ -155,8 +155,9 @@ export async function prepareChapterLoungeDraft() {
     );
     let row = (
       await client.query<{ id: number; title: string }>(
-        `SELECT id,title FROM events WHERE title=$1 AND organizer_name=$2 AND start_at=$3 LIMIT 1`,
-        [event.title, event.organizerName, event.startAt],
+        // Identity survives a curator title edit; never prepare a duplicate of the real event.
+        `SELECT id,title FROM events WHERE organizer_name=$1 AND start_at=$2 AND venue_name=$3 LIMIT 1`,
+        [event.organizerName, event.startAt, event.venueName],
       )
     ).rows[0];
     if (!row)

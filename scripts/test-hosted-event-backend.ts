@@ -203,6 +203,9 @@ async function main() {
       draft.eventId,
       "draft preparation is idempotent",
     );
+    await db.query("UPDATE events SET title='Previous reading-event title' WHERE id=$1", [draft.eventId]);
+    assert.equal((await prepareChapterLoungeDraft()).eventId, draft.eventId, 'draft identity survives a title edit');
+    await db.query("UPDATE events SET title='Chapter Lounge - Sunday Reads' WHERE id=$1", [draft.eventId]);
     const chapter = await db.query<{ status: string; category: string }>(
       "SELECT status,category FROM events WHERE id=$1",
       [draft.eventId],
@@ -1005,6 +1008,26 @@ async function main() {
     console.log(
       "PASS active-hold capacity protection, lost-callback recovery, explicit opt-out, late-payment review and no oversold ticket",
     );
+
+    const { PATCH: renameEvent } = await import('../app/api/admin/events/update/route');
+    const renamePath = '/api/admin/events/update';
+    const oldTitle = (await db.query<{title:string}>('SELECT title FROM events WHERE id=$1', [draft.eventId])).rows[0].title;
+    const beforeRename = (await db.query<Record<string, unknown>>('SELECT * FROM events WHERE id=$1', [draft.eventId])).rows[0];
+    const registrationsBefore = (await db.query('SELECT * FROM event_registrations WHERE event_id=$1 ORDER BY id', [draft.eventId])).rows;
+    const settingsBefore = (await db.query('SELECT * FROM hosted_events WHERE event_id=$1', [draft.eventId])).rows;
+    const renameBody = { eventId: draft.eventId, title: 'Renamed reading session', expectedTitle: oldTitle };
+    assert.equal((await renameEvent(req(renamePath, 'PATCH', renameBody))).status, 401);
+    assert.equal((await renameEvent(req(renamePath, 'PATCH', { ...renameBody, pricePaise: 10 }, undefined, true))).status, 400);
+    assert.equal((await renameEvent(req(renamePath, 'PATCH', renameBody, undefined, true))).status, 200);
+    assert.equal((await renameEvent(req(renamePath, 'PATCH', renameBody, undefined, true))).status, 409, 'stale title guard prevents overwrites');
+    const afterRename = (await db.query<Record<string, unknown>>('SELECT * FROM events WHERE id=$1', [draft.eventId])).rows[0];
+    for (const key of Object.keys(beforeRename)) {
+      if (!['title', 'primary_source_url', 'updated_at'].includes(key)) assert.deepEqual(afterRename[key], beforeRename[key], `rename preserves ${key}`);
+    }
+    assert.match(String(afterRename.primary_source_url), /\/events\/renamed-reading-session-\d+$/);
+    assert.deepEqual((await db.query('SELECT * FROM event_registrations WHERE event_id=$1 ORDER BY id', [draft.eventId])).rows, registrationsBefore, 'paid registrations, ticket tokens and payment IDs stay untouched');
+    assert.deepEqual((await db.query('SELECT * FROM hosted_events WHERE event_id=$1', [draft.eventId])).rows, settingsBefore, 'capacity, price and host settings stay untouched');
+    console.log('PASS authenticated atomic rename, stale-edit guard, canonical source URL and unchanged registrations, payments, host settings and draft identity');
 
     const { gaInlineScript } = await import("../lib/client/analytics");
     for (const [search, expected] of [

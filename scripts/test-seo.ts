@@ -22,6 +22,7 @@ import {
   venueStructuredData,
 } from "../lib/seo";
 import { eventTitleMatchScore, eventTitlesLikelyMatch } from "../lib/extract";
+import { CHAPTER_LOUNGE_FIXTURE } from '../lib/hostedEvents';
 
 let passed = 0;
 let failed = 0;
@@ -160,6 +161,26 @@ check("venue address reaches structured data", ((schema.location as Record<strin
 check("undated listing does not emit invalid Event schema", eventStructuredData({ ...event, startAt: null }), null);
 check("cancelled event exposes cancellation status", eventStructuredData({ ...event, status: "cancelled" })?.eventStatus, "https://schema.org/EventCancelled");
 check("unknown paid price is not invented", eventStructuredData({ ...event, priceType: 'paid', priceNote: null })?.offers, undefined);
+const locationFor = (fields: Partial<PublicEventDetail>) => eventStructuredData({ ...event, ...fields })!.location as { name?: string; address: Record<string, unknown> };
+check('Bengaluru is in Karnataka, not Tamil Nadu', locationFor({ city: 'Bangalore', venueName: 'Fixture hall' }).address.addressRegion, 'Karnataka');
+check('Mumbai is in Maharashtra', locationFor({ city: 'Mumbai' }).address.addressRegion, 'Maharashtra');
+check('unknown city never inherits a state', locationFor({ city: 'Unmapped City' }).address.addressRegion, undefined);
+const withheld = locationFor({ city: 'Bengaluru', venueName: 'Bengaluru, India', venueAddress: 'Register to See Address' });
+check('city is not falsely labelled as a venue', withheld.name, undefined);
+check('withheld location is not a street address', withheld.address.streetAddress, undefined);
+check('description does not repeat a city-only location', eventSeoDescription({ ...event, city: 'Bengaluru', venueName: 'Bengaluru, India' }).includes('Bengaluru, India, Bengaluru'), false);
+const reading = { ...CHAPTER_LOUNGE_FIXTURE, id: 164, priceNote: '₹6,600', hosted: { ...CHAPTER_LOUNGE_FIXTURE.hosted, registeredCount: 1 } };
+const beforeReading = new Date('2026-11-13T00:00:00Z');
+const offerFor = (fields: Partial<PublicEventDetail> = {}, now = beforeReading) => eventStructuredData({ ...reading, ...fields }, now)?.offers as Record<string, unknown> | undefined;
+check('hosted SEO price comes from checkout, not a stale price note', offerFor()?.price, '299.00');
+check('open hosted registration exposes real availability', offerFor()?.availability, 'https://schema.org/InStock');
+check('hosted offer links to the current public event, never an old slug', offerFor()?.url, 'https://scene044.in/events/chapter-lounge-sunday-reads-164');
+check('full hosted registration is sold out', offerFor({ hosted: { ...reading.hosted, registeredCount: 15 } })?.availability, 'https://schema.org/SoldOut');
+check('explicit sold-out override is respected', offerFor({ hosted: { ...reading.hosted, registrationState: 'sold_out' } })?.availability, 'https://schema.org/SoldOut');
+check('closed registration is not advertised as purchasable', offerFor({ hosted: { ...reading.hosted, registrationState: 'closed' } }), undefined);
+check('ended registration is not advertised as purchasable', offerFor({}, new Date('2026-11-23T00:00:00Z')), undefined);
+check('cancelled registration is not advertised as purchasable', offerFor({ status: 'cancelled' }), undefined);
+check('old event slug still resolves to the same immutable event ID', eventIdFromSlug('let-s-do-more-reading-164'), eventIdFromSlug('chapter-lounge-sunday-reads-164'));
 const venue = {
   id: 1, slug: 'fixture', name: 'Fixture Studio', area: 'Kilpauk', city: 'Chennai', address: null,
   summary: 'word '.repeat(100), status: 'live' as const, rating: 4.8, ratingCount: 40, ratingUrl: null,

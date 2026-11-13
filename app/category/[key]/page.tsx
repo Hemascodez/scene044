@@ -7,7 +7,7 @@ import { categorySeoDescription, categorySeoHeading, categoryStructuredData, ser
 import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
 import { SceneFooter, SectionHead } from "@/components/scene/SceneHero";
 import { CategoryFeed } from "@/components/scene/CategoryFeed";
-import { isChennaiDiscoveryEvent } from "@/lib/eventLocations";
+import { eventsForCollection } from "@/lib/eventDiscovery";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +61,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   let events: PublicEvent[] = [];
   try {
-    events = (await getPublicEvents(card.categories)).filter(isChennaiDiscoveryEvent);
+    // The crawlable schema and rendered cards must describe the same upcoming events.
+    events = eventsForCollection(await getPublicEvents(card.categories), {
+      key: card.key, title: card.label, label: card.label, description: '', period: 'upcoming',
+    }, new Date());
   } catch (err) {
     console.error(`CategoryPage(${key}): failed to load events`, err);
     throw err;
@@ -94,7 +97,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           title="Upcoming in Chennai"
           note="Soonest first · past events hidden"
         />
-        <CategoryFeed events={events} fieldLabel={card.label} />
+        <CategoryFeed events={events} fieldLabel={card.label} prefiltered />
 
         <nav className="mt-16">
           <SectionHead kicker="Other fields" title="Keep looking" />

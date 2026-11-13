@@ -27,7 +27,7 @@ export function EventCollectionView({ collection, events, dateNote }: {
       <Link href="/?tab=intercity#feed" className="mb-6 inline-flex min-h-11 items-center border-2 border-foreground bg-card px-4 py-2 font-mono text-xs font-semibold uppercase tracking-[0.1em] transition-colors hover:bg-foreground hover:text-background">
         Explore Intercity events →
       </Link>
-      <SectionHead kicker="Discovery feed" title={collection.label} note={`${events.length} event${events.length === 1 ? '' : 's'} · original sources linked`} />
+      <SectionHead kicker="Discovery feed" title={collection.label} note={`${events.length} event${events.length === 1 ? '' : 's'} · dates, venues & registration`} />
       <CategoryFeed events={events} prefiltered emptyTitle={`No ${collection.label.toLowerCase()} listed right now`}
         emptyDescription="We haven’t found a matching event yet. Explore the other Chennai listings below or check back as new events are added. We won’t fill this page with past or unrelated events." />
       <nav aria-label="More Chennai events" className="mt-16">

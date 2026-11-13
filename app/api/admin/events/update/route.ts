@@ -1,8 +1,33 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { checkCuratorAccess } from "@/lib/auth";
-import { normalizeAdminEventUpdate } from "@/lib/adminEventUpdate";
+import { normalizeAdminEventRename, normalizeAdminEventUpdate } from "@/lib/adminEventUpdate";
 import type { EventStatus } from "@/lib/types";
+import { absoluteUrl, eventPath } from '@/lib/seo';
+
+export async function PATCH(request: Request) {
+  if (!(await checkCuratorAccess(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  let raw: unknown;
+  try { raw = await request.json(); } catch { return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 }); }
+  const parsed = normalizeAdminEventRename(raw);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const { eventId, title, expectedTitle } = parsed.value;
+  const path = eventPath({ id: eventId, title });
+  try {
+    // One atomic, guarded write. Registrations reference the immutable ID, not the title.
+    const result = await query<{ id: number; title: string }>(
+      `UPDATE events SET title=$2, updated_at=now(),
+       primary_source_url=CASE WHEN EXISTS(SELECT 1 FROM hosted_events WHERE event_id=events.id)
+         THEN $4 ELSE primary_source_url END
+       WHERE id=$1 AND title=$3 RETURNING id,title`,
+      [eventId, title, expectedTitle, absoluteUrl(path)],
+    );
+    if (!result.rows[0]) return NextResponse.json({ error: 'Event missing or title changed. Reload before trying again.' }, { status: 409 });
+    return NextResponse.json({ ok: true, eventId, title, path });
+  } catch {
+    return NextResponse.json({ error: 'Could not rename the event' }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   if (!(await checkCuratorAccess(request))) {
