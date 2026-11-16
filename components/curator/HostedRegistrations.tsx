@@ -26,7 +26,7 @@ export function RegistrationReportDetails({ report }: { report: HostedRegistrati
     <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {metrics.map(([label, value]) => <div key={label} className="min-w-0 border border-[#25382e] bg-[#0b1611] p-4"><dt className="text-sm text-[#a9bcb0]">{label}</dt><dd className="mt-2 break-words font-display text-2xl font-bold text-[#5effb0]">{value}</dd></div>)}
     </dl>
-    <p className="text-sm leading-6 text-[#a9bcb0]">{s.checkoutCount} people reached checkout · {s.checkedInCount} checked in · {s.cancelledCount} cancelled · {s.waitlistCount} on waitlist.</p>
+    <p className="text-sm leading-6 text-[#a9bcb0]">{s.checkoutCount} checkout records · {s.checkedInCount} checked in · {s.cancelledCount} cancelled · {s.waitlistCount} on waitlist.</p>
     <p className="text-sm leading-6 text-[#a9bcb0]">Unpaid: {s.activeUnpaidCount} active seat holds and {s.expiredUnpaidCount} expired holds. These are unfinished checkouts, not confirmed abandonment or page-visitor counts. Revenue is for paid, non-cancelled tickets; it is not a bank-settlement report.</p>
     {report.registrations.length === 0 ? <p className="border border-dashed border-[#33493c] p-5 text-sm text-[#a9bcb0]">No registrations match this view. Try another filter or clear the search.</p> : <div className="space-y-3">
       {report.registrations.map(r => <article key={r.id} className="min-w-0 space-y-3 border border-[#25382e] p-4">

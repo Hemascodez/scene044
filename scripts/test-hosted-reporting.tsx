@@ -71,6 +71,7 @@ async function main() {
     assert.equal((await report('', '166')).registrations.length, 0);
     const $ = load(renderToStaticMarkup(createElement(RegistrationReportDetails, { report: all })));
     assert.equal($('article').length, 7); assert.match($('dl').first().text(), /Paid registrations2 \/ 15/);
+    assert.match($.text(), /7 checkout records/); assert.doesNotMatch($.text(), /people reached checkout/);
     assert.match($.text(), /not confirmed abandonment/); assert.match($.text(), /fixture@example.com/);
     assert.equal($('a[href^="mailto:"],a[href^="tel:"]').length, 0, 'contact details are plain copyable text, not auto-tracked outbound links');
     assert.deepEqual((await db.query('SELECT * FROM event_registrations ORDER BY id')).rows, before, 'viewing reports never changes registrations or check-in status');
