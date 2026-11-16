@@ -26,10 +26,21 @@ async function main() {
     const image = new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(new Uint8ClampedArray(data), info.width, info.height)));
     assert.equal(new QRCodeReader().decode(image).getText(), qrValue, `real QR decodes at ${size}px without a camera or provider calls`);
   }
-  for (const [pathname, search, tracked] of [["/events/example-1", "", 2], ["/events/example-1", `?ticket=${token}`, 0], ["/events/example-1/ticket", "", 0], ["/events/example-1/ticket/", "?new=1", 0]] as const) {
-    const context = { window: { location: { pathname, search } }, URLSearchParams, dataLayer: [] as unknown[] };
+  for (const [pathname, search, tracked] of [["/events/example-1", "", 1], ["/events/example-1", `?ticket=${token}`, 0], ["/events/example-1/ticket", "", 0], ["/events/example-1/ticket/", "?new=1", 0]] as const) {
+    const calls: unknown[][] = [];
+    const context = {
+      window: {
+        location: new URL(`https://scene044.in${pathname}${search}`),
+        dataLayer: { push: (args: IArguments) => calls.push(Array.from(args)) },
+        history: { pushState() {}, replaceState() {} },
+        addEventListener() {},
+      },
+      document: { title: "Example event — SCENE", referrer: "" },
+      URL,
+    };
     runInNewContext(gaInlineScript("G-TEST"), context);
-    assert.equal(context.dataLayer.length, tracked, `private ticket route must not initialize analytics: ${pathname}`);
+    assert.equal(calls.filter(c => c[0] === "event" && c[1] === "page_view").length, tracked, `only public event routes receive a pageview: ${pathname}${search}`);
+    if (!tracked) assert.equal(calls.length, 0, "private ticket routes must not initialize analytics");
   }
   const original = globalThis.fetch;
   const calls: { path: string; body: Record<string, unknown> }[] = [];

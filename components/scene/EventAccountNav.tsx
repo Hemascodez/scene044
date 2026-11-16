@@ -26,8 +26,8 @@ export function EventAccountNav({
         </Link>
         {profile.role === "Host" && (
           <Link
-            href="/host"
-            className={`${control} hidden hover:bg-secondary sm:inline-flex`}
+            href={profile.hostEventId ? "/host/events" : "/host"}
+            className={`${control} hover:bg-secondary`}
           >
             Host dashboard
           </Link>

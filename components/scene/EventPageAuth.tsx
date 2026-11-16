@@ -17,23 +17,30 @@ const EVENT_AUTH_COPY = {
   body: "Use your WhatsApp number to sign in or create an account. Find your event passes in My bookings.",
 };
 
-function EventAccountControls() {
+export function EventAccountControls() {
   const { profile, authReady, openAuth } = useVenueApp();
   return (
     <EventAccountNav profile={profile} ready={authReady} onSignIn={openAuth} />
   );
 }
 
-/** One session for the header and registration; server-rendered content stays server-rendered. */
-export function EventPageAuth({ children }: { children: ReactNode }) {
+/** Shared account session without imposing a header on the discovery shell. */
+export function EventAuthProvider({ children }: { children: ReactNode }) {
   return (
     <VenueAppProvider
       authClassName="venue-surface"
       defaultAuthCopy={EVENT_AUTH_COPY}
       attendeeAuth
     >
-      <SceneHeaderStatic accountControls={<EventAccountControls />} />
       {children}
     </VenueAppProvider>
   );
+}
+
+/** One session for the header and registration; server-rendered content stays server-rendered. */
+export function EventPageAuth({ children }: { children: ReactNode }) {
+  return <EventAuthProvider>
+    <SceneHeaderStatic accountControls={<EventAccountControls />} />
+    {children}
+  </EventAuthProvider>;
 }

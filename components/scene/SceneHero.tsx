@@ -42,7 +42,6 @@ export function SceneHero({ onExplore }: { onExplore: () => void }) {
           >
             Find a venue →
           </Link>
-          <Mono className="text-[10px] text-background/50">No account needed · Save locally</Mono>
         </div>
       </div>
     </section>
@@ -158,6 +157,9 @@ export function SceneFooter() {
               className="font-mono text-[10px] uppercase tracking-[0.1em] text-background/50 underline underline-offset-2 hover:text-primary"
             >
               Privacy policy
+            </Link>
+            <Link href="/host/login?next=%2Fhost%2Fevents" className="inline-flex min-h-11 items-center font-mono text-[10px] uppercase tracking-[0.1em] text-background/70 underline underline-offset-2 hover:text-primary">
+              Organiser sign in
             </Link>
           </div>
           <Mono className="text-[10px] text-background/50">

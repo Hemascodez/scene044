@@ -4,7 +4,7 @@ import { getPublicEvents, type PublicEvent } from "@/lib/events";
 import { FIELD_CARDS, getFieldCardForKeys } from "@/lib/fieldCards";
 import { stockPosterFor } from "@/lib/stockPosters";
 import { categorySeoDescription, categorySeoHeading, categoryStructuredData, serializeJsonLd } from "@/lib/seo";
-import { SceneHeaderStatic } from "@/components/scene/SceneHeader";
+import { EventPageAuth } from "@/components/scene/EventPageAuth";
 import { SceneFooter, SectionHead } from "@/components/scene/SceneHero";
 import { CategoryFeed } from "@/components/scene/CategoryFeed";
 import { eventsForCollection } from "@/lib/eventDiscovery";
@@ -72,12 +72,12 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   const description = categorySeoDescription(card);
 
   return (
+    <EventPageAuth>
     <div className="min-h-full">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(categoryStructuredData(card, events)) }}
       />
-      <SceneHeaderStatic />
 
       <section className="border-b-2 border-foreground bg-foreground text-background">
         <div className="mx-auto max-w-6xl px-4 py-12 lg:px-6 lg:py-16">
@@ -120,5 +120,6 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
       <SceneFooter />
     </div>
+    </EventPageAuth>
   );
 }

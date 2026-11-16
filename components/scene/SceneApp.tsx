@@ -6,6 +6,7 @@ import { FIELD_CARDS } from "@/lib/fieldCards";
 import { bySoonest, byPromotedThenSoonest, deriveSceneStatus, isHiddenFromFeed, isNewlyDiscovered } from "@/lib/client/sceneEvent";
 import { useEventInteractions } from "@/lib/client/useEventInteractions";
 import { SceneHeader } from "@/components/scene/SceneHeader";
+import { EventAccountControls, EventAuthProvider } from "@/components/scene/EventPageAuth";
 import { FieldsGrid, SceneFooter, SceneHero, SectionHead } from "@/components/scene/SceneHero";
 import { TabbedFeed } from "@/components/scene/TabbedFeed";
 import { EventCard } from "@/components/scene/EventCard";
@@ -59,10 +60,12 @@ export function SceneApp({
   }
 
   return (
+    <EventAuthProvider>
     <div className="min-h-full">
       <SceneHeader
         view={view}
         savedCount={interactions.savedIds.length}
+        accountControls={<EventAccountControls />}
         onDiscover={() => setView("discover")}
         onSaved={() => setView("saved")}
         onSearch={() => {
@@ -76,7 +79,7 @@ export function SceneApp({
           <SceneHero onExplore={scrollToFeed} />
           <FieldsGrid counts={counts} />
 
-          <main ref={feedRef} id="feed" className="mx-auto max-w-6xl scroll-mt-16 px-4 py-12 lg:px-6">
+          <main ref={feedRef} id="feed" className="mx-auto max-w-6xl scroll-mt-36 px-4 py-12 sm:scroll-mt-20 lg:px-6">
             <SectionHead
               kicker="Discovery feed"
               title="Browse the scene"
@@ -142,6 +145,7 @@ export function SceneApp({
         />
       )}
     </div>
+    </EventAuthProvider>
   );
 }
 

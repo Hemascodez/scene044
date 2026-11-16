@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import type { Profile } from "@/components/venues/figma/AuthModal";
 import { attendeePhone, httpAttendeeAuth, pastedOtp, type AttendeeAuthApi } from "@/lib/client/attendeeAuth";
 import { formatIndianMobile, type RegistrationDetails } from "@/lib/client/eventRegistration";
@@ -106,5 +107,8 @@ export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHr
 }
 
 export function AttendeeAuthDialog({ open, saved, onClose, onVerified }: { open: boolean; saved: Profile | null; onClose: () => void; onVerified: (profile: Profile) => void }) {
-  return <EventFlowDialog open={open} title="Sign in to SCENE" onClose={onClose}>{open && <AttendeeForm saved={saved} onReady={(details, _, verified) => { if (verified) onVerified(verified); else if (saved) onVerified({ ...saved, ...details }); }} />}</EventFlowDialog>;
+  return <EventFlowDialog open={open} title="Sign in to SCENE" onClose={onClose}>{open && <>
+    <AttendeeForm saved={saved} onReady={(details, _, verified) => { if (verified) onVerified(verified); else if (saved) onVerified({ ...saved, ...details }); }} />
+    <p className="mt-4 border-t border-white/15 pt-3 text-sm text-muted-foreground">Hosting an event? <Link href="/host/login?next=%2Fhost%2Fevents" className="inline-flex min-h-11 items-center text-[#ff8a77] underline underline-offset-4">Organiser sign in →</Link></p>
+  </>}</EventFlowDialog>;
 }

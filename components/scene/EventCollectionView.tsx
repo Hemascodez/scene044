@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { PublicEvent } from '@/lib/events';
 import { EVENT_COLLECTIONS, eventCollectionPath, type EventCollection } from '@/lib/eventDiscovery';
 import { FIELD_CARDS } from '@/lib/fieldCards';
-import { SceneHeaderStatic } from '@/components/scene/SceneHeader';
+import { EventPageAuth } from '@/components/scene/EventPageAuth';
 import { SceneFooter, SectionHead } from '@/components/scene/SceneHero';
 import { CategoryFeed } from '@/components/scene/CategoryFeed';
 
@@ -10,8 +10,7 @@ import { CategoryFeed } from '@/components/scene/CategoryFeed';
 export function EventCollectionView({ collection, events, dateNote }: {
   collection: EventCollection; events: PublicEvent[]; dateNote: string;
 }) {
-  return <div className="min-h-full">
-    <SceneHeaderStatic />
+  return <EventPageAuth><div className="min-h-full">
     <section className="border-b-2 border-foreground bg-foreground text-background">
       <div className="mx-auto max-w-6xl px-4 py-12 lg:px-6 lg:py-16">
         <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-background/60">
@@ -45,5 +44,5 @@ export function EventCollectionView({ collection, events, dateNote }: {
       </nav>
     </main>
     <SceneFooter />
-  </div>;
+  </div></EventPageAuth>;
 }

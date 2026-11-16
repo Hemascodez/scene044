@@ -14,12 +14,14 @@ export function SceneHeader({
   onSaved,
   onSearch,
   savedCount,
+  accountControls,
 }: {
   view: "discover" | "saved";
   onDiscover: () => void;
   onSaved: () => void;
   onSearch: () => void;
   savedCount: number;
+  accountControls?: ReactNode;
 }) {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/95 backdrop-blur">
@@ -30,17 +32,17 @@ export function SceneHeader({
         Skip to events
       </a>
 
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
-        <button type="button" onClick={onDiscover} className="group" aria-label="SCENE — home">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 lg:px-6">
+        <button type="button" onClick={onDiscover} className="group shrink-0" aria-label="SCENE — home">
           <Wordmark />
         </button>
 
-        <nav className="flex items-center gap-1.5">
+        <nav aria-label="Event discovery" className="order-3 flex w-full items-center justify-between gap-1.5 sm:order-none sm:w-auto sm:justify-start">
           <button
             type="button"
             onClick={onDiscover}
             aria-current={view === "discover" ? "page" : undefined}
-            className={`px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${
+            className={`min-h-11 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] ${
               view === "discover" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -49,7 +51,7 @@ export function SceneHeader({
           <button
             type="button"
             onClick={onSearch}
-            className="hidden px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground sm:block"
+            className="hidden min-h-11 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground sm:block"
           >
             Search
           </button>
@@ -57,7 +59,7 @@ export function SceneHeader({
             type="button"
             onClick={onSaved}
             aria-current={view === "saved" ? "page" : undefined}
-            className={`inline-flex items-center gap-1.5 border-2 border-foreground px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors ${
+            className={`inline-flex min-h-11 items-center gap-1.5 border-2 border-foreground px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors ${
               view === "saved" ? "bg-foreground text-background" : "hover:bg-secondary"
             }`}
           >
@@ -67,6 +69,7 @@ export function SceneHeader({
             </span>
           </button>
         </nav>
+        {accountControls && <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5">{accountControls}</div>}
       </div>
     </header>
   );
@@ -76,11 +79,11 @@ export function SceneHeader({
 export function SceneHeaderStatic({ accountControls }: { accountControls?: ReactNode } = {}) {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 lg:px-6">
         <Link href="/" aria-label="SCENE — home">
           <Wordmark />
         </Link>
-        <nav aria-label="Event navigation" className="flex items-center gap-2">
+        <nav aria-label="Event navigation" className="flex max-w-full flex-wrap items-center justify-end gap-2">
           <Link
             href="/"
             className={`${accountControls ? "hidden min-h-11 items-center sm:inline-flex" : ""} px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground`}
