@@ -6,6 +6,7 @@ import { SceneFooter } from "@/components/scene/SceneHero";
 export const metadata: Metadata = {
   title: "Terms of Use — SCENE",
   description: "The terms for using SCENE to discover events and request venues.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

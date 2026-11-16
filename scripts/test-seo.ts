@@ -161,6 +161,43 @@ check("venue address reaches structured data", ((schema.location as Record<strin
 check("undated listing does not emit invalid Event schema", eventStructuredData({ ...event, startAt: null }), null);
 check("cancelled event exposes cancellation status", eventStructuredData({ ...event, status: "cancelled" })?.eventStatus, "https://schema.org/EventCancelled");
 check("unknown paid price is not invented", eventStructuredData({ ...event, priceType: 'paid', priceNote: null })?.offers, undefined);
+const paidOfferForNote = (priceNote: string) => eventStructuredData({ ...event, priceType: 'paid', priceNote })?.offers;
+const unambiguousPrices: [string, string][] = [
+  ['₹499', '499'],
+  ['₹ 499.50', '499.50'],
+  ['INR 1499', '1499'],
+  ['inr: 1,499.00', '1499.00'],
+  ['Rs 499', '499'],
+  ['Rs.499.5', '499.5'],
+  ['₹1,00,000.00', '100000.00'],
+  ['₹12,34,567.89', '1234567.89'],
+  ['₹1,234,567.89', '1234567.89'],
+  ['499 INR', '499'],
+  ['499 Rs.', '499'],
+  ['₹499/-', '499'],
+  [' \t₹\u00a01,499 /-\n', '1499'],
+  ['₹0.50', '0.50'],
+  ['₹0', '0'],
+];
+for (const [priceNote, price] of unambiguousPrices) {
+  check(`unambiguous INR offer: ${JSON.stringify(priceNote)}`, paidOfferForNote(priceNote), {
+    '@type': 'Offer', url: event.primarySourceUrl, price, priceCurrency: 'INR',
+  });
+}
+for (const priceNote of [
+  '', '499', 'USD 499',
+  '₹1.5k', '₹1 lakh', '₹2L',
+  '₹499–₹999', '₹499-999', 'INR 499 to 999', '₹499 / ₹999',
+  'Save ₹500; ticket ₹1,500', '₹500 off', '₹1,500 (₹500 discount)',
+  '₹499 onwards', '₹499 + GST',
+  '₹1,49', '₹1,234,56', '₹499.999', '₹1.499,00', '₹-499', '₹+499', '₹1 499',
+  // Whole-note matching also rejects unfamiliar prose/digits without an English-only blacklist.
+  '₹500 தள்ளுபடி; நுழைவுச்சீட்டு ₹1,500', '₹500 छूट; टिकट ₹1,500',
+  '₹1 ஆயிரம்', '₹499 மட்டும்', '₹௪௯௯', '₹४९९', '₹499௦', '₹499\u200b',
+]) {
+  check(`ambiguous or unsupported INR note omits offer: ${JSON.stringify(priceNote)}`, paidOfferForNote(priceNote), undefined);
+}
+check('explicit free entry does not depend on parsing a display note', eventStructuredData({ ...event, priceNote: '₹500 discount' })?.offers, schema.offers);
 const locationFor = (fields: Partial<PublicEventDetail>) => eventStructuredData({ ...event, ...fields })!.location as { name?: string; address: Record<string, unknown> };
 check('Bengaluru is in Karnataka, not Tamil Nadu', locationFor({ city: 'Bangalore', venueName: 'Fixture hall' }).address.addressRegion, 'Karnataka');
 check('Mumbai is in Maharashtra', locationFor({ city: 'Mumbai' }).address.addressRegion, 'Maharashtra');
@@ -173,6 +210,8 @@ const reading = { ...CHAPTER_LOUNGE_FIXTURE, id: 164, priceNote: '₹6,600', hos
 const beforeReading = new Date('2026-11-13T00:00:00Z');
 const offerFor = (fields: Partial<PublicEventDetail> = {}, now = beforeReading) => eventStructuredData({ ...reading, ...fields }, now)?.offers as Record<string, unknown> | undefined;
 check('hosted SEO price comes from checkout, not a stale price note', offerFor()?.price, '299.00');
+check('hosted checkout offer survives an abbreviated display price', offerFor({ priceNote: '₹1.5k' }), offerFor());
+check('hosted sold-out offer survives a discount display note', offerFor({ priceNote: 'Save ₹500; ticket ₹1,500', hosted: { ...reading.hosted, registrationState: 'sold_out' } }), offerFor({ hosted: { ...reading.hosted, registrationState: 'sold_out' } }));
 check('open hosted registration exposes real availability', offerFor()?.availability, 'https://schema.org/InStock');
 check('hosted offer links to the current public event, never an old slug', offerFor()?.url, 'https://scene044.in/events/chapter-lounge-sunday-reads-164');
 check('full hosted registration is sold out', offerFor({ hosted: { ...reading.hosted, registeredCount: 15 } })?.availability, 'https://schema.org/SoldOut');

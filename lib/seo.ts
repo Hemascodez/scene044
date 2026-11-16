@@ -169,8 +169,15 @@ export function serializeJsonLd(value: unknown): string {
 
 function numericInrPrice(note: string | null): string | null {
   if (!note) return null;
-  const match = note.match(/(?:₹|INR|Rs\.?)[\s:]*(\d[\d,]*(?:\.\d{1,2})?)/i);
-  return match ? match[1].replace(/,/g, "") : null;
+  // Require the whole note to be one INR amount, with an optional /- suffix.
+  // Reject prose in any language rather than guessing at discounts, ranges or units.
+  const match = note.trim().match(/^(?:(?:₹|INR|Rs\.?)\s*:?\s*([0-9][0-9,.]*)|([0-9][0-9,.]*)\s*(?:₹|INR|Rs\.?))(?:\s*\/-)?$/i);
+  const amount = match?.[1] ?? match?.[2];
+  if (!amount) return null;
+  // Only ASCII digits, valid Indian/Western comma grouping and up to two decimals.
+  // Unsupported numeral formats are omitted, never partially extracted or rounded.
+  if (!/^(?:\d+|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d?(?:,\d{2})*,\d{3})(?:\.\d{1,2})?$/.test(amount)) return null;
+  return amount.replace(/,/g, "");
 }
 
 function eventStatusUrl(status: PublicEventDetail["status"]): string {

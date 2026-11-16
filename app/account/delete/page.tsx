@@ -6,6 +6,7 @@ import { SceneFooter } from "@/components/scene/SceneHero";
 export const metadata: Metadata = {
   title: "Delete your account — SCENE",
   description: "Request deletion of your SCENE account and associated data.",
+  alternates: { canonical: "/account/delete" },
 };
 
 const requestEmail = "mailto:uhema2011@gmail.com?subject=SCENE%2F044%20account%20deletion%20request&body=Please%20delete%20my%20SCENE%2F044%20account%20and%20associated%20data.%20I%20can%20confirm%20the%20phone%20number%20used%20to%20sign%20in.%20Please%20tell%20me%20if%20any%20records%20must%20be%20retained.";

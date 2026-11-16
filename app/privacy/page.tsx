@@ -6,6 +6,7 @@ import { SceneFooter } from "@/components/scene/SceneHero";
 export const metadata: Metadata = {
   title: "Privacy Policy — SCENE",
   description: "How SCENE handles event, venue, booking and account information.",
+  alternates: { canonical: "/privacy" },
 };
 
 const CONTACT_EMAIL = "uhema2011@gmail.com";
