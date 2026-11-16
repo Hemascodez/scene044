@@ -12,8 +12,11 @@ export async function hostedEventAdminCatalog() {
     await query(`SELECT e.id,e.title,e.status,e.start_at AS "startAt",e.category,e.gist,
     h.host_name AS "hostName",h.host_person AS "hostPerson",h.price_paise AS "pricePaise",h.capacity,
     h.registration_state AS "registrationState",h.description,h.gallery,h.quote,h.good_to_know AS "goodToKnow",
-    h.refund_policy AS "refundPolicy",h.terms FROM events e LEFT JOIN hosted_events h ON h.event_id=e.id
-    WHERE e.status<>'expired' ORDER BY e.start_at DESC NULLS LAST,e.id DESC LIMIT 500`)
+    h.refund_policy AS "refundPolicy",h.terms,
+    (SELECT count(*)::int FROM event_registrations r WHERE r.event_id=e.id AND r.status IN ('confirmed','checked_in') AND r.paid_at IS NOT NULL) AS "registeredCount"
+    FROM events e LEFT JOIN hosted_events h ON h.event_id=e.id
+    WHERE e.status<>'expired' OR h.event_id IS NOT NULL
+    ORDER BY (h.event_id IS NOT NULL) DESC,e.start_at DESC NULLS LAST,e.id DESC LIMIT 500`)
   ).rows;
 }
 

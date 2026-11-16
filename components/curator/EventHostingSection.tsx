@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { HostedRegistrations } from './HostedRegistrations';
 import {
   AdminBtn,
   Field,
@@ -23,6 +24,7 @@ type HostedChoice = {
   refundPolicy: string | null;
   terms: string[] | null;
   gallery: { src: string; alt: string }[] | null;
+  registeredCount: number;
 };
 type Access = {
   id: number;
@@ -54,6 +56,9 @@ export function EventHostingSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const updateCount = useCallback((id: number, count: number) => {
+    setEvents(current => current.map(event => event.id === id && event.registeredCount !== count ? { ...event, registeredCount: count } : event));
+  }, []);
   const loadData = useCallback(async () => {
     const response = await fetch("/api/admin/event-hosts", {
       cache: "no-store",
@@ -201,13 +206,16 @@ export function EventHostingSection() {
             {events.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.title} · {e.status}
+                {e.capacity !== null ? ` · ${e.registeredCount} / ${e.capacity} paid` : ''}
               </option>
             ))}
           </Select>
         </Field>
       </div>
+      {events.some(e => e.capacity !== null) && <div className="space-y-3"><h2 className="font-display text-lg font-bold">Hosted events at a glance</h2><div className="grid gap-3 sm:grid-cols-2">{events.filter(e => e.capacity !== null).map(e => <button key={e.id} type="button" onClick={() => choose(String(e.id))} className="min-h-11 border border-[#33493c] p-4 text-left hover:border-[#39ff9b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#39ff9b]"><span className="block break-words font-semibold">{e.title}</span><span className="mt-2 block text-sm text-[#a9bcb0]">{e.registeredCount} / {e.capacity} paid registrations · View attendees →</span></button>)}</div></div>}
       {selected && (
         <>
+          {selected.capacity !== null && <HostedRegistrations key={selected.id} eventId={selected.id} eventTitle={selected.title} onCount={updateCount} />}
           <form
             className="max-w-2xl space-y-4 border border-[#25382e] p-4"
             onSubmit={(e) => {

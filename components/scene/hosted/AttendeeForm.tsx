@@ -11,7 +11,7 @@ const buttonClass = "mt-4 flex min-h-12 w-full items-center justify-center bg-[#
 type Saved = Pick<Profile, "name" | "phone" | "email">;
 
 /** One details form and one paste/autofill-friendly OTP field; no venue or host-role controls. */
-export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHref, auth = httpAttendeeAuth, onReady, error: parentError }: {
+export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHref, auth = httpAttendeeAuth, onReady, onStage, error: parentError }: {
   saved: Saved | null;
   initialDetails?: RegistrationDetails;
   price?: string;
@@ -20,6 +20,7 @@ export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHr
   auth?: AttendeeAuthApi;
   error?: string | null;
   onReady: (details: RegistrationDetails, whatsappOptIn: boolean, verified?: Profile) => void | Promise<void>;
+  onStage?: (stage: 'scene_otp_sent' | 'scene_otp_verified') => void;
 }) {
   const id = useId();
   const [name, setName] = useState(saved?.name ?? initialDetails?.name ?? "");
@@ -47,6 +48,7 @@ export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHr
   async function sendCode() {
     if (!number) throw new Error("Enter a valid 10-digit Indian mobile number.");
     await auth.send(number);
+    onStage?.('scene_otp_sent');
     if (!mounted.current) return;
     setDeadline(Date.now() + 60_000); setRemaining(60); setCode(""); setStep("otp");
   }
@@ -64,6 +66,7 @@ export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHr
       else {
         if (!/^\d{6}$/.test(code)) throw new Error("Enter the six-digit code from WhatsApp.");
         const profile = await auth.verify(details, code);
+        onStage?.('scene_otp_verified');
         if (!mounted.current) return;
         setVerifiedPhone(number);
         await onReady(details, whatsappOptIn, profile);
