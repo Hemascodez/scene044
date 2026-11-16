@@ -1032,22 +1032,26 @@ async function main() {
     const { gaInlineScript } = await import("../lib/client/analytics");
     for (const [search, expected] of [
       ["?ticket=secret", 0],
-      ["?utm_source=scene", 2],
+      ["?utm_source=scene", 1],
     ] as const) {
+      const calls: unknown[][] = [];
       const previewWindow = {
-        location: { search },
-        dataLayer: [] as unknown[],
+        location: new URL(`https://scene044.in/events/isolated-reading-1${search}`),
+        dataLayer: { push: (args: IArguments) => calls.push(Array.from(args)) },
+        history: { pushState() {}, replaceState() {} },
+        addEventListener() {},
       };
       runInNewContext(gaInlineScript("G-ISOLATED"), {
         window: previewWindow,
-        dataLayer: previewWindow.dataLayer,
-        URLSearchParams,
+        document: { title: "Isolated reading — SCENE", referrer: "" },
+        URL,
       });
       assert.equal(
-        previewWindow.dataLayer.length,
+        calls.filter(call => call[0] === "event" && call[1] === "page_view").length,
         expected,
-        "bearer ticket links never initialise analytics",
+        "public pages get one controlled view; bearer ticket links get none",
       );
+      if (!expected) assert.equal(calls.length, 0, "bearer ticket links never initialise analytics");
     }
     console.log("PASS ticket-link analytics privacy");
   } finally {

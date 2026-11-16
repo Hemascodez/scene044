@@ -143,6 +143,22 @@ Each event template expects five body parameters: guest name, event title, date/
 
 STOP removes optional event WhatsApp consent; the worker rechecks it before sending. Accepted, delivered and read are tracked separately. Ambiguous provider sends are never blindly repeated. Automatic refunds, waitlist promotion, event creation by hosts and organiser bank payouts are not implemented; curator-managed launch and manual support remain required.
 
+### Reminder template setup (16 November 2026)
+
+The exact Utility/English definitions are versioned in `lib/eventReminderTemplates.ts`:
+
+- Day before: `scene_event_day_before_v1`
+- Morning of: `scene_event_morning_of_v1`
+- Venue details: `scene_event_directions_v1`
+
+Submitted to the verified SCENE sender account on 16 November 2026 as Utility/English. Meta returned `PENDING` for all three: day-before id `1898392217865019`, morning-of id `1652325283018388`, directions id `1140050858777382`. The subsequent read-only lookup matched all exact definitions. No reminder run or attendee message was created, and the three template-name settings remain unset while approval is pending. Treat this as a dated submission record, not a claim about current approval.
+
+`scripts/submit-event-reminder-templates.ts --waba=<selected-account-id>` checks the existing sender/account and each template, without sending or queuing messages. Explicit `--submit` creates missing definitions only. Never activate the three corresponding `WHATSAPP_EVENT_*_TEMPLATE_NAME` settings until Meta reports `APPROVED` and `matchesDefinition: true`. A timed-out submission must be resolved with a read-only lookup before retrying. The samples use a fictional attendee and an all-zero ticket token, never a real pass.
+
+These reminders remain host-confirmed manual sends, not a scheduled broadcast. Check existing reminder runs and pending jobs before activating settings; enabling a template must not accidentally release a previously queued audience. Day-before and morning-of wording is only appropriate on the respective event-relative dates. Sends include only confirmed/checked-in guests who opted in; STOP is rechecked by the worker. Do not change consent to increase the audience.
+
+Local checks (no provider calls): `node --import tsx scripts/test-event-reminder-templates.ts` and `node --import tsx scripts/test-hosted-event-backend.ts`.
+
 ## Curator setup APIs
 
 ### Registration-confirmation template submission (12 November 2026)
