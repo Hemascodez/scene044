@@ -62,8 +62,8 @@ export function truncateSeoText(value: string, maxLength = 160): string {
  * curator/pipeline events get it immediately, with no paid generation job. */
 export function eventSeoDescription(event: PublicEvent & { gist?: string | null; hosted?: { pricePaise: number } | null }): string {
   const gist = usableEventSummary({ title: event.title, summary: event.gist ?? null });
-  const topic = plainSeoText(gist && !gist.includes('?') ? gist
-    : event.highlights.find(value => plainSeoText(value)) || eventShortIntro(event) || event.title);
+  const topic = [gist && !gist.includes('?') ? gist : null, ...event.highlights, eventShortIntro(event), event.title]
+    .filter((value): value is string => !!value).map(plainSeoText).find(Boolean) || event.title;
   const when = event.startAt && Number.isFinite(Date.parse(event.startAt))
     ? `${formatSceneDateLong(event.startAt).replace(/^\w+, /, '')}, ${formatSceneTime(event.startAt)} IST`
     : "date to be announced";
@@ -97,7 +97,9 @@ export function eventSeoTitle(event: PublicEvent): string {
 /** Plain text for snippets only; never changes the visible curator copy. */
 function plainSeoText(value: string): string {
   return value.replace(/<[^>]*>/g, ' ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/[*_`#]/g, '').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '').replace(/(\*\*|__|`)(.*?)\1/g, '$2')
+    .replace(/(^|\s)[*_]([^*_]+)[*_](?=\s|[.,!?;:]|$)/g, '$1$2')
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
     .replace(/\s+/g, ' ').trim();
 }
 
@@ -220,8 +222,9 @@ function isLocationPlaceholder(value: string): boolean {
 function publishedVenueName(value: string | null, city: string): string | null {
   if (!value || isLocationPlaceholder(value)) return null;
   const segments = value.split(',').map(part => part.trim()).filter(Boolean);
+  const region = eventAddressRegion(city)?.toLowerCase();
   if (segments.length && normalizeEventCity(segments[0]) === normalizeEventCity(city)
-    && segments.slice(1).every(part => /^(?:india|tamil nadu|karnataka|maharashtra)$/i.test(part))) return null;
+    && segments.slice(1).every(part => part.toLowerCase() === 'india' || part.toLowerCase() === region)) return null;
   return value;
 }
 

@@ -33,6 +33,9 @@ assert.ok(eventSeoDescription({ ...event, startAt: 'invalid' }).includes('date t
 assert.ok(eventSeoDescription({ ...event, gist: '**Three AI talks** with the community 🤖' }).startsWith('Three AI talks with the community.'));
 assert.ok(!eventSeoDescription({ ...event, gist: 'At Meetup #9 we talked about AI.' }).includes('#9'));
 assert.ok(!eventSeoDescription({ ...event, gist: 'Ready to build?' }).startsWith('Ready'));
+assert.ok(eventSeoDescription({ ...event, gist: '🤖', highlights: ['C# engineering and full_stack workflows'] }).startsWith('C# engineering and full_stack workflows.'));
+assert.ok(eventSeoDescription({ ...event, gist: null, highlights: ['Meetup #10 covers C#'] }).startsWith('Meetup #10 covers C#.'));
+assert.ok(!eventSeoDescription({ ...event, city: 'Hyderabad', venueName: 'Hyderabad, Telangana, India' }).includes('Hyderabad, Hyderabad'));
 assert.ok(!eventSeoDescription({ ...event, priceType: null, priceNote: null }).includes('Free entry'));
 assert.ok(eventSeoDescription({ ...event, priceType: 'paid', hosted: { ...CHAPTER_LOUNGE_FIXTURE.hosted, pricePaise: 29900 } }).endsWith('₹299.'));
 assert.ok(String(eventStructuredData(event)?.description).includes('Speakers discuss practical engineering ideas.'));
