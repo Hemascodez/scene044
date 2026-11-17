@@ -35,6 +35,9 @@ assert.ok(!eventSeoDescription({ ...event, gist: 'At Meetup #9 we talked about A
 assert.ok(!eventSeoDescription({ ...event, gist: 'Ready to build?' }).startsWith('Ready'));
 assert.ok(eventSeoDescription({ ...event, gist: '🤖', highlights: ['C# engineering and full_stack workflows'] }).startsWith('C# engineering and full_stack workflows.'));
 assert.ok(eventSeoDescription({ ...event, gist: null, highlights: ['Meetup #10 covers C#'] }).startsWith('Meetup #10 covers C#.'));
+const compactTopic = eventSeoDescription({ ...event, gist: 'A long and detailed gist that lists all of the things taking place throughout the day at this community event with multiple speakers.' });
+assert.ok(compactTopic.startsWith('Hear three tech talks on AI and full-stack engineering.'));
+assert.ok(!compactTopic.includes('….'));
 assert.ok(!eventSeoDescription({ ...event, city: 'Hyderabad', venueName: 'Hyderabad, Telangana, India' }).includes('Hyderabad, Hyderabad'));
 assert.ok(!eventSeoDescription({ ...event, priceType: null, priceNote: null }).includes('Free entry'));
 assert.ok(eventSeoDescription({ ...event, priceType: 'paid', hosted: { ...CHAPTER_LOUNGE_FIXTURE.hosted, pricePaise: 29900 } }).endsWith('₹299.'));

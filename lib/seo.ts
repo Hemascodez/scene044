@@ -62,8 +62,8 @@ export function truncateSeoText(value: string, maxLength = 160): string {
  * curator/pipeline events get it immediately, with no paid generation job. */
 export function eventSeoDescription(event: PublicEvent & { gist?: string | null; hosted?: { pricePaise: number } | null }): string {
   const gist = usableEventSummary({ title: event.title, summary: event.gist ?? null });
-  const topic = [gist && !gist.includes('?') ? gist : null, ...event.highlights, eventShortIntro(event), event.title]
-    .filter((value): value is string => !!value).map(plainSeoText).find(Boolean) || event.title;
+  const topics = [gist && !gist.includes('?') ? gist : null, ...event.highlights, eventShortIntro(event), event.title]
+    .filter((value): value is string => !!value).map(plainSeoText).filter(Boolean);
   const when = event.startAt && Number.isFinite(Date.parse(event.startAt))
     ? `${formatSceneDateLong(event.startAt).replace(/^\w+, /, '')}, ${formatSceneTime(event.startAt)} IST`
     : "date to be announced";
@@ -81,8 +81,10 @@ export function eventSeoDescription(event: PublicEvent & { gist?: string | null;
   // Reserve space for date, place and price instead of truncating them away.
   // The event's actual subject always leads, including long-address listings.
   const topicBudget = Math.max(28, 160 - facts.length - price.length - 2);
-  const lead = truncateSeoText(topic, topicBudget).replace(/[.!\s]+$/g, '');
-  return truncateSeoText(`${lead}. ${facts}${price}`);
+  // Prefer one complete source-backed takeaway to half a long gist.
+  const topic = topics.find(value => value.length <= topicBudget) ?? topics[0] ?? event.title;
+  const lead = truncateSeoText(topic, topicBudget);
+  return truncateSeoText(`${lead}${/[.!?…]$/.test(lead) ? '' : '.'} ${facts}${price}`);
 }
 
 export function eventSeoTitle(event: PublicEvent): string {
