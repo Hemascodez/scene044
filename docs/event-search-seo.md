@@ -52,6 +52,59 @@ No first-position ranking, indexing deadline or rich-result appearance is
 guaranteed. Do not buy links, manufacture reviews, claim unsupported events,
 or generate dozens of near-identical city/category pages.
 
+## Newly added events and safe automation (17 November 2026)
+
+SEO metadata is computed from the current published event on every request.
+Both curator-added and pipeline-added events already get a canonical URL,
+server-rendered metadata, poster previews, breadcrumbs, Event JSON-LD and a
+sitemap entry. There is no separate per-event SEO generation/deployment step.
+
+The November update makes the actual event subject lead the search snippet,
+reserves room for its date/city, shortens address-heavy venue names in metadata
+only, and avoids repeating the city in a title that already contains it.
+The complete venue/address and official title remain unchanged. Structured
+descriptions use the full published story; prices and external availability
+are never inferred to make a rich-result warning disappear.
+
+Run the bounded, read-only reviewer after adding events:
+
+```sh
+npm run seo:events -- --since=2026-11-17
+npm run seo:events -- --ids=185,186,187,188,189,190,191,192
+npm run test:event-seo-quality
+```
+
+Dates supplied to `--since` start at midnight Asia/Kolkata. With no selection,
+the checker examines the latest 30 upcoming published events; it explicitly
+reports when the selection was capped. It reads only the public feed, sitemap
+and selected detail pages, stops on rate limiting, and never follows source
+links. Technical failures set a nonzero exit status; editorial/source gaps
+remain review items, not automatic unpublishing or invented fixes.
+
+### Recommended next step: publication-triggered SEO assistant
+
+Keep deterministic metadata generation above as the automatic layer. A future
+worker should consume a publication/update outbox keyed by event ID, content
+version and SEO rules version. Coalesce repeat edits, retry transient failures
+with bounds, and skip stale versions. Store its checks and suggested changes
+privately, not on the public event payload.
+
+Allow automatic validation of canonical/sitemap/schema parity. Queue missing
+venues, ambiguous prices/date-only timestamps and conflicting daypart copy for
+curator review. If AI drafts a better gist or description, give it only the
+official public source facts, treat that source as untrusted data, and require
+curator approval before replacing visible copy. Never change dates, cities,
+prices, availability, slugs, registrations or payment data on an AI guess.
+
+Measure impressions/clicks and indexing through an authorized Search Console
+connection. Google does not provide a general event-URL instant-indexing API;
+keep the dynamic sitemap discoverable and use normal URL inspection when
+appropriate. Do not repeatedly submit the sitemap for every page edit.
+
+No autonomous worker, schedule, paid model call, Search Console submission or
+subscriber message is enabled by this change. `seo:events` is the reusable
+read-only validation foundation, not a claim that a full agent is running.
+
 Google references:
 - https://developers.google.com/search/docs/appearance/structured-data/event
 - https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls

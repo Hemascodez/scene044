@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { createElement } from 'react';
+import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { AppRouterContext, type AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { load } from 'cheerio';
 import type { Pool } from 'pg';
 import { EVENT_COLLECTIONS, eventCollectionPath, eventCollectionDateNote, eventsForCollection, getEventCollection } from '../lib/eventDiscovery';
@@ -11,6 +12,15 @@ import { EventCollectionView } from '../components/scene/EventCollectionView';
 import EventCollectionPage, { generateMetadata } from '../app/events/chennai/[collection]/page';
 import CategoryPage, { generateMetadata as categoryMetadata } from '../app/category/[key]/page';
 import sitemap from '../app/sitemap';
+
+// Account controls now share Next's router. Provide the real context in this
+// isolated SSR test rather than removing the production auth wrapper.
+const router: AppRouterInstance = {
+  back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {}, bfcacheId: 'seo-test',
+};
+const renderForSearch = (node: ReactNode) => renderToStaticMarkup(
+  createElement(AppRouterContext.Provider, { value: router }, node),
+);
 
 async function main() {
   const now = new Date('2026-10-21T04:30:00Z'); // Wednesday 10:00 IST
@@ -68,7 +78,7 @@ async function main() {
     assert.equal(list.numberOfItems, matching.length);
     assert.deepEqual(list.itemListElement.map(item => item.position), matching.map((_, index) => index + 1));
     assert.ok(list.itemListElement.every(item => item.url.startsWith('https://scene044.in/events/')));
-    const $ = load(renderToStaticMarkup(createElement(EventCollectionView, {
+    const $ = load(renderForSearch(createElement(EventCollectionView, {
       collection, events: matching, dateNote: eventCollectionDateNote(collection, now),
     })));
     assert.equal($('h1').text(), collection.title);
@@ -78,7 +88,7 @@ async function main() {
     assert.equal($('nav[aria-label="Find events in Chennai"] a').length, EVENT_COLLECTIONS.length, 'all discovery destinations are crawlable');
     assert.equal($('a[href="/category/finance"]').length, 1);
   }
-  const empty = load(renderToStaticMarkup(createElement(EventCollectionView, {
+  const empty = load(renderForSearch(createElement(EventCollectionView, {
     collection: getEventCollection('finance-this-week')!, events: [], dateNote: '',
   })));
   assert.match(empty('main').text(), /No finance events this week listed right now/);
@@ -95,7 +105,7 @@ async function main() {
       return { rows: sql.includes('FROM events e') ? [{ ...base, startAt: '2099-10-21T12:30:00Z' }] : [] };
     } } as unknown as Pool;
     const page = await EventCollectionPage({ params: Promise.resolve({ collection: 'free' }) });
-    const $ = load(renderToStaticMarkup(page));
+    const $ = load(renderForSearch(page));
     const renderedSchema = JSON.parse($('script[type="application/ld+json"]').first().text());
     assert.equal(renderedSchema.mainEntity.numberOfItems, 1);
     assert.equal($('article').length, 1);
@@ -109,7 +119,7 @@ async function main() {
       { ...base, id: 202, startAt: '2000-10-21T12:30:00Z' },
       { ...base, id: 203, startAt: '2099-10-21T12:30:00Z', city: 'Bengaluru' },
     ] : [] }) } as unknown as Pool;
-    const category = load(renderToStaticMarkup(await CategoryPage({ params: Promise.resolve({ key: 'tech' }) })));
+    const category = load(renderForSearch(await CategoryPage({ params: Promise.resolve({ key: 'tech' }) })));
     const categorySchema = JSON.parse(category('script[type="application/ld+json"]').first().text());
     assert.equal(categorySchema.mainEntity.numberOfItems, 1, 'category schema excludes past and intercity events just like its cards');
     assert.equal(category('article').length, 1);

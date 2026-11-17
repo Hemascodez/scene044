@@ -1,6 +1,6 @@
 import type { PublicEvent, PublicEventDetail } from "@/lib/events";
 import { formatSceneDateLong, formatSceneTime } from "@/lib/client/istTime";
-import { posterFor, eventShortIntro } from "@/lib/client/sceneEvent";
+import { posterFor, eventShortIntro, usableEventSummary } from "@/lib/client/sceneEvent";
 import { getFieldCardForCategory, type FieldCard } from "@/lib/fieldCards";
 import type { CatalogVenue } from "@/lib/venueCatalog";
 import { venueSearchDescription, venueSearchIntent, VENUES_SEARCH_DESCRIPTION, VENUES_SEARCH_TITLE } from "@/lib/venueDiscovery";
@@ -58,21 +58,47 @@ export function truncateSeoText(value: string, maxLength = 160): string {
   return `${clean.replace(/[\s,.;:—-]+$/g, "")}…`;
 }
 
-export function eventSeoDescription(event: PublicEvent): string {
-  const summary = eventShortIntro(event);
-  const when = event.startAt
-    ? `${formatSceneDateLong(event.startAt)}, ${formatSceneTime(event.startAt)} IST`
+/** Metadata is derived from published facts, not a separate AI rewrite. New
+ * curator/pipeline events get it immediately, with no paid generation job. */
+export function eventSeoDescription(event: PublicEvent & { gist?: string | null; hosted?: { pricePaise: number } | null }): string {
+  const gist = usableEventSummary({ title: event.title, summary: event.gist ?? null });
+  const topic = plainSeoText(gist && !gist.includes('?') ? gist
+    : event.highlights.find(value => plainSeoText(value)) || eventShortIntro(event) || event.title);
+  const when = event.startAt && Number.isFinite(Date.parse(event.startAt))
+    ? `${formatSceneDateLong(event.startAt).replace(/^\w+, /, '')}, ${formatSceneTime(event.startAt)} IST`
     : "date to be announced";
   const venue = publishedVenueName(event.venueName, event.city);
-  const where = event.isOnline ? "online" : [venue, event.city].filter(Boolean).join(', ');
-  return truncateSeoText(
-    `${when} · ${where}.${event.priceType === 'free' ? ' Free entry.' : event.priceNote ? ` ${event.priceNote}.` : ''} ${summary || `${event.title}. See event details and the original registration link on SCENE.`}`,
-  );
+  const city = normalizeEventCity(event.city);
+  // A source sometimes puts its entire address in venue_name. Keep it in the
+  // page/schema; it must not consume the whole search snippet or repeat city.
+  const shortVenue = venue ? truncateSeoText(plainSeoText(venue.split(',')[0]), 32) : null;
+  const where = event.isOnline ? 'Online' : [shortVenue, city].filter(Boolean).join(', ');
+  const facts = `${when}${where ? ` · ${where}` : ''}.`;
+  const pricePaise = event.hosted?.pricePaise ?? event.hostedPricePaise;
+  const price = pricePaise != null && Number.isSafeInteger(pricePaise) && pricePaise >= 0
+    ? pricePaise === 0 ? ' Free entry.' : ` ₹${(pricePaise / 100).toLocaleString('en-IN')}.`
+    : event.priceType === 'free' ? ' Free entry.' : '';
+  // Reserve space for date, place and price instead of truncating them away.
+  // The event's actual subject always leads, including long-address listings.
+  const topicBudget = Math.max(28, 160 - facts.length - price.length - 2);
+  const lead = truncateSeoText(topic, topicBudget).replace(/[.!\s]+$/g, '');
+  return truncateSeoText(`${lead}. ${facts}${price}`);
 }
 
 export function eventSeoTitle(event: PublicEvent): string {
-  const location = event.isOnline ? 'Online event' : `${event.city || 'Chennai'} event`;
-  return `${event.title} — ${location} | SCENE`;
+  const title = event.title.replace(/\s+/g, ' ').trim();
+  const city = normalizeEventCity(event.city);
+  const cityNames = city === 'Bengaluru' ? ['Bengaluru', 'Bangalore'] : city ? [city] : [];
+  const alreadyLocated = cityNames.some(name => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(title));
+  const location = event.isOnline ? 'Online event' : alreadyLocated ? null : city;
+  return `${title}${location ? ` — ${location}` : ''} | SCENE`;
+}
+
+/** Plain text for snippets only; never changes the visible curator copy. */
+function plainSeoText(value: string): string {
+  return value.replace(/<[^>]*>/g, ' ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`#]/g, '').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
+    .replace(/\s+/g, ' ').trim();
 }
 
 /** Metadata only: never rewrites the curator's visible copy or pricing. */
@@ -251,7 +277,10 @@ export function eventStructuredData(event: PublicEventDetail, now = new Date()):
     "@id": `${canonicalUrl}#event`,
     url: canonicalUrl,
     name: event.title,
-    description: eventSeoDescription(event),
+    // Structured data can describe the full visible event, rather than the
+    // abbreviated 160-character search snippet. Do not synthesize new claims.
+    description: truncateSeoText(plainSeoText(usableEventSummary(event)
+      || usableEventSummary({ title: event.title, summary: event.gist }) || event.title), 2000),
     // A generic scene/stock image is not an official image of this event.
     ...(event.posterImageUrl ? { image: [absoluteUrl(event.posterImageUrl)] } : {}),
     startDate: new Date(event.startAt).toISOString(),
