@@ -4,7 +4,8 @@ import { EventTicketError } from '@/lib/hostedEventData';
 export const REGISTRATION_FILTERS = ['all', 'paid', 'unpaid', 'checked_in', 'payment_review', 'cancelled'] as const;
 export type RegistrationFilter = typeof REGISTRATION_FILTERS[number];
 export interface CuratorRegistration {
-  id: number; name: string; email: string; phone: string; code: string;
+  id: number; name: string; email: string | null; phone: string | null; code: string;
+  paymentSource: 'razorpay' | 'host_direct';
   status: string; amountPaise: number; createdAt: string; paidAt: string | null;
   checkedInAt: string | null; holdUntil: string; hasOrder: boolean;
 }
@@ -14,6 +15,7 @@ export interface HostedRegistrationReport {
     registeredCount: number; checkedInCount: number; checkoutCount: number;
     activeUnpaidCount: number; expiredUnpaidCount: number; reviewCount: number;
     cancelledCount: number; grossPaise: number; waitlistCount: number;
+    hostCollectedPaise: number; sceneCollectedPaise: number;
   };
   registrations: CuratorRegistration[];
   page: number; pageSize: number; total: number; fetchedAt: string;
@@ -31,6 +33,8 @@ export async function hostedRegistrationReport(eventId: number, filter: Registra
      count(r.id) FILTER(WHERE r.status='payment_review')::int AS "reviewCount",
      count(r.id) FILTER(WHERE r.status='cancelled')::int AS "cancelledCount",
      COALESCE(sum(r.amount_paise) FILTER(WHERE r.status IN ('confirmed','checked_in') AND r.paid_at IS NOT NULL),0)::text AS "grossPaise",
+     COALESCE(sum(r.amount_paise) FILTER(WHERE r.status IN ('confirmed','checked_in') AND r.paid_at IS NOT NULL AND r.payment_source='host_direct'),0)::text AS "hostCollectedPaise",
+     COALESCE(sum(r.amount_paise) FILTER(WHERE r.status IN ('confirmed','checked_in') AND r.paid_at IS NOT NULL AND r.payment_source='razorpay'),0)::text AS "sceneCollectedPaise",
      (SELECT count(*)::int FROM event_waitlist w WHERE w.event_id=e.id) AS "waitlistCount"
      FROM hosted_events h JOIN events e ON e.id=h.event_id
      LEFT JOIN event_registrations r ON r.event_id=e.id WHERE e.id=$1 GROUP BY e.id,h.event_id`, [eventId],
@@ -40,7 +44,7 @@ export async function hostedRegistrationReport(eventId: number, filter: Registra
   const pageSize = 50;
   const pattern = search ? `%${search.replace(/[\\%_]/g, '\\$&')}%` : '';
   const registrations = (await query<CuratorRegistration & { totalMatches: number }>(
-    `SELECT id,name,email,phone_e164 AS phone,code,status,amount_paise AS "amountPaise",
+    `SELECT id,name,email,phone_e164 AS phone,code,status,payment_source AS "paymentSource",amount_paise AS "amountPaise",
      created_at AS "createdAt",paid_at AS "paidAt",checked_in_at AS "checkedInAt",hold_until AS "holdUntil",
      (order_id IS NOT NULL) AS "hasOrder",count(*) OVER()::int AS "totalMatches"
      FROM event_registrations WHERE event_id=$1
@@ -56,10 +60,10 @@ export async function hostedRegistrationReport(eventId: number, filter: Registra
   const { id, title, capacity, ...summary } = row;
   const iso = (value: string) => new Date(value).toISOString();
   return {
-    event: { id, title, capacity }, summary: { ...summary, grossPaise: Number(summary.grossPaise) },
+    event: { id, title, capacity }, summary: { ...summary, grossPaise: Number(summary.grossPaise), hostCollectedPaise: Number(summary.hostCollectedPaise), sceneCollectedPaise: Number(summary.sceneCollectedPaise) },
     registrations: registrations.map(r => ({
       id: r.id, name: r.name, email: r.email, phone: r.phone, code: r.code, status: r.status,
-      amountPaise: r.amountPaise, hasOrder: r.hasOrder,
+      amountPaise: r.amountPaise, hasOrder: r.hasOrder, paymentSource: r.paymentSource,
       createdAt: iso(r.createdAt), paidAt: r.paidAt ? iso(r.paidAt) : null,
       checkedInAt: r.checkedInAt ? iso(r.checkedInAt) : null, holdUntil: iso(r.holdUntil),
     })),

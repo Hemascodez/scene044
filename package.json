@@ -22,6 +22,7 @@
     "test:intercity": "node --import tsx scripts/test-intercity-events.ts",
     "test:hosted-event": "node --import tsx scripts/test-hosted-event.ts && node --import tsx scripts/test-event-registration.ts && node --import tsx scripts/test-registration-flow.ts && node --import tsx scripts/test-ticket-sound.ts && node --import tsx scripts/test-swipe.ts && node --import tsx scripts/test-enrolled.ts && node --import tsx scripts/test-my-event-tickets.ts && node --import tsx scripts/test-event-host.ts && node --import tsx scripts/test-attendee-flow.ts",
     "test:hosted-event-backend": "node --import tsx scripts/test-hosted-event-backend.ts",
+    "test:offline-event-registrations": "node --import tsx scripts/test-offline-event-registrations.ts",
     "test:hosted-reporting": "node --import tsx scripts/test-hosted-reporting.tsx && node --import tsx scripts/test-hosted-analytics.ts",
     "test:analytics-privacy": "node --import tsx scripts/test-analytics-privacy.ts",
     "test:brand": "node --import tsx scripts/test-brand.tsx",

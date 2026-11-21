@@ -54,6 +54,9 @@ export interface ReminderSend {
 
 export interface MoneySummary {
   grossPaise: number;
+  hostCollectedPaise?: number;
+  sceneCollectedPaise?: number;
+  sceneNetPaise?: number;
   feesPaise: number;
   netPaise: number;
   paymentsCount: number;
@@ -61,7 +64,7 @@ export interface MoneySummary {
   reviewCount?:number;
   /** Human line from the backend, e.g. "Next settlement on 24 Nov". */
   settlement: string;
-  payments: { at: string; guest: string; amountPaise: number; paymentId: string; status: "captured" | "failed" | "refunded" }[];
+  payments: { at: string; guest: string; amountPaise: number; paymentId: string | null; reference?: string; source?: 'razorpay' | 'host_direct'; status: "captured" | "paid_offline" | "failed" | "refunded" }[];
 }
 
 export interface CheckInResult {

@@ -26,6 +26,7 @@ function initials(name: string) {
 }
 
 function phoneLabel(phone: string) {
+  if (!phone) return 'Phone not provided';
   const d = phone.replace(/\D/g, '').slice(-10)
   return d.length === 10 ? `+91 ${d.slice(0, 5)} ${d.slice(5)}` : phone
 }
@@ -152,7 +153,7 @@ export function EventGuestList({ guests, onCheckIn }: { guests: HostGuest[]; onC
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className={`font-display text-[19px] font-bold leading-tight tracking-[-0.01em] ${cancelled ? 'line-through' : ''}`}>{g.name}</p>
-                    <p className="mt-0.5 text-sm [overflow-wrap:anywhere]" style={{ color: MUTED }}>{g.email}</p>
+                    <p className="mt-0.5 text-sm [overflow-wrap:anywhere]" style={{ color: MUTED }}>{g.email || 'Email not provided'}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2.5 font-mono text-xs text-[#d8d2ce]">
                       <span>{phoneLabel(g.phone)}</span>
                       <span className="border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] tracking-[0.06em]">{g.code}</span>

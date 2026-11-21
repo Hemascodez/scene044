@@ -195,6 +195,7 @@ async function main() {
     await db.exec(
       readFileSync("db/migrations/2026-11-12-hosted-events.sql", "utf8"),
     ); // repeatable migration
+    await db.exec(readFileSync('db/migrations/2026-11-21-offline-event-registrations.sql', 'utf8'));
     const { prepareChapterLoungeDraft, saveHostedEventSettings, hostedEventAdminCatalog } =
       await import("../lib/hostedEventAdmin");
     const draft = await prepareChapterLoungeDraft();

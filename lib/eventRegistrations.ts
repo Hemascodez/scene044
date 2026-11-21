@@ -17,10 +17,10 @@ import {
 type Registration = {
   id: number;
   event_id: number;
-  user_id: number;
+  user_id: number | null;
   name: string;
-  email: string;
-  phone_e164: string;
+  email: string | null;
+  phone_e164: string | null;
   registration_token: string;
   ticket_token: string;
   code: string;
@@ -104,7 +104,7 @@ export function publicEventTicket(
   return {
     code: row.code,
     name: row.name,
-    phoneMasked: `+91 ••••• ${row.phone_e164.slice(-5)}`,
+    phoneMasked: row.phone_e164 ? `+91 ••••• ${row.phone_e164.slice(-5)}` : 'Not provided',
     status: cancelled || row.status === "cancelled" ? "cancelled" : "confirmed",
     qrValue: `https://scene044.in${eventPath({ id: eventId, title })}/ticket?ticket=${row.ticket_token}`,
   };
@@ -237,6 +237,11 @@ export async function createEventRegistration(
     await recoverEventRegistration(prior[0]);
   return transaction(async (client) => {
     const event = await lockEvent(client, eventId);
+    // Serialize with offline entry too: a verified phone must never pay twice.
+    const offline = (await client.query<{ ticket_token: string }>(`SELECT ticket_token FROM event_registrations
+      WHERE event_id=$1 AND payment_source='host_direct' AND phone_e164=$2
+      AND status IN ('confirmed','checked_in') AND paid_at IS NOT NULL`, [eventId, user.phoneE164])).rows[0];
+    if (offline) throw new EventTicketError("You're already registered.", 409, { existingTicketToken: offline.ticket_token });
     const { rows: old } = await client.query<Registration>(
       "SELECT * FROM event_registrations WHERE event_id=$1 AND user_id=$2 FOR UPDATE",
       [eventId, user.id],
@@ -408,7 +413,8 @@ export async function myEventRegistrations(userId: number) {
     }
   >(
     `SELECT r.*,e.title,e.poster_image_url,e.start_at,e.end_at,e.venue_name,e.status AS event_status
-    FROM event_registrations r JOIN events e ON e.id=r.event_id WHERE r.user_id=$1
+    FROM event_registrations r JOIN events e ON e.id=r.event_id
+    WHERE (r.user_id=$1 OR (r.payment_source='host_direct' AND r.phone_e164=(SELECT phone_e164 FROM venue_users WHERE id=$1)))
     AND r.status IN ('confirmed','checked_in','cancelled') AND r.paid_at IS NOT NULL ORDER BY e.start_at,r.id`,
     [userId],
   );

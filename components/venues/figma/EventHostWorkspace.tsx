@@ -41,6 +41,7 @@ const btnFlame = 'press min-h-11 border-[1.5px] border-ink bg-flame px-5 py-2.5 
 
 
 function maskForList(phone: string) {
+  if (!phone) return 'Phone not provided'
   const d = phone.replace(/\D/g, '').slice(-10)
   return d.length === 10 ? `+91 ${d.slice(0, 5)} ${d.slice(5)}` : phone
 }
@@ -482,7 +483,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
               <div className="space-y-8 page-in">
                 <div>
                   <h1 className="font-head text-2xl text-ink md:text-3xl">Money</h1>
-                  <p className="mt-1 text-sm text-stone">From Razorpay. {money.settlement}</p>
+                  <p className="mt-1 text-sm text-stone">{money.settlement}</p>
                 </div>
                 <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {([
@@ -497,6 +498,10 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                     </div>
                   ))}
                 </dl>
+                {(money.hostCollectedPaise ?? 0) > 0 && <p className="border-[1.5px] border-ink bg-white p-4 text-sm text-ink">
+                  {formatRupees(money.sceneCollectedPaise ?? 0)} collected online by SCENE · {formatRupees(money.hostCollectedPaise ?? 0)} paid directly to the host.
+                  {' '}Only the online net of {money.feesKnown === false ? 'a pending amount' : formatRupees(money.sceneNetPaise ?? 0)} is held by SCENE; the offline amount is already with the host.
+                </p>}
                 {(money.reviewCount ?? 0) > 0 && (
                   <p role="status" className="border-[1.5px] border-flame/40 bg-flame/10 p-4 text-sm text-ink">
                     {money.reviewCount} captured payment{money.reviewCount === 1 ? '' : 's'} need SCENE support before a ticket can be issued. These are not confirmed bookings or available payouts.
@@ -506,17 +511,17 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                   <h2 id="payments-heading" className="border-b border-line pb-3 font-head text-xl text-ink">Payments</h2>
                   <ul className="mt-4 space-y-3">
                     {money.payments.map((p) => (
-                      <li key={p.paymentId} className="flex flex-wrap items-center justify-between gap-3 border-[1.5px] border-ink bg-white p-4 shadow-hard-sm">
+                      <li key={p.paymentId ?? `offline-${p.reference}`} className="flex flex-wrap items-center justify-between gap-3 border-[1.5px] border-ink bg-white p-4 shadow-hard-sm">
                         <div className="min-w-0">
                           <p className="font-head text-sm text-ink">{p.guest}</p>
-                          <p className="font-mono text-xs text-stone">{formatSceneDate(p.at)} · {formatSceneTime(p.at)} · {p.paymentId}</p>
+                          <p className="font-mono text-xs text-stone">{formatSceneDate(p.at)} · {formatSceneTime(p.at)} · {p.paymentId ?? p.reference}</p>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-head text-sm text-ink">{formatRupees(p.amountPaise)}</span>
                           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono-b text-[11px] ${
-                            p.status === 'captured' ? 'border border-moss/40 bg-moss/10 text-moss' : 'border border-flame/40 bg-flame/10 text-flame'
+                            p.status === 'captured' || p.status === 'paid_offline' ? 'border border-moss/40 bg-moss/10 text-moss' : 'border border-flame/40 bg-flame/10 text-flame'
                           }`}>
-                            {p.status === 'captured' ? 'Captured' : p.status === 'failed' ? 'Failed' : 'Refunded'}
+                            {p.status === 'paid_offline' ? 'Paid to host' : p.status === 'captured' ? 'Captured' : p.status === 'failed' ? 'Failed' : 'Refunded'}
                           </span>
                         </div>
                       </li>

@@ -27,13 +27,15 @@ export function RegistrationReportDetails({ report }: { report: HostedRegistrati
       {metrics.map(([label, value]) => <div key={label} className="min-w-0 border border-[#25382e] bg-[#0b1611] p-4"><dt className="text-sm text-[#a9bcb0]">{label}</dt><dd className="mt-2 break-words font-display text-2xl font-bold text-[#5effb0]">{value}</dd></div>)}
     </dl>
     <p className="text-sm leading-6 text-[#a9bcb0]">{s.checkoutCount} checkout records · {s.checkedInCount} checked in · {s.cancelledCount} cancelled · {s.waitlistCount} on waitlist.</p>
+    <p className="text-sm leading-6 text-[#a9bcb0]">{money(s.sceneCollectedPaise)} collected by SCENE online · {money(s.hostCollectedPaise)} collected directly by the host. Host-collected payments are not due from SCENE.</p>
     <p className="text-sm leading-6 text-[#a9bcb0]">Unpaid: {s.activeUnpaidCount} active seat holds and {s.expiredUnpaidCount} expired holds. These are unfinished checkouts, not confirmed abandonment or page-visitor counts. Revenue is for paid, non-cancelled tickets; it is not a bank-settlement report.</p>
     {report.registrations.length === 0 ? <p className="border border-dashed border-[#33493c] p-5 text-sm text-[#a9bcb0]">No registrations match this view. Try another filter or clear the search.</p> : <div className="space-y-3">
       {report.registrations.map(r => <article key={r.id} className="min-w-0 space-y-3 border border-[#25382e] p-4">
         <div className="flex flex-wrap items-start justify-between gap-2"><h3 className="break-words font-semibold">{r.name}</h3><span className={`border px-2 py-1 text-xs ${r.paidAt && (r.status === 'confirmed' || r.status === 'checked_in') ? 'border-[#2f7a52] text-[#5effb0]' : 'border-[#68502a] text-[#ffd48a]'}`}>{statusLabel(r.status, r.paidAt)}</span></div>
         <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
-          <div><dt className="text-[#a9bcb0]">Email</dt><dd className="mt-1 break-all select-text">{r.email}</dd></div>
-          <div><dt className="text-[#a9bcb0]">Mobile</dt><dd className="mt-1 select-text">+{r.phone}</dd></div>
+          <div><dt className="text-[#a9bcb0]">Email</dt><dd className="mt-1 break-all select-text">{r.email || 'Not provided'}</dd></div>
+          <div><dt className="text-[#a9bcb0]">Mobile</dt><dd className="mt-1 select-text">{r.phone ? `+${r.phone}` : 'Not provided'}</dd></div>
+          <div><dt className="text-[#a9bcb0]">Payment source</dt><dd className="mt-1">{r.paymentSource === 'host_direct' ? 'Offline · paid directly to host' : 'Online · Razorpay'}</dd></div>
           <div><dt className="text-[#a9bcb0]">Ticket amount</dt><dd className="mt-1">{money(r.amountPaise)}{r.paidAt ? ' · paid' : ' · not confirmed paid'}</dd></div>
           <div><dt className="text-[#a9bcb0]">Started (IST)</dt><dd className="mt-1">{when(r.createdAt)}</dd></div>
           <div><dt className="text-[#a9bcb0]">Paid (IST)</dt><dd className="mt-1">{when(r.paidAt)}</dd></div>

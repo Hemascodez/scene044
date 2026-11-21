@@ -34,6 +34,8 @@ const GUEST_COLUMNS = `code,ticket_token AS "ticketToken",name,phone_e164 AS pho
 function normalizeGuest(row: HostGuest): HostGuest {
   return {
     ...row,
+    phone: row.phone ?? '',
+    email: row.email ?? '',
     registeredAt: new Date(row.registeredAt).toISOString(),
     checkedInAt: row.checkedInAt
       ? new Date(row.checkedInAt).toISOString()
@@ -111,35 +113,45 @@ export async function checkInEventGuest(
 
 export async function hostEventMoney(eventId: number) {
   const { rows } = await query<{
+    id: number;
+    code: string;
     name: string;
     amount_paise: number;
     fee_paise: number | null;
-    payment_id: string;
+    payment_id: string | null;
+    payment_source: 'razorpay' | 'host_direct';
     paid_at: Date;
     status: string;
   }>(
-    `SELECT name,amount_paise,fee_paise,payment_id,paid_at,status FROM event_registrations
-    WHERE event_id=$1 AND payment_id IS NOT NULL ORDER BY paid_at DESC,id DESC`,
+    `SELECT id,code,name,amount_paise,fee_paise,payment_id,payment_source,paid_at,status FROM event_registrations
+    WHERE event_id=$1 AND (payment_id IS NOT NULL OR (payment_source='host_direct' AND paid_at IS NOT NULL))
+    ORDER BY paid_at DESC,id DESC`,
     [eventId],
   );
   const feesKnown = rows.every((r) => r.fee_paise !== null);
   const grossPaise = rows.reduce((sum, r) => sum + r.amount_paise, 0);
   const feesPaise = rows.reduce((sum, r) => sum + (r.fee_paise ?? 0), 0);
+  const hostCollectedPaise = rows.filter(r => r.payment_source === 'host_direct').reduce((sum, r) => sum + r.amount_paise, 0);
   return {
     grossPaise,
+    hostCollectedPaise,
+    sceneCollectedPaise: grossPaise - hostCollectedPaise,
+    sceneNetPaise: grossPaise - hostCollectedPaise - feesPaise,
     feesPaise,
     feesKnown,
     netPaise: grossPaise - feesPaise,
     paymentsCount: rows.length,
     settlement:
-      "Payments are collected by SCENE. Organiser payout is coordinated separately; this is not a bank-settlement confirmation.",
+      "Online payments are collected by SCENE through Razorpay. Offline payments are already held by the host and are not part of a SCENE payout. This is not a bank-settlement confirmation.",
     reviewCount: rows.filter((r) => r.status === "payment_review").length,
     payments: rows.map((r) => ({
       at: new Date(r.paid_at).toISOString(),
       guest: r.name,
       amountPaise: r.amount_paise,
       paymentId: r.payment_id,
-      status: "captured" as const,
+      reference: r.code,
+      source: r.payment_source,
+      status: r.payment_source === 'host_direct' ? 'paid_offline' as const : 'captured' as const,
     })),
   };
 }

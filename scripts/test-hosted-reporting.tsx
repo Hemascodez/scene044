@@ -30,7 +30,7 @@ async function main() {
     await db.exec(`CREATE TABLE events(id integer PRIMARY KEY,title text);
       CREATE TABLE hosted_events(event_id integer PRIMARY KEY,capacity integer);
       CREATE TABLE event_registrations(id serial PRIMARY KEY,event_id integer,name text,email text,phone_e164 text,code text,status text,amount_paise integer,
-        created_at timestamptz DEFAULT now(),paid_at timestamptz,checked_in_at timestamptz,hold_until timestamptz,order_id text,ticket_token text DEFAULT 'private-ticket-token',registration_token text DEFAULT 'private-registration-token',payment_id text DEFAULT 'private-payment-id');
+        created_at timestamptz DEFAULT now(),paid_at timestamptz,checked_in_at timestamptz,hold_until timestamptz,order_id text,ticket_token text DEFAULT 'private-ticket-token',registration_token text DEFAULT 'private-registration-token',payment_id text DEFAULT 'private-payment-id',payment_source text DEFAULT 'razorpay');
       CREATE TABLE event_waitlist(event_id integer,user_id integer);
       INSERT INTO events VALUES(164,'Chapter Lounge - Sunday Reads'),(165,'Other hosted event'),(166,'No registrations yet'),(167,'External event');
       INSERT INTO hosted_events VALUES(164,15),(165,100),(166,20);
@@ -54,7 +54,7 @@ async function main() {
     assert.equal((await GET(req(), context('167'))).status, 404);
     const all = await report();
     assert.equal(all.total, 7);
-    assert.deepEqual(all.summary, { registeredCount: 2, checkedInCount: 1, checkoutCount: 7, activeUnpaidCount: 1, expiredUnpaidCount: 1, reviewCount: 1, cancelledCount: 1, grossPaise: 59800, waitlistCount: 2 });
+    assert.deepEqual(all.summary, { registeredCount: 2, checkedInCount: 1, checkoutCount: 7, activeUnpaidCount: 1, expiredUnpaidCount: 1, reviewCount: 1, cancelledCount: 1, grossPaise: 59800, hostCollectedPaise: 0, sceneCollectedPaise: 59800, waitlistCount: 2 });
     assert.ok(all.registrations.every(r => r.phone === '919999999999'));
     const json = JSON.stringify(all);
     assert.doesNotMatch(json, /private-ticket|private-registration|private-payment|ticketToken|registrationToken|payment_id|ticket_token/);
