@@ -101,7 +101,10 @@ export type SafeFetchResult =
  */
 export async function safeFetchText(
   url: string,
-  opts: { allowedDomains: string[]; timeoutMs?: number; maxBytes?: number },
+  opts: {
+    allowedDomains: string[]; timeoutMs?: number; maxBytes?: number; allowPlainText?: boolean;
+    beforeFetch?: (url: string) => Promise<{ ok: true } | { ok: false; reason: string }>;
+  },
 ): Promise<SafeFetchResult> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
@@ -121,6 +124,8 @@ export async function safeFetchText(
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       const check = await validateHost(current, allowed);
       if (!check.ok) return check;
+      const policy = await opts.beforeFetch?.(current.toString());
+      if (policy && !policy.ok) return policy;
 
       let res: Response;
       try {
@@ -151,7 +156,7 @@ export async function safeFetchText(
       if (!res.ok) return { ok: false, reason: `http_${res.status}` };
 
       const contentType = (res.headers.get("content-type") ?? "").trim();
-      if (!ALLOWED_CONTENT_TYPE_RE.test(contentType)) {
+      if (!ALLOWED_CONTENT_TYPE_RE.test(contentType) && !(opts.allowPlainText && /^text\/plain(?:;|$)/i.test(contentType))) {
         return { ok: false, reason: `disallowed_content_type:${contentType}` };
       }
       if (!res.body) return { ok: false, reason: "empty_body" };

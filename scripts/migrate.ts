@@ -21,6 +21,7 @@ async function main() {
   await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-10-13-event-canonicals.sql'), 'utf8'));
   await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-11-12-hosted-events.sql'), 'utf8'));
   await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-11-21-offline-event-registrations.sql'), 'utf8'));
+  await pool.query(readFileSync(path.join(__dirname, '..', 'db', 'migrations', '2026-11-23-event-ingestion.sql'), 'utf8'));
   console.log("Schema applied.");
 }
 

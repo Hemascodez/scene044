@@ -1,9 +1,11 @@
 import { pool, query } from "../lib/db";
+import { buildIngestionQueries } from "../lib/eventIngestionScope";
 
 const SEED_QUERIES: {
   query_text: string;
-  category_hint: string;
+  category_hint: string | null;
   site_filter: string | null;
+  priority?: number;
 }[] = [
   { query_text: "Chennai AI meetup 2026", category_hint: "ai", site_filter: null },
   { query_text: "Chennai artificial intelligence conference", category_hint: "ai", site_filter: null },
@@ -63,6 +65,7 @@ const SEED_QUERIES: {
   { query_text: "startup founders event Chennai", category_hint: "startups", site_filter: "site:linkedin.com/events" },
   { query_text: "fintech event Chennai", category_hint: "finance", site_filter: "site:linkedin.com/events" },
   { query_text: "data cloud event Chennai", category_hint: "data", site_filter: "site:linkedin.com/events" },
+  ...buildIngestionQueries(),
 ];
 
 async function main() {
@@ -72,11 +75,11 @@ async function main() {
   for (const row of SEED_QUERIES) {
     const siteFilter = row.site_filter ?? null;
     const result = await query(
-      `INSERT INTO search_queries (query_text, category_hint, site_filter)
-       VALUES ($1,$2,$3)
-       ON CONFLICT (query_text, COALESCE(site_filter, '')) DO UPDATE SET category_hint = EXCLUDED.category_hint
+      `INSERT INTO search_queries (query_text, category_hint, site_filter, priority)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (query_text, COALESCE(site_filter, '')) DO UPDATE SET category_hint = EXCLUDED.category_hint, priority = EXCLUDED.priority
        RETURNING (xmax = 0) AS inserted`,
-      [row.query_text, row.category_hint, siteFilter],
+      [row.query_text, row.category_hint, siteFilter, row.priority ?? 0],
     );
     if (result.rows[0]?.inserted) {
       inserted += 1;

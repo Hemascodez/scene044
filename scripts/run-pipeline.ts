@@ -17,7 +17,7 @@
  *   npx tsx scripts/run-pipeline.ts --max-minutes 5
  */
 import { pool } from "../lib/db";
-import { runCleanup, runDiscovery, runExtraction, runVerification } from "../lib/pipeline";
+import { refreshDiscoveryFeeds, runCleanup, runDiscovery, runExtraction, runVerification } from "../lib/pipeline";
 import { MissingSearchCredentialsError } from "../lib/search";
 
 /*
@@ -50,13 +50,21 @@ async function main() {
   const only = discoverOnly || extractOnly || verifyOnly || cleanupOnly;
 
   if (!only || discoverOnly) {
+    console.log("feeds:", JSON.stringify({ refreshed: await refreshDiscoveryFeeds() }));
     const limit = Number(arg("limit"));
+    try {
     const result = await runDiscovery({
       limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
       site: arg("site"),
     });
     console.log("discovery:", JSON.stringify(result));
     if (result.stoppedEarly) console.warn("discovery stopped early:", result.stoppedEarly);
+    } catch (error) {
+      // Direct public feeds and the existing extraction queue still work when
+      // a search provider is not configured. Report setup, don't abort them.
+      if (!(error instanceof MissingSearchCredentialsError)) throw error;
+      console.warn("discovery unavailable:", error.message);
+    }
   }
 
   if (!only || extractOnly) {
@@ -64,11 +72,19 @@ async function main() {
     const deadline = started + maxMinutes * 60_000;
     const totals = { processed: 0, extracted: 0, merged: 0, needsReview: 0, rejected: 0, expandedListings: 0, enqueuedFromLists: 0 };
     let passes = 0;
+    const requestedPublish = Number(arg("max-publish") ?? process.env.EVENT_MAX_PUBLISH_PER_RUN ?? 10);
+    if (!Number.isInteger(requestedPublish) || requestedPublish < 0 || requestedPublish > 50) throw new Error("max-publish must be an integer between 0 and 50");
 
     while (Date.now() < deadline) {
-      const r = await runExtraction();
+      const r = await runExtraction({ maxPublish: requestedPublish - totals.extracted });
       passes++;
       for (const k of Object.keys(totals) as (keyof typeof totals)[]) totals[k] += r[k];
+      console.log("extraction-pass:", JSON.stringify(r));
+      if (r.publicationLimitReached) { console.log("extraction: publication safety limit reached"); break; }
+      if (r.processed === 0 && r.nextRetryAt && new Date(r.nextRetryAt).getTime() >= deadline) {
+        console.log(`extraction: retries scheduled after this run's budget (${r.nextRetryAt})`);
+        break;
+      }
 
       if (r.processed === 0 && !r.rateLimited) {
         console.log(`extraction: queue empty after ${passes} pass(es)`);

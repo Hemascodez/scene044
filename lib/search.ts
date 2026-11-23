@@ -147,11 +147,12 @@ const firecrawlProvider: SearchProvider = {
         limit: FIRECRAWL_RESULTS_PER_QUERY,
         sources: ["web"],
         ...(site ? { includeDomains: [site.domain] } : {}),
-        // Every query in this project is Chennai-scoped; telling the provider
-        // beats hoping the words "Chennai" carry the localisation.
-        location: "Chennai,Tamil Nadu,India",
+        // Multi-city queries carry their own city. A Chennai bias here hid
+        // Bengaluru, Mumbai and Kerala even when named in the query.
+        location: "India",
         country: "IN",
       }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (response.status === 429) {
@@ -177,7 +178,13 @@ const firecrawlProvider: SearchProvider = {
       .filter((r): r is { title?: string; description?: string; url: string } => !!r.url)
       // Firecrawl restricts by hostname only, so a path in the site filter
       // (site:linkedin.com/events) has to be applied here.
-      .filter((r) => !site || matchesPath(r.url, site.path))
+      .filter((r) => {
+        if (!site) return true;
+        try {
+          const host = new URL(r.url).hostname.replace(/^www\./, "");
+          return (host === site.domain || host.endsWith(`.${site.domain}`)) && matchesPath(r.url, site.path);
+        } catch { return false; }
+      })
       .map((r) => ({
         title: r.title ?? "",
         snippet: r.description ?? "",

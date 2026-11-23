@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { load } from "cheerio";
 import type { Pool } from "pg";
 import type { PublicEvent } from "../lib/events";
@@ -133,7 +134,9 @@ async function main() {
     assert.equal((await update(request({ ...body, city: undefined }))).status, 400);
     assert.equal(statements.length, previousStatements, "missing cities cannot silently preserve a wrong Chennai default");
     assert.deepEqual((await (await citySuggestions(request({}))).json()).cities, ["Bengaluru", "Chennai"]);
-    const home = load(renderToStaticMarkup(await Home({ searchParams: Promise.resolve({ tab: "intercity", city: "Bangalore" }) })));
+    const router: AppRouterInstance = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {}, bfcacheId: 'intercity-test' };
+    const home = load(renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router },
+      await Home({ searchParams: Promise.resolve({ tab: "intercity", city: "Bangalore" }) }))));
     assert.equal(home('[role="tab"][aria-selected="true"]').attr("id"), "tab-intercity");
     assert.equal(home('#panel-intercity article').length, 2, "the public Intercity link selects the correct tab and city on the server");
     competingCity = "Chennai";

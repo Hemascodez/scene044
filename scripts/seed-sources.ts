@@ -9,6 +9,7 @@ type SourceSeed = {
 };
 
 const sources: SourceSeed[] = [
+  { name: "KYN", domain: "kynhood.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "Public eventhome/event pages checked 2026-11-23. Initial HTML is an app shell; requires optional bounded JS rendering. Never use private APIs or attendee data." },
   { name: "Luma", domain: "lu.ma", trust_tier: "auto_fetch", robots_allowed: true, notes: "Generic event platform widely used for Chennai tech meetups (e.g. Chennai AI Meetup, TAI Connect, Hello World 2026). robots.txt only restricts Googlebot from a few paths (/social-share, /in/, /company/, /session-*); no general User-agent:* disallow. Event pages are publicly viewable without login." },
   { name: "Luma (luma.com)", domain: "luma.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "lu.ma 301-redirects to luma.com (platform rebrand, confirmed live 2026-08-30) — the SSRF-safe fetcher re-validates every redirect hop's domain against the allowlist, so luma.com must be seeded too or every lu.ma URL fails to fetch. robots.txt only restricts Googlebot from a few paths (/social-share, /in/, /company/, /session-*), same as lu.ma." },
   { name: "Meetup", domain: "meetup.com", trust_tier: "auto_fetch", robots_allowed: true, notes: "Hosts numerous active Chennai groups (Chennai Tech Meetup, AWS User Group Chennai, PyData Chennai, Chennai Web Engineering, OWASP Chennai). robots.txt disallows feeds/api/query-param variants but does not block general group/event pages, which are viewable without login." },
@@ -75,10 +76,7 @@ async function main() {
       `INSERT INTO sources (domain, name, trust_tier, robots_allowed, robots_checked_at)
        VALUES ($1,$2,$3,$4, now())
        ON CONFLICT (domain) DO UPDATE SET
-         name = EXCLUDED.name,
-         trust_tier = EXCLUDED.trust_tier,
-         robots_allowed = EXCLUDED.robots_allowed,
-         robots_checked_at = now()
+         name = EXCLUDED.name
        RETURNING xmax = 0 AS inserted`,
       [source.domain, source.name, source.trust_tier, source.robots_allowed],
     );

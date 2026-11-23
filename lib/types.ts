@@ -139,11 +139,13 @@ export interface ExtractedEvent {
   confidence: number; // 0..1. json_ld extractions are implicitly 1.0 (structured data, not inferred).
   dateEvidence: string | null; // verbatim page-text substring the LLM based startAt/endAt on
   venueEvidence: string | null; // verbatim page-text substring the LLM based venue fields on
+  sourceEventStatus?: string | null;
 }
 
 export interface CategorizationResult {
   category: Category | null; // null = confidently doesn't fit any allowlisted category -> reject
   chennaiRelevanceScore: number; // 0..1
+  classificationError?: boolean;
 }
 
 export interface PossibleDuplicate {

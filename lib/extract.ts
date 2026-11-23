@@ -5,6 +5,9 @@ import { normalizeDomain, normalizeUrl } from "@/lib/domain";
 import { findCheapEventDate, isPastEvent, eventDateRangeNeedsReview } from "@/lib/eventDates";
 import type { ExtractedEvent, PriceType } from "@/lib/types";
 import { cityFromEventLocation, normalizeEventCity } from "@/lib/eventLocations";
+import { classifyEventUrl } from "./eventUrlPatterns";
+import { fetchEventPage } from "./eventPageFetch";
+import { kynEmbeddedSchema } from "./kynEventAdapter";
 
 const PAGE_TEXT_MAX_CHARS = 6000;
 const MIN_TITLE_LENGTH = 3;
@@ -374,6 +377,7 @@ function mapSchemaEventToExtractedEvent(node: Record<string, unknown>): Extracte
     confidence: 1,
     dateEvidence: null,
     venueEvidence: null,
+    sourceEventStatus: typeof node.eventStatus === "string" ? node.eventStatus : null,
   };
 }
 
@@ -690,10 +694,50 @@ function findHtmlEventLinks(
 function isKnownListingUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return normalizeDomain(url) === "meetup.com" && parsed.pathname.startsWith("/find/");
+    return classifyEventUrl(url) === "hub"
+      || (normalizeDomain(url) === "meetup.com" && parsed.pathname.startsWith("/find/"));
   } catch {
     return false;
   }
+}
+
+function findPlatformEventLinks($: cheerio.CheerioAPI, pageUrl: string): EventLink[] {
+  const domain = normalizeDomain(pageUrl);
+  if (domain === "meetup.com") return findHtmlEventLinks($, pageUrl, { meetupOnly: true });
+  if (domain === "kynhood.com") return findHtmlEventLinks($, pageUrl)
+    .filter(link => /^\/event\/[a-f0-9]{24}\/?$/i.test(new URL(link.url).pathname)).slice(0, 100);
+  if (["luma.com", "lu.ma"].includes(domain)) return findLumaCalendarLinks($, pageUrl);
+  return [];
+}
+
+/** Public hydration data, not undocumented APIs. Only PUBLIC listed events
+ * are used; ignore users, tickets, coordinates and attendee information. */
+function findLumaCalendarLinks($: cheerio.CheerioAPI, pageUrl: string): EventLink[] {
+  if (!["luma.com", "lu.ma"].includes(normalizeDomain(pageUrl))) return [];
+  const raw = $("script#__NEXT_DATA__").text();
+  if (!raw || raw.length > 2_000_000) return [];
+  const links: EventLink[] = [];
+  try {
+    const parsed = JSON.parse(raw);
+    const initial = parsed?.props?.pageProps?.initialData;
+    // Detail pages can contain recommended events. Do not turn an unreadable
+    // detail page into a listing just because recommendations are available.
+    if (!initial || !/discover|calendar/i.test(String(initial.kind ?? ""))) return [];
+    let visited = 0;
+    const visit = (value: unknown, depth: number) => {
+      if (!value || typeof value !== "object" || depth > 9 || visited++ > 5000) return;
+      if (Array.isArray(value)) { for (const item of value.slice(0, 200)) visit(item, depth + 1); return; }
+      const record = value as Record<string, unknown>;
+      const event = record.event as Record<string, unknown> | undefined;
+      if (event && event.visibility === "public" && typeof event.url === "string" && typeof event.name === "string"
+        && typeof event.start_at === "string" && /^[a-zA-Z0-9_-]{2,150}$/.test(event.url)) {
+        links.push({ url: normalizeUrl(new URL(`/${event.url}`, pageUrl).toString()), title: event.name.slice(0, 200), startAt: nullUnlessParsableDate(event.start_at) });
+      }
+      for (const [key, child] of Object.entries(record)) if (["data", "events", "entries", "featured_events"].includes(key)) visit(child, depth + 1);
+    };
+    visit(initial, 0);
+  } catch { /* malformed source data */ }
+  return uniqueEventLinks(links).slice(0, 100);
 }
 
 /** Finds the specific detail page represented by `expectedTitle` when an old
@@ -731,7 +775,7 @@ async function extractViaLlm(
   pageText: string,
   model: string,
 ): Promise<ExtractedEvent | null> {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45_000, maxRetries: 0 });
 
   const res = await client.responses.create({
     model,
@@ -863,7 +907,7 @@ export type ExtractionOutcome =
    *  calling the model — there is nothing to learn from extracting an event
    *  that is over. */
   | { kind: "past_event"; startAt: string | null; endAt: string | null; dateSource: string }
-  | { kind: "none" };
+  | { kind: "none"; reason?: string; retryable?: boolean };
 
 export async function extractFromUrl(
   url: string,
@@ -871,10 +915,21 @@ export async function extractFromUrl(
   model: string = extractModel(),
 ): Promise<ExtractionOutcome> {
   try {
-    const fetched = await safeFetchText(url, { allowedDomains });
-    if (!fetched.ok) return { kind: "none" };
+    const fetched = await fetchEventPage(url, allowedDomains);
+    if (!fetched.ok) return { kind: "none", reason: fetched.reason,
+      retryable: /timeout|fetch_failed|dns_resolution|http_(?:429|5\d\d)|robots_unavailable|renderer_|render_budget/.test(fetched.reason) };
+    return await extractEventDocument(fetched.text, fetched.finalUrl, model);
+  } catch {
+    return { kind: "none", reason: "extraction_error", retryable: true };
+  }
+}
 
-    const $ = cheerio.load(fetched.text);
+/** Deterministic parsing can be probed without credentials, DB writes or AI
+ * calls by passing model=null. Public source content is always untrusted. */
+export async function extractEventDocument(html: string, pageUrl: string, model: string | null = null): Promise<ExtractionOutcome> {
+  try {
+    const fetched = { text: html, finalUrl: pageUrl };
+    const $ = cheerio.load(html);
 
     // Meetup search pages can expose one child Event as a top-level JSON-LD
     // node as well as listing many real detail links. Treating that arbitrary
@@ -883,9 +938,11 @@ export async function extractFromUrl(
     if (isKnownListingUrl(fetched.finalUrl)) {
       const listingLinks = uniqueEventLinks([
         ...findJsonLdEventLinks($, fetched.finalUrl),
-        ...findHtmlEventLinks($, fetched.finalUrl, { meetupOnly: true }),
+        ...findPlatformEventLinks($, fetched.finalUrl),
       ]);
       if (listingLinks.length > 0) return { kind: "event_list", links: listingLinks };
+      // An empty hub is not an event, and must never go through the model.
+      return { kind: "none", reason: "listing_empty", retryable: true };
     }
 
     /*
@@ -894,13 +951,17 @@ export async function extractFromUrl(
      * ordinary event page with a related-events rail would be expanded instead
      * of extracted, and the real event lost.
      */
-    const jsonLdEvent = findJsonLdEvent($);
+    const embedded = kynEmbeddedSchema($, pageUrl);
+    const jsonLdEvent = findJsonLdEvent($) ?? (embedded ? mapSchemaEventToExtractedEvent(embedded) : null);
     if (jsonLdEvent) {
+      if (/(?:EventCancelled|EventPostponed)$/.test(jsonLdEvent.sourceEventStatus ?? "")) {
+        return { kind: "none", reason: "source_event_not_scheduled" };
+      }
       jsonLdEvent.posterImageUrl = pickPosterUrl($, fetched.finalUrl, jsonLdEvent.posterImageUrl);
       return { kind: "event", event: jsonLdEvent, supportingText: extractVisiblePageText($) };
     }
 
-    const links = findJsonLdEventLinks($, fetched.finalUrl);
+    const links = uniqueEventLinks([...findJsonLdEventLinks($, fetched.finalUrl), ...findLumaCalendarLinks($, fetched.finalUrl)]);
     if (links.length > 0) return { kind: "event_list", links };
 
     /*
@@ -924,14 +985,17 @@ export async function extractFromUrl(
 
     const pageText = extractVisiblePageText($) ?? "";
 
+    if (pageText.length < 100) return { kind: "none", reason: "unreadable_app_shell", retryable: true };
+    if (!model) return { kind: "none", reason: "requires_model" };
+
     const viaLlm = await extractViaLlm(fetched.finalUrl, pageText, model);
-    if (!viaLlm) return { kind: "none" };
+    if (!viaLlm) return { kind: "none", reason: "not_an_event" };
     // The LLM never sees <head>, so the social tags are the only poster source
     // on this path.
     viaLlm.posterImageUrl = pickPosterUrl($, fetched.finalUrl, viaLlm.posterImageUrl);
     return { kind: "event", event: viaLlm, supportingText: pageText || null };
   } catch {
-    return { kind: "none" };
+    return { kind: "none", reason: "extraction_error", retryable: true };
   }
 }
 

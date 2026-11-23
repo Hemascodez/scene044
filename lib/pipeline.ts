@@ -1,4 +1,5 @@
-import { query } from "@/lib/db";
+import { pool, query } from "@/lib/db";
+import { randomUUID } from "node:crypto";
 import {
   MissingSearchCredentialsError,
   SearchRateLimitedError,
@@ -22,6 +23,8 @@ import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS, snippetLooksPast, stripSnippet
 import { safeFetchText } from "@/lib/safeFetch";
 import type { ExtractionMeta } from "@/lib/types";
 import { eventCityError } from "@/lib/eventLocations";
+import { EVENT_DISCOVERY_FEEDS } from "./eventIngestionScope";
+import { automaticPublicationIssue, publicationLimit, retryDelayMs } from "./eventIngestionQuality";
 
 /**
  * The discovery pipeline, independent of any HTTP runtime.
@@ -40,8 +43,6 @@ import { eventCityError } from "@/lib/eventLocations";
 export const DEFAULT_QUERY_LIMIT = 20;
 export const MAX_QUERY_LIMIT = 100;
 export const EXTRACT_BATCH_LIMIT = 25;
-
-const CHENNAI_RELEVANCE_THRESHOLD = 0.4;
 
 interface SearchQueryRow {
   id: number;
@@ -62,6 +63,7 @@ interface DiscoveryItemRow {
   url: string;
   source_domain: string;
   query_id: number | null;
+  attempt_count: number;
 }
 
 interface SourceRateLimitRow {
@@ -100,6 +102,9 @@ export interface ExtractionResult {
   needsDateReview: number;
   /** Items remain, but every eligible domain is inside its politeness window. */
   rateLimited: boolean;
+  retryScheduled: number;
+  publicationLimitReached: boolean;
+  nextRetryAt: string | null;
 }
 
 async function markDiscoveryItem(
@@ -108,13 +113,34 @@ async function markDiscoveryItem(
   rejectionReason: string | null,
   extractionMeta: ExtractionMeta | null,
   eventId: number | null,
+  leaseToken: string,
 ) {
   await query(
     `UPDATE discovery_items
-     SET status = $1, rejection_reason = $2, extraction_meta = $3, event_id = $4
-     WHERE id = $5`,
-    [status, rejectionReason, extractionMeta ? JSON.stringify(extractionMeta) : null, eventId, id],
+     SET status = $1, rejection_reason = $2, extraction_meta = $3, event_id = $4,
+         next_attempt_at = CASE WHEN $1 = 'expanded' THEN now() + interval '6 hours' ELSE NULL END,
+         lease_token = NULL
+     WHERE id = $5 AND status = 'auto_processing' AND lease_token = $6`,
+    [status, rejectionReason, extractionMeta ? JSON.stringify(extractionMeta) : null, eventId, id, leaseToken],
   );
+}
+
+/** Explicit public feeds are re-expanded, so ON CONFLICT doesn't make a
+ * calendar a one-time import. Respect manual source settings on every run. */
+export async function refreshDiscoveryFeeds(): Promise<number> {
+  let refreshed = 0;
+  for (const url of EVENT_DISCOVERY_FEEDS) {
+    const domain = normalizeDomain(url);
+    const route = await routeDiscoveryItem(domain);
+    if (route.status !== "auto_processing") continue;
+    const result = await query(
+      `INSERT INTO discovery_items (url, source_domain, title, status, origin)
+       VALUES ($1,$2,'Public event feed','auto_processing','search')
+       ON CONFLICT (url) DO UPDATE SET status = 'auto_processing', rejection_reason = NULL, attempt_count = 0
+       WHERE discovery_items.status = 'expanded' AND discovery_items.next_attempt_at <= now()`, [url, domain]);
+    refreshed += result.rowCount ?? 0;
+  }
+  return refreshed;
 }
 
 /**
@@ -147,12 +173,14 @@ export async function runDiscovery(opts: {
     `SELECT id, query_text, site_filter FROM search_queries
      WHERE active = true
        AND ($2 = '' OR COALESCE(site_filter, '') ILIKE '%' || $2 || '%')
-     ORDER BY last_run_at ASC NULLS FIRST, id ASC
+     ORDER BY CASE WHEN priority > 0 AND (last_run_at IS NULL OR last_run_at < now() - interval '20 hours') THEN 0 ELSE 1 END,
+              last_run_at ASC NULLS FIRST, id ASC
      LIMIT $1`,
     [limit, site],
   );
 
   let creditsUsed = 0;
+  let queriesRun = 0;
   let stoppedEarly: string | null = null;
 
   for (const row of queries) {
@@ -173,6 +201,7 @@ export async function runDiscovery(opts: {
       }
 
       await query("UPDATE search_queries SET last_run_at = now() WHERE id = $1", [row.id]);
+      queriesRun++;
     } catch (err) {
       if (err instanceof MissingSearchCredentialsError) throw err;
       // Quota or rate limit: every remaining query fails the same way, so stop
@@ -224,7 +253,7 @@ export async function runDiscovery(opts: {
     const cleanedSnippet = stripSnippetMetadataPrefix(row.snippet ?? "");
     if (snippetLooksPast(`${row.title ?? ""} ${cleanedSnippet}`)) {
       await query(
-        "UPDATE discovery_items SET status = 'rejected', rejection_reason = 'past_event_snippet' WHERE id = $1",
+        "UPDATE discovery_items SET status = 'rejected', rejection_reason = 'past_event_snippet' WHERE id = $1 AND status = 'new'",
         [row.id],
       );
       snippetRejected++;
@@ -234,7 +263,7 @@ export async function runDiscovery(opts: {
 
     const { status, rejectionReason } = await routeDiscoveryItem(row.source_domain);
 
-    await query("UPDATE discovery_items SET status = $1, rejection_reason = $2 WHERE id = $3", [
+    await query("UPDATE discovery_items SET status = $1, rejection_reason = $2 WHERE id = $3 AND status = 'new'", [
       status,
       rejectionReason,
       row.id,
@@ -248,7 +277,7 @@ export async function runDiscovery(opts: {
 
   return {
     provider: provider.name,
-    queriesRun: queries.length,
+    queriesRun,
     queryLimit: limit,
     siteFilter: site || null,
     creditsUsed,
@@ -264,8 +293,26 @@ export async function runDiscovery(opts: {
 }
 
 /** Fetches, extracts, categorises and dedups one batch of queued items. */
-export async function runExtraction(opts: { batchLimit?: number } = {}): Promise<ExtractionResult> {
+export async function runExtraction(opts: { batchLimit?: number; maxPublish?: number } = {}): Promise<ExtractionResult> {
+  const lock = await pool.connect();
+  let held = false;
+  try {
+    const result = await lock.query<{ held: boolean }>("SELECT pg_try_advisory_lock(440044, 23) AS held");
+    held = Boolean(result.rows[0]?.held);
+    if (!held) return { processed: 0, extracted: 0, merged: 0, needsReview: 0, rejected: 0,
+      expandedListings: 0, enqueuedFromLists: 0, pastEvents: 0, needsDateReview: 0,
+      rateLimited: false, retryScheduled: 0, publicationLimitReached: false, nextRetryAt: null };
+    return await runExtractionUnlocked(opts);
+  } finally {
+    try { if (held) await lock.query("SELECT pg_advisory_unlock(440044, 23)"); }
+    catch (error) { lock.release(true); throw error; }
+    lock.release();
+  }
+}
+
+async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: number }): Promise<ExtractionResult> {
   const batchLimit = opts.batchLimit ?? EXTRACT_BATCH_LIMIT;
+  const maxPublish = publicationLimit(opts.maxPublish);
 
   const { rows: allowedSources } = await query<{ domain: string }>(
     "SELECT domain FROM sources WHERE trust_tier = 'auto_fetch' AND active = true",
@@ -312,17 +359,20 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
    */
   const { rows: items } = await query<DiscoveryItemRow>(
     `SELECT DISTINCT ON (di.source_domain)
-            di.id, di.url, di.source_domain, di.query_id
+            di.id, di.url, di.source_domain, di.query_id, di.attempt_count
        FROM discovery_items di
        LEFT JOIN sources s ON s.domain = di.source_domain
       WHERE di.status = 'auto_processing'
+        AND s.trust_tier = 'auto_fetch' AND s.active = true
+        AND (di.next_attempt_at IS NULL OR di.next_attempt_at <= now())
         AND (
           s.last_fetched_at IS NULL
           OR now() - s.last_fetched_at > (interval '1 hour' / GREATEST(COALESCE(s.rate_limit_per_hour, 30), 1))
         )
-      ORDER BY di.source_domain, di.id ASC
+      ORDER BY di.source_domain, CASE WHEN di.url = ANY($2::text[]) THEN 0 ELSE 1 END,
+               di.last_attempt_at ASC NULLS FIRST, di.discovered_at DESC, di.id DESC
       LIMIT $1`,
-    [batchLimit],
+    [batchLimit, [...EVENT_DISCOVERY_FEEDS]],
   );
 
   // Listing pages can enqueue child event URLs on the same domain. Those
@@ -330,8 +380,10 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
   // process must wait for them instead of treating the queue as empty. This
   // matters especially for a weekly cron: otherwise a calendar expansion
   // delays every child until the following week.
-  const { rows: pendingRows } = await query<{ pending: boolean }>(
-    "SELECT EXISTS (SELECT 1 FROM discovery_items WHERE status = 'auto_processing') AS pending",
+  const { rows: pendingRows } = await query<{ pending: boolean; next_retry_at: string | null }>(
+    `SELECT count(*) > 0 AS pending, min(COALESCE(di.next_attempt_at, now())) AS next_retry_at
+       FROM discovery_items di JOIN sources s ON s.domain = di.source_domain
+      WHERE di.status = 'auto_processing' AND s.active = true AND s.trust_tier = 'auto_fetch'`,
   );
   const rateLimited = items.length === 0 && Boolean(pendingRows[0]?.pending);
 
@@ -344,10 +396,12 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
   let enqueuedFromLists = 0;
   let pastEvents = 0;
   let needsDateReview = 0;
+  let retryScheduled = 0;
 
   for (const item of items) {
+    if (extracted >= maxPublish) break;
+    const leaseToken = randomUUID();
     try {
-      processed++;
 
       const { rows: srcRows } = await query<SourceRateLimitRow>(
         "SELECT rate_limit_per_hour, last_fetched_at FROM sources WHERE domain = $1",
@@ -361,6 +415,15 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         const minGapMs = 3_600_000 / (src.rate_limit_per_hour || 30);
         if (Date.now() - new Date(src.last_fetched_at).getTime() < minGapMs) continue;
       }
+
+      // Claim a time-limited lease before the network call. Another cron/API
+      // invocation cannot process the same row, and crashes recover later.
+      const claim = await query(`UPDATE discovery_items SET last_attempt_at = now(),
+        attempt_count = attempt_count + 1, next_attempt_at = now() + interval '15 minutes', lease_token = $2
+        WHERE id = $1 AND status = 'auto_processing'
+          AND (next_attempt_at IS NULL OR next_attempt_at <= now()) RETURNING id`, [item.id, leaseToken]);
+      if (!claim.rowCount) continue;
+      processed++;
 
       const outcome = await extractFromUrl(item.url, allowedDomains);
       await query("UPDATE sources SET last_fetched_at = now() WHERE domain = $1", [
@@ -377,6 +440,8 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         for (const link of outcome.links) {
           let childDomain: string;
           try {
+            const childUrl = new URL(link.url);
+            if (childUrl.protocol !== "https:" || childUrl.username || childUrl.password) continue;
             childDomain = normalizeDomain(link.url);
           } catch {
             continue;
@@ -390,14 +455,14 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
           );
           if (inserted.rowCount) enqueuedFromLists++;
         }
-        await markDiscoveryItem(item.id, "expanded", null, null, null);
+        await markDiscoveryItem(item.id, "expanded", null, null, null, leaseToken);
         expandedListings++;
         continue;
       }
 
       // The page told us it is over, and it cost nothing to find out.
       if (outcome.kind === "past_event") {
-        await markDiscoveryItem(item.id, "rejected", "past_event", null, null);
+        await markDiscoveryItem(item.id, "rejected", "past_event", null, null, leaseToken);
         pastEvents++;
         continue;
       }
@@ -406,8 +471,17 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
       const supportingText = outcome.kind === "event" ? outcome.supportingText : null;
 
       if (!extractedEvent) {
-        await markDiscoveryItem(item.id, "rejected", "extraction_failed", null, null);
-        rejected++;
+        const reason = outcome.kind === "none" ? outcome.reason ?? "extraction_failed" : "extraction_failed";
+        if (outcome.kind === "none" && outcome.retryable && item.attempt_count < 3) {
+          await query(`UPDATE discovery_items SET status = 'auto_processing', rejection_reason = $2,
+            next_attempt_at = now() + ($3::bigint * interval '1 millisecond'), lease_token = NULL
+            WHERE id = $1 AND status = 'auto_processing' AND lease_token = $4`,
+          [item.id, reason, retryDelayMs(item.attempt_count + 1), leaseToken]);
+          retryScheduled++;
+        } else {
+          await markDiscoveryItem(item.id, "curator_pending", reason, null, null, leaseToken);
+          needsReview++;
+        }
         continue;
       }
 
@@ -422,16 +496,16 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         if (validation.reason === "no_event_date" || validation.reason === "suspicious_date_range") {
           // Unknown is not past. Someone should look rather than the pipeline
           // guessing, so this gets its own queue instead of a rejection.
-          await markDiscoveryItem(item.id, "needs_date_review", validation.reason, meta, null);
+          await markDiscoveryItem(item.id, "needs_date_review", validation.reason, meta, null, leaseToken);
           needsDateReview++;
         } else if (validation.reason === "past_event") {
-          await markDiscoveryItem(item.id, "rejected", "past_event", meta, null);
+          await markDiscoveryItem(item.id, "rejected", "past_event", meta, null, leaseToken);
           pastEvents++;
         } else if (validation.reason === "low_extraction_confidence") {
-          await markDiscoveryItem(item.id, "curator_pending", validation.reason, meta, null);
+          await markDiscoveryItem(item.id, "curator_pending", validation.reason, meta, null, leaseToken);
           needsReview++;
         } else {
-          await markDiscoveryItem(item.id, "rejected", validation.reason ?? "invalid_extraction", meta, null);
+          await markDiscoveryItem(item.id, "rejected", validation.reason ?? "invalid_extraction", meta, null, leaseToken);
           rejected++;
         }
         continue;
@@ -442,7 +516,17 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         await markDiscoveryItem(item.id, "curator_pending", cityError, {
           sourceMethod: extractedEvent.sourceMethod, confidence: extractedEvent.confidence,
           dateEvidence: extractedEvent.dateEvidence, venueEvidence: extractedEvent.venueEvidence,
-        }, null);
+        }, null, leaseToken);
+        needsReview++;
+        continue;
+      }
+
+      const qualityIssue = automaticPublicationIssue(extractedEvent, supportingText);
+      if (qualityIssue) {
+        await markDiscoveryItem(item.id, "curator_pending", qualityIssue, {
+          sourceMethod: extractedEvent.sourceMethod, confidence: extractedEvent.confidence,
+          dateEvidence: extractedEvent.dateEvidence, venueEvidence: extractedEvent.venueEvidence,
+        }, null, leaseToken);
         needsReview++;
         continue;
       }
@@ -453,16 +537,11 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         venueAddress: extractedEvent.venueAddress,
         isOnline: extractedEvent.isOnline,
       });
+      if (cat.classificationError) throw new Error("ClassificationUnavailable");
 
       if (!cat.category) {
-        await markDiscoveryItem(item.id, "rejected", "no_confident_category", null, null);
-        rejected++;
-        continue;
-      }
-
-      if (cat.chennaiRelevanceScore < CHENNAI_RELEVANCE_THRESHOLD) {
-        await markDiscoveryItem(item.id, "rejected", "not_chennai_relevant", null, null);
-        rejected++;
+        await markDiscoveryItem(item.id, "curator_pending", "no_confident_category", null, null, leaseToken);
+        needsReview++;
         continue;
       }
 
@@ -483,7 +562,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
            VALUES ($1,$2,$3,$4) ON CONFLICT (event_id, source_url) DO NOTHING`,
           [dup.eventId, normalizeUrl(item.url), item.source_domain, item.id],
         );
-        await markDiscoveryItem(item.id, "duplicate", null, null, dup.eventId);
+        await markDiscoveryItem(item.id, "duplicate", null, null, dup.eventId, leaseToken);
         merged++;
         continue;
       }
@@ -498,7 +577,7 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
             reason: "medium_confidence_dedup_match",
           },
         };
-        await markDiscoveryItem(item.id, "curator_pending", "possible_duplicate", meta, null);
+        await markDiscoveryItem(item.id, "curator_pending", "possible_duplicate", meta, null, leaseToken);
         needsReview++;
         continue;
       }
@@ -525,6 +604,14 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         registrationDeadline: extractedEvent.registrationDeadline ?? null,
         supportingText,
       });
+      if (editorial.generationStatus === "error") throw new Error("EditorialUnavailable");
+      if (!editorial.eventIntro) {
+        await markDiscoveryItem(item.id, "curator_pending", "source_copy_review", {
+          sourceMethod: extractedEvent.sourceMethod, confidence: extractedEvent.confidence,
+        }, null, leaseToken);
+        needsReview++;
+        continue;
+      }
 
       // Re-host the poster rather than hotlinking: source URLs rot, and
       // hotlinking leaks every visitor's IP and referrer to that CDN.
@@ -540,9 +627,18 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         }
       }
 
+      const tx = await pool.connect();
+      try {
+      await tx.query("BEGIN");
+      // Lock/recheck the lease at the publication boundary. A curator may
+      // reject/edit the item while a slow provider request is in flight.
+      const owns = await tx.query(`SELECT di.id FROM discovery_items di JOIN sources s ON s.domain = di.source_domain
+        WHERE di.id = $1 AND di.status = 'auto_processing' AND di.lease_token = $2
+          AND s.active = true AND s.trust_tier = 'auto_fetch' FOR UPDATE OF di`, [item.id, leaseToken]);
+      if (!owns.rows.length) { await tx.query("ROLLBACK"); continue; }
       const {
         rows: [eventRow],
-      } = await query<{ id: number }>(
+      } = await tx.query<{ id: number }>(
         `INSERT INTO events (title, summary, highlights, registration_deadline, registration_note, gist, category, start_at, end_at, is_online, venue_name, venue_address, organizer_name, poster_image_url, price_type, price_note, primary_source_url, source_type, chennai_relevance_score, status, city, last_verified_at)
          VALUES ($1,$2,$15,$16,$17,$18,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto',$14,'live',$19, now()) RETURNING id`,
         [
@@ -568,22 +664,40 @@ export async function runExtraction(opts: { batchLimit?: number } = {}): Promise
         ],
       );
 
-      await query(
+      await tx.query(
         `INSERT INTO event_sources (event_id, source_url, source_domain, discovery_item_id)
          VALUES ($1,$2,$3,$4) ON CONFLICT (event_id, source_url) DO NOTHING`,
         [eventRow.id, normalizeUrl(item.url), item.source_domain, item.id],
       );
-      await markDiscoveryItem(item.id, "auto_extracted", null, null, eventRow.id);
+      await tx.query(`UPDATE discovery_items SET status = 'auto_extracted', rejection_reason = NULL,
+        event_id = $2, next_attempt_at = NULL, extraction_meta = $3, lease_token = NULL WHERE id = $1`,
+      [item.id, eventRow.id, JSON.stringify({ sourceMethod: extractedEvent.sourceMethod, confidence: extractedEvent.confidence,
+        dateEvidence: extractedEvent.dateEvidence, venueEvidence: extractedEvent.venueEvidence })]);
+      await tx.query("COMMIT");
+      } catch (error) { await tx.query("ROLLBACK"); throw error; }
+      finally { tx.release(); }
       extracted++;
     } catch (err) {
-      await markDiscoveryItem(item.id, "error", String(err).slice(0, 500), null, null);
-      rejected++;
+      // Never log scraped content, credentials or provider response bodies.
+      console.warn(`extract: item ${item.id} failed (${err instanceof Error ? err.name : "unknown"})`);
+      if (item.attempt_count < 3) {
+        await query(`UPDATE discovery_items SET status = 'auto_processing', rejection_reason = 'pipeline_stage_error',
+          next_attempt_at = now() + ($2::bigint * interval '1 millisecond'), lease_token = NULL
+          WHERE id = $1 AND status = 'auto_processing' AND lease_token = $3`,
+        [item.id, retryDelayMs(item.attempt_count + 1), leaseToken]);
+        retryScheduled++;
+      } else {
+        await markDiscoveryItem(item.id, "curator_pending", "pipeline_stage_error", null, null, leaseToken);
+        needsReview++;
+      }
     }
   }
 
   return {
     processed, extracted, merged, needsReview, rejected,
-    expandedListings, enqueuedFromLists, pastEvents, needsDateReview, rateLimited,
+    expandedListings, enqueuedFromLists, pastEvents, needsDateReview, rateLimited, retryScheduled,
+    publicationLimitReached: extracted >= maxPublish,
+    nextRetryAt: pendingRows[0]?.next_retry_at ?? null,
   };
 }
 

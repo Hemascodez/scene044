@@ -11,6 +11,14 @@ const CITY_ALIASES: Record<string, string> = {
   kolkata: "Kolkata", calcutta: "Kolkata",
   kochi: "Kochi", cochin: "Kochi",
   thiruvananthapuram: "Thiruvananthapuram", trivandrum: "Thiruvananthapuram",
+  kozhikode: "Kozhikode", calicut: "Kozhikode", thrissur: "Thrissur", trichur: "Thrissur",
+  kollam: "Kollam", quilon: "Kollam", kannur: "Kannur", cannanore: "Kannur",
+  kottayam: "Kottayam", alappuzha: "Alappuzha", alleppey: "Alappuzha",
+  palakkad: "Palakkad", palghat: "Palakkad", malappuram: "Malappuram",
+  kasaragod: "Kasaragod", kasargod: "Kasaragod", pathanamthitta: "Pathanamthitta",
+  idukki: "Idukki", wayanad: "Wayanad", kalpetta: "Kalpetta", thalassery: "Thalassery",
+  thodupuzha: "Thodupuzha", perinthalmanna: "Perinthalmanna", aluva: "Aluva",
+  ernakulam: "Kochi", angamaly: "Angamaly", munnar: "Munnar", varkala: "Varkala",
   tiruchirappalli: "Tiruchirappalli", trichy: "Tiruchirappalli",
   puducherry: "Puducherry", pondicherry: "Puducherry",
   ahmedabad: "Ahmedabad", chandigarh: "Chandigarh", jaipur: "Jaipur",
@@ -32,6 +40,11 @@ export function eventAddressRegion(city: string): string | undefined {
     Bengaluru: 'Karnataka', Mumbai: 'Maharashtra', Pune: 'Maharashtra', Nagpur: 'Maharashtra',
     Hyderabad: 'Telangana', Delhi: 'Delhi', 'New Delhi': 'Delhi', Gurugram: 'Haryana',
     Kolkata: 'West Bengal', Kochi: 'Kerala', Thiruvananthapuram: 'Kerala',
+    Kozhikode: 'Kerala', Thrissur: 'Kerala', Kollam: 'Kerala', Kannur: 'Kerala',
+    Kottayam: 'Kerala', Alappuzha: 'Kerala', Palakkad: 'Kerala', Malappuram: 'Kerala',
+    Kasaragod: 'Kerala', Pathanamthitta: 'Kerala', Idukki: 'Kerala', Wayanad: 'Kerala',
+    Kalpetta: 'Kerala', Thalassery: 'Kerala', Thodupuzha: 'Kerala', Perinthalmanna: 'Kerala',
+    Aluva: 'Kerala', Angamaly: 'Kerala', Munnar: 'Kerala', Varkala: 'Kerala',
     Puducherry: 'Puducherry', Ahmedabad: 'Gujarat', Chandigarh: 'Chandigarh',
     Jaipur: 'Rajasthan', Indore: 'Madhya Pradesh', Lucknow: 'Uttar Pradesh',
   };
@@ -45,7 +58,7 @@ export function normalizeEventCity(value: unknown): string | null {
   const city = value.normalize("NFKC").replace(/\s+/g, " ").trim();
   if (!city || city.length > 80 || !/^[\p{L}\p{M} .’'-]+$/u.test(city)) return null;
   const key = city.toLocaleLowerCase("en-IN");
-  if (/^(?:online|virtual|remote|anywhere|india|unknown|tba|tbd|to be (?:announced|confirmed)|tamil nadu|karnataka|maharashtra)$/.test(key)) return null;
+  if (/^(?:online|virtual|remote|anywhere|india|unknown|tba|tbd|to be (?:announced|confirmed)|tamil nadu|karnataka|maharashtra|kerala)$/.test(key)) return null;
   return Object.hasOwn(CITY_ALIASES, key) ? CITY_ALIASES[key] : city.replace(/\p{L}[\p{L}\p{M}]*/gu, (word) =>
     word.charAt(0).toLocaleUpperCase("en-IN") + word.slice(1).toLocaleLowerCase("en-IN"));
 }

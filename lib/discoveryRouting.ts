@@ -37,16 +37,15 @@ export async function routeDiscoveryItem(sourceDomain: string): Promise<Discover
     return { status: "auto_processing", rejectionReason: null };
   }
   if (!src) {
-    // Search results are public URLs, and safeFetchText still enforces HTTPS,
-    // DNS/private-IP, redirect, size and content-type guards. Explicit
-    // curator-only and blocked rows remain authoritative.
+    // Discovery is not permission to scrape/publish a new site. Enrol for a
+    // curator to assess; only explicitly approved sources are automatic.
     await query(
       `INSERT INTO sources (domain, name, trust_tier, rate_limit_per_hour, active)
-       VALUES ($1, $1, 'auto_fetch', 30, true)
+       VALUES ($1, $1, 'curator_only', 30, true)
        ON CONFLICT (domain) DO NOTHING`,
       [sourceDomain],
     );
-    return { status: "auto_processing", rejectionReason: null };
+    return { status: "curator_pending", rejectionReason: "source_approval_required" };
   }
 
   // Existing inactive or curator-only sources remain human-reviewed.

@@ -354,7 +354,7 @@ export async function summarizeEvent(input: {
 
   const source = facts;
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45_000, maxRetries: 0 });
 
   async function attempt(extraNudge: string | null) {
     const res = await client.responses.create({
@@ -440,7 +440,7 @@ export async function summarizeEvent(input: {
       generationStatus: validIntro ? "generated" : "insufficient",
     };
   } catch (err) {
-    console.warn(`summarize: failed for "${input.title.slice(0, 60)}"`, err);
+    console.warn(`summarize: failed for "${input.title.slice(0, 60)}" (${err instanceof Error ? err.name : "Error"})`);
     return {
       eventIntro: null,
       gist: null,

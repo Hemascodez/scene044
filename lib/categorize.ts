@@ -61,7 +61,7 @@ export async function categorizeEvent(
   input: CategorizeEventInput,
 ): Promise<CategorizationResult> {
   try {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45_000, maxRetries: 0 });
     // Static block FIRST, variable event data LAST. Prompt caching only hits
     // on a shared *prefix*, so leading with the per-event fields (as this did)
     // meant the 9 category definitions were re-billed at full price on every
@@ -69,7 +69,7 @@ export async function categorizeEvent(
     const prompt = `Categories:
 ${CATEGORIES.map((c) => `- ${c}: ${CATEGORY_DEFINITIONS[c]}`).join("\n")}
 
-Pick the single best-fitting category, or null if none confidently fit (this is not a professional/tech event). Score chennai_relevance_score for whether this event is genuinely relevant to people in Chennai, India.
+Pick the single best-fitting category, including arts, or null if none confidently fit. Events from any city are eligible: do not reject an event because it is not in Chennai. Separately score chennai_relevance_score for whether this event is genuinely relevant to people in Chennai, India; this historical field is not the publication eligibility gate.
 
 <event_data>
 Title: ${input.title}
@@ -92,7 +92,7 @@ Is online: ${input.isOnline}
     );
 
     if (!toolCall) {
-      return { category: null, chennaiRelevanceScore: 0 };
+      return { category: null, chennaiRelevanceScore: 0, classificationError: true };
     }
 
     const toolInput = JSON.parse(toolCall.arguments) as CategorizeToolInput;
@@ -110,6 +110,6 @@ Is online: ${input.isOnline}
 
     return { category, chennaiRelevanceScore };
   } catch {
-    return { category: null, chennaiRelevanceScore: 0 };
+    return { category: null, chennaiRelevanceScore: 0, classificationError: true };
   }
 }
