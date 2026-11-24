@@ -35,6 +35,7 @@ import { VenueAuthBridge } from "@/components/scene/hosted/hostedAuth";
 import { EventPageAuth } from "@/components/scene/EventPageAuth";
 import { SceneFooter } from "@/components/scene/SceneHero";
 import { StatusBadge } from "@/components/scene/ui";
+import { cityHubForEvent, cityHubPath } from '@/lib/cityEvents';
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +104,7 @@ export default async function EventPage({ params,searchParams }: EventPageProps)
   const field = getFieldCardForCategory(event.category);
   const fieldName = field?.label ?? event.category;
   const fieldHref = field ? `/category/${field.key}` : "/";
+  const cityHub = cityHubForEvent(event);
   const poster = posterFor(event);
   const status = deriveSceneStatus(event);
   const audienceTags = audienceTagsFor(event);
@@ -132,6 +134,7 @@ export default async function EventPage({ params,searchParams }: EventPageProps)
               <HostedEventView event={{ ...event, hosted: event.hosted }} api="http" />
             </VenueAuthBridge>
         </div>
+        {cityHub && <nav aria-label="More events in this city" className="mx-auto max-w-5xl px-4 py-4 lg:px-6"><Link href={cityHubPath(cityHub)} className="inline-flex min-h-11 items-center text-sm underline underline-offset-4 hover:text-primary-ink">More events in {cityHub.city} →</Link></nav>}
         <SceneFooter />
         </EventPageAuth>
       </div>
@@ -157,7 +160,7 @@ export default async function EventPage({ params,searchParams }: EventPageProps)
             <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-background/60">
               <Link href="/" className="hover:text-primary">Events</Link>
               <span aria-hidden> / </span>
-              <Link href={fieldHref} className="hover:text-primary">{fieldName}</Link>
+              <Link href={cityHub ? cityHubPath(cityHub) : fieldHref} className="hover:text-primary">{cityHub ? `${cityHub.city} events` : fieldName}</Link>
             </nav>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="bg-primary px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-foreground">

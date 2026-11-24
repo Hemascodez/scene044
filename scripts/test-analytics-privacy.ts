@@ -69,6 +69,9 @@ async function main() {
     'https://scene044.in/events/fixture-164?ticket=private-query', 'https://scene044.in/events/fixture-164?%74icket=private-query',
     'https://scene044.in/events/fixture-164?Ticket=', 'https://scene044.in/events/fixture-164?ticketToken=private-query',
     'https://scene044.in/venues/cafe?email=private-person', 'https://scene044.in/venues/%68ost/private-path',
+    'https://scene044.in/events/city/mumbai?ticket=private-query',
+    'https://scene044.in/events/city/gurugram/ticket/private-path',
+    'https://scene044.in/events/city/9876543210',
   ]) {
     const f = fixture(url);
     assert.equal(f.calls.length, 0, `no GA initialisation on ${url}`);
@@ -86,7 +89,7 @@ async function main() {
   assert.equal(initiallyPrivate.titleReads(), 0, 'a private landing title is never read, including after navigation');
   assert.doesNotMatch(JSON.stringify(initiallyPrivate.calls), /Hemalatha|bookings|private-/);
 
-  for (const path of ['/', '/events/fixture-164', '/events/chennai/this-weekend', '/category/arts', '/venues', '/venues/search', '/venues/partner', '/venues/fixture-cafe', '/privacy', '/terms']) {
+  for (const path of ['/', '/events/fixture-164', '/events/chennai/this-weekend', '/events/city/mumbai', '/events/city/delhi', '/events/city/gurugram', '/category/arts', '/venues', '/venues/search', '/venues/partner', '/venues/fixture-cafe', '/privacy', '/terms']) {
     const f = fixture(`https://www.scene044.in${path}?utm_source=reader%40example.test&unknown=private-query#private-hash`, 'https://search.test/private-path?email=private-person');
     assert.equal(f.pageviews().length, 1, `one initial view: ${path}`);
     assert.equal(f.pageviews()[0][2]?.page_location, `https://www.scene044.in${path}`);
@@ -96,6 +99,12 @@ async function main() {
     assert.equal((f.calls.find(c => c[0] === 'config')?.[2] as Fields).send_page_view, false);
     assert.doesNotMatch(JSON.stringify(f.calls), /private-|utm_source/);
   }
+
+  const cityNavigation = fixture('https://scene044.in/events/city/mumbai');
+  cityNavigation.win.history.pushState({}, '', '/events/city/gurugram?utm_source=scene');
+  cityNavigation.win.history.replaceState({}, '', '/events/city/gurugram#feed');
+  assert.equal(cityNavigation.pageviews().length, 2, 'one view per city, not per query or hash');
+  assert.equal(cityNavigation.pageviews()[1][2]?.page_title, 'City events — SCENE');
 
   const attribution = fixture('https://scene044.in/events/fixture-164?utm_source=newsletter&utm_medium=email&utm_campaign=sunday-reads&utm_id=launch-26&utm_term=venue+booking&utm_content=hero_cta&own_name=private-person&unknown=private-query&gclid=private-click-id&gbraid=private-braid#private-hash', '', 'Sunday Reads — SCENE');
   const campaignFields = {

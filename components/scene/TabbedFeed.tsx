@@ -9,6 +9,8 @@ import { intercityCityOptions, isChennaiDiscoveryEvent, isIntercityEvent, normal
 import { EventCard } from "@/components/scene/EventCard";
 import { Btn, Mono } from "@/components/scene/ui";
 import { LottiePlayer } from "@/components/ui/LottiePlayer";
+import { activeCityHubs } from '@/lib/cityEvents';
+import { CityHubLinks } from '@/components/scene/CityHubLinks';
 
 interface Preset {
   key: string;
@@ -245,6 +247,7 @@ export function TabbedFeed({
                     })}
                   </div>
                 )}
+                <CityHubLinks hubs={activeCityHubs(events, now).filter(hub => hub.city !== 'Chennai')} label="Open a city guide" />
               </div>
             )}
             <div className="mb-4 flex items-baseline justify-between gap-2 border-b-2 border-dashed border-foreground/25 pb-2">

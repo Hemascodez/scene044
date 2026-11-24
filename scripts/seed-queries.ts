@@ -6,6 +6,7 @@ const SEED_QUERIES: {
   category_hint: string | null;
   site_filter: string | null;
   priority?: number;
+  discovery_market?: string | null;
 }[] = [
   { query_text: "Chennai AI meetup 2026", category_hint: "ai", site_filter: null },
   { query_text: "Chennai artificial intelligence conference", category_hint: "ai", site_filter: null },
@@ -75,11 +76,11 @@ async function main() {
   for (const row of SEED_QUERIES) {
     const siteFilter = row.site_filter ?? null;
     const result = await query(
-      `INSERT INTO search_queries (query_text, category_hint, site_filter, priority)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (query_text, COALESCE(site_filter, '')) DO UPDATE SET category_hint = EXCLUDED.category_hint, priority = EXCLUDED.priority
+      `INSERT INTO search_queries (query_text, category_hint, site_filter, priority, discovery_market)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (query_text, COALESCE(site_filter, '')) DO UPDATE SET category_hint = EXCLUDED.category_hint, priority = EXCLUDED.priority, discovery_market = EXCLUDED.discovery_market
        RETURNING (xmax = 0) AS inserted`,
-      [row.query_text, row.category_hint, siteFilter, row.priority ?? 0],
+      [row.query_text, row.category_hint, siteFilter, row.priority ?? 0, row.discovery_market ?? "Chennai"],
     );
     if (result.rows[0]?.inserted) {
       inserted += 1;
@@ -87,6 +88,11 @@ async function main() {
       updated += 1;
     }
   }
+
+  // Metadata only, including legacy queued hits. Never reopen curator states.
+  await query(`UPDATE discovery_items di SET discovery_market = sq.discovery_market
+    FROM search_queries sq WHERE di.query_id = sq.id AND di.discovery_market IS NULL
+      AND sq.discovery_market IS NOT NULL`);
 
   console.log(`seed-queries: ${inserted} inserted, ${updated} updated, ${SEED_QUERIES.length} total`);
 }

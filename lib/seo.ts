@@ -7,6 +7,7 @@ import { venueSearchDescription, venueSearchIntent, VENUES_SEARCH_DESCRIPTION, V
 import { eventCollectionPath, EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE, type EventCollection } from '@/lib/eventDiscovery';
 import { eventAddressRegion, normalizeEventCity } from '@/lib/eventLocations';
 import { seatSummary } from '@/lib/hostedEvents';
+import { cityHubForEvent, cityHubPath } from '@/lib/cityEvents';
 
 export const SITE_NAME = "SCENE";
 export const SITE_URL = "https://scene044.in";
@@ -305,8 +306,9 @@ export function eventStructuredData(event: PublicEventDetail, now = new Date()):
 
 export function eventBreadcrumbStructuredData(event: PublicEvent): Record<string, unknown> {
   const field = getFieldCardForCategory(event.category);
-  const categoryPath = field ? `/category/${field.key}` : "/";
-  const categoryName = field?.label ?? "Chennai tech events";
+  const hub = cityHubForEvent(event);
+  const categoryPath = hub ? cityHubPath(hub) : field ? `/category/${field.key}` : "/";
+  const categoryName = hub ? `${hub.city} events` : field?.label ?? "Events";
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

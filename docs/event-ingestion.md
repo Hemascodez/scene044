@@ -2,7 +2,8 @@
 
 ## Scope and schedule
 
-Chennai, Bengaluru/Bangalore, Mumbai and **all Kerala cities**. Kerala is a
+Chennai, Bengaluru/Bangalore, Mumbai, Delhi/New Delhi, Gurugram/Gurgaon and
+**all Kerala cities**. Kerala is a
 state, never a city tag. Search includes its districts/major towns and a broad
 Kerala query; any other town is eligible when the event's own address states
 Kerala. No title, organizer location or search-query city overrides a venue.
@@ -11,15 +12,19 @@ The approved production schedule is **Monday, Tuesday and Friday at 21:00 IST**
 (`30 15 * * 1,2,5` UTC). This is scheduled discovery, not real-time delivery.
 Search engines and platforms do not expose every event immediately or guarantee
 complete coverage. District queries rotate within the search limit; they do not
-all run on every sweep. Twelve broad market/platform queries have daily priority.
+all run on every sweep. Eighteen broad market/platform queries have daily priority.
 
 ## Pipeline
 
 1. Apply the additive ingestion migration; seed sources/queries idempotently.
    Existing manual source trust/active settings and curator decisions win.
-2. Requeue due approved public feeds (currently Luma Bengaluru/Mumbai and KYN
+2. Requeue due approved public feeds (currently Luma Bengaluru/Mumbai/New Delhi and KYN
    eventhome). Expand detail links instead of mistaking a city feed for an event.
 3. Search up to 20 rotating queries with India, not Chennai, localization.
+   Firecrawl requests are serialized within the process at least 6.5 seconds
+   apart. A 429 permits one retry, honoring `Retry-After` up to 60 seconds
+   (60 seconds when absent); a longer wait or second 429 stops discovery.
+   A 402 stops immediately. No quota upgrades or credit purchases occur.
 4. Fetch public detail pages: normal JSON-LD first; KYN's public streamed JSON-LD
    next; AI extraction only where necessary. No private platform APIs, logins,
    attendee data, hidden venue coordinates or CAPTCHA bypasses.
@@ -50,6 +55,21 @@ all run on every sweep. Twelve broad market/platform queries have daily priority
   Unknown policy/network failures defer; explicit denial goes to review.
 - Expiring item leases and a shared extraction advisory lock prevent concurrent
   workers from publishing the same queued item. A failed process is recoverable.
+- `search_queries.discovery_market` and `discovery_items.discovery_market` are
+  scheduling hints only. Configured query/feed hints pass to new listing
+  children. The migration/seed backfills known query/feed metadata without
+  changing statuses. Legacy NULL hints remain eligible as an `Unknown` bucket.
+  Every extraction claim updates the current run's processed count for its
+  hint; successful publication updates the count for the detail's actual
+  market, with online counted separately. The least processed market goes
+  first, then least published, then configured due feeds before oldest
+  unattempted items within that market. Feeds retain their existing refresh
+  interval and cannot consume another fetch on the same domain in that pass.
+  The CLI shares
+  these counters across passes and preserves one fetch/domain/pass and source
+  politeness. This improves opportunity across markets; it cannot guarantee a
+  city's publication count when its candidates fail quality checks or a feed
+  recommends events elsewhere. Hints never set `events.city`.
 - Transient failures get bounded backoff (15/30/60 minutes); after four attempts
   they go to review. A retry is picked up during the current 20-minute run if due,
   otherwise on a later scheduled run. No background process stays running forever.
@@ -65,6 +85,73 @@ all run on every sweep. Twelve broad market/platform queries have daily priority
 does not use `.env.local`, real providers or any live database. Existing date,
 price, Intercity and SEO tests should also pass, followed by the production build.
 
+Apply `npm run migrate:event-ingestion` before deploying callers that read the
+new columns, then `npm run seed:queries` to populate configured query hints.
+The normal `npm run pipeline` startup already applies migration and seeds in
+that order. These steps update metadata only; previous Delhi/Gurugram
+`outside_ingestion_region` reviews and all curator rejections stay in place.
+
+For a bounded operator run after deployment and migration, from the repository:
+
+```sh
+npx tsx scripts/run-pipeline.ts --market Mumbai,Delhi,Gurugram --max-publish 10 --max-minutes 20
+npx tsx scripts/run-pipeline.ts --extract-only --city Mumbai --item-id 123 --max-publish 1 --max-minutes 5
+```
+
+`--city` and `--market` are aliases, accept comma-separated/repeated values,
+and reject empty/unknown names. Delhi includes New Delhi; Gurgaon normalizes
+to Gurugram; Kerala includes its towns. Scoped runs limit feeds, queries,
+routing, and extraction selection using hints **and check the actual detail
+city before classification, deduplication or publication**. Online events and
+recommendations from other cities are skipped for the rest of that run; their
+leases are released without spending a retry or changing their queue status.
+They remain eligible for a later unrestricted run. Global verification is
+omitted for scoped runs; scoped verification/cleanup modes are rejected.
+
+`--item-id` requires `--extract-only`; it narrows selection to those queue IDs,
+including old NULL or misleading hints. The actual-city check still applies
+when a market is requested. IDs never bypass `auto_processing`, source
+approval/active settings, retry due times, leases, quality or deduplication.
+Pending/rejected candidates require normal curator review. No raw-URL import
+or historical-review reopening is added. Summary logs expose
+`processedByMarket`, `publishedByMarket` and `skippedItemIds` for verification.
+
+The optional library equivalents are `runDiscovery({ markets })`,
+`refreshDiscoveryFeeds({ markets })` and
+`runExtraction({ markets, itemIds, runState })`; obtain a shared CLI-style
+state with `createExtractionRunState()`. Existing authenticated HTTP wrappers
+retain their existing inputs; these CLI flags do not add HTTP query parameters.
+
+### Explicitly reviewed catch-up
+
+`scripts/import-city-events.ts --city Mumbai --url <canonical-public-url>` is a
+dry-run operator tool, not a scheduled raw-URL auto-publisher. It fetches only
+Luma/Meetup/KYN public detail pages, validates the actual requested city, dates,
+source quality and generated editorial copy, and prints a draft. An explicit
+`--publish` uses Scene's existing authenticated curator add/approve/poster APIs;
+it never opens the private database. It preserves rejected/correction/date-review
+items and existing curator-origin candidates, reuses published events, and
+respects the configured publication cap (also capped at ten URLs).
+
+On 24 November a reviewed catch-up published six external-source listings:
+Mumbai (212–213), Delhi/New Delhi (214–215), Gurugram (216–217). All six were
+read back from the public feed with native hosted checkout absent. No ticket,
+registration, host access, message, or payment data was changed.
+
+### Searchable city pages
+
+`/events/city/<city>` serves dated, upcoming in-person listings as server-rendered
+HTML. Delhi/New Delhi share `/events/city/delhi`; Gurgaon and Bangalore redirect
+to Gurugram and Bengaluru. Actual event locations remain unchanged. Only cities
+with qualifying events enter the sitemap and crawlable city-link lists; empty
+known destinations are `noindex`, unknown cities return 404. Collection markup
+matches the visible list, with Event markup retained on individual detail pages.
+Sitemap last-modified dates come from persisted content updates, not crawl time.
+The existing Scene design and Chennai-only collections remain intact.
+Controlled analytics includes public city-page views and strips query/hash
+data as before. Private tickets, admin/host dashboards and sensitive query
+parameters remain excluded; automatic Enhanced Measurement is not enabled.
+
 `npm run probe:event-ingestion -- --url https://luma.com/bengaluru` reads one
 public page without DB writes. `--render` permits one Firecrawl request;
 `--model` permits AI extraction; `--assess` permits classification/editorial calls
@@ -78,6 +165,12 @@ Verified public probes on 23 November 2026:
 - KYN detail: streamed JSON-LD + visible venue parsed without rendering or AI.
 - One source-backed Luma classification/editorial assessment succeeded with the
   existing production connection, with zero database writes.
+
+Verified public response on 24 November 2026: [Luma New Delhi](https://luma.com/new-delhi)
+is a city event calendar (`/delhi` redirects there). Its metro recommendations
+include Gurugram, so its hint is Delhi but each event's city comes from its own
+detail page. `/gurugram` is an individual past event, not a city feed; no
+Gurugram/Gurgaon feed URL is guessed or registered.
 
 Publish cautiously: initial cap 10 per run; sample-review the first batch before
 raising it. New imports are not SCENE-hosted events and must not gain native

@@ -15,10 +15,13 @@
  *   npx tsx scripts/run-pipeline.ts --cleanup-only   # weekly housekeeping
  *   npx tsx scripts/run-pipeline.ts --limit 20 --site meetup.com
  *   npx tsx scripts/run-pipeline.ts --max-minutes 5
+ *   npx tsx scripts/run-pipeline.ts --market Mumbai,Delhi,Gurugram --max-publish 10
+ *   npx tsx scripts/run-pipeline.ts --extract-only --city Mumbai --item-id 123
  */
 import { pool } from "../lib/db";
-import { refreshDiscoveryFeeds, runCleanup, runDiscovery, runExtraction, runVerification } from "../lib/pipeline";
+import { createExtractionRunState, refreshDiscoveryFeeds, runCleanup, runDiscovery, runExtraction, runVerification } from "../lib/pipeline";
 import { MissingSearchCredentialsError } from "../lib/search";
+import { parseIngestionOptions } from "./event-ingestion-options";
 
 /*
  * Extraction handles a bounded batch and is throttled to one fetch per domain
@@ -35,27 +38,22 @@ const DEFAULT_MAX_MINUTES = 20;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function arg(name: string): string | undefined {
-  const i = process.argv.indexOf(`--${name}`);
-  return i !== -1 ? process.argv[i + 1] : undefined;
-}
-const has = (name: string) => process.argv.includes(`--${name}`);
-
 async function main() {
   const started = Date.now();
-  const discoverOnly = has("discover-only");
-  const extractOnly = has("extract-only");
-  const verifyOnly = has("verify-only");
-  const cleanupOnly = has("cleanup-only");
+  const opts = parseIngestionOptions(process.argv.slice(2));
+  const { discoverOnly, extractOnly, verifyOnly, cleanupOnly, markets, itemIds } = opts;
   const only = discoverOnly || extractOnly || verifyOnly || cleanupOnly;
+  const requestedPublish = opts.maxPublish ?? Number(process.env.EVENT_MAX_PUBLISH_PER_RUN ?? 10);
+  if (!Number.isInteger(requestedPublish) || requestedPublish < 0 || requestedPublish > 50) throw new Error("max-publish must be an integer between 0 and 50");
+  console.log("pipeline-scope:", JSON.stringify({ markets, itemIds, maxPublish: requestedPublish }));
 
   if (!only || discoverOnly) {
-    console.log("feeds:", JSON.stringify({ refreshed: await refreshDiscoveryFeeds() }));
-    const limit = Number(arg("limit"));
+    console.log("feeds:", JSON.stringify({ refreshed: await refreshDiscoveryFeeds({ markets }) }));
     try {
     const result = await runDiscovery({
-      limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
-      site: arg("site"),
+      limit: opts.limit,
+      site: opts.site,
+      markets,
     });
     console.log("discovery:", JSON.stringify(result));
     if (result.stoppedEarly) console.warn("discovery stopped early:", result.stoppedEarly);
@@ -68,15 +66,14 @@ async function main() {
   }
 
   if (!only || extractOnly) {
-    const maxMinutes = Number(arg("max-minutes")) || DEFAULT_MAX_MINUTES;
+    const maxMinutes = opts.maxMinutes ?? DEFAULT_MAX_MINUTES;
     const deadline = started + maxMinutes * 60_000;
     const totals = { processed: 0, extracted: 0, merged: 0, needsReview: 0, rejected: 0, expandedListings: 0, enqueuedFromLists: 0 };
     let passes = 0;
-    const requestedPublish = Number(arg("max-publish") ?? process.env.EVENT_MAX_PUBLISH_PER_RUN ?? 10);
-    if (!Number.isInteger(requestedPublish) || requestedPublish < 0 || requestedPublish > 50) throw new Error("max-publish must be an integer between 0 and 50");
+    const runState = createExtractionRunState();
 
     while (Date.now() < deadline) {
-      const r = await runExtraction({ maxPublish: requestedPublish - totals.extracted });
+      const r = await runExtraction({ maxPublish: requestedPublish - totals.extracted, markets, itemIds, runState });
       passes++;
       for (const k of Object.keys(totals) as (keyof typeof totals)[]) totals[k] += r[k];
       console.log("extraction-pass:", JSON.stringify(r));
@@ -102,11 +99,12 @@ async function main() {
         await sleep(POLITENESS_WAIT_MS);
       }
     }
-    console.log("extraction:", JSON.stringify({ passes, ...totals }));
+    console.log("extraction:", JSON.stringify({ passes, ...totals, processedByMarket: runState.processedByMarket,
+      publishedByMarket: runState.publishedByMarket, skippedItemIds: runState.skippedItemIds }));
   }
 
   // Verification runs last so it sees anything this run just published.
-  if (!only || verifyOnly) {
+  if (!markets.length && (!only || verifyOnly)) {
     console.log("verification:", JSON.stringify(await runVerification()));
   }
 

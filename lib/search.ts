@@ -46,6 +46,13 @@ export class SearchRateLimitedError extends Error {
   }
 }
 
+export class SearchCreditsExhaustedError extends SearchRateLimitedError {
+  constructor() {
+    super("Firecrawl credits exhausted; discovery stopped without purchasing credits.");
+    this.name = "SearchCreditsExhaustedError";
+  }
+}
+
 /**
  * Our `search_queries.site_filter` column stores Google syntax
  * (`site:linkedin.com/events`). Providers that take structured domain lists
@@ -118,25 +125,36 @@ const googleProvider: SearchProvider = {
 // ----------------------------------------------------------------- Firecrawl
 
 const FIRECRAWL_RESULTS_PER_QUERY = 10; // 2 credits per 10 results
+export const FIRECRAWL_SEARCH_GAP_MS = 6_500;
+const MAX_RATE_LIMIT_WAIT_MS = 60_000;
 
-const firecrawlProvider: SearchProvider = {
+/** Serializes callers in this process, including retries. Other processes may
+ * share the account, so even paced requests can receive a quota refusal. */
+export function createFirecrawlProvider(clock = {
+  now: () => Date.now(),
+  sleep: (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms)),
+}): SearchProvider {
+  let nextRequestAt = 0;
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
   name: "firecrawl",
-  /*
-   * Free tier is 1,000 credits/month. Search costs 2 credits per 10 results;
-   * the production cron runs weekly, so 20 queries per run is only ~160
-   * credits/month and completes the 43-query seed set in about three runs.
-   * Six queries per run left Meetup/Eventbrite categories waiting for weeks.
-   */
+  // Keep the existing bounded discovery budget; pacing does not increase it.
   suggestedQueriesPerRun: 20,
 
   missingConfig() {
     return process.env.FIRECRAWL_API_KEY ? [] : ["FIRECRAWL_API_KEY"];
   },
 
-  async search(queryText, siteFilter) {
+  search(queryText, siteFilter) {
+    const task = tail.then(async () => {
     const site = parseSiteFilter(siteFilter);
 
-    const response = await fetch("https://api.firecrawl.dev/v2/search", {
+    let response!: Response;
+    for (let attempt = 0; attempt < 2; attempt++) {
+    const wait = nextRequestAt - clock.now();
+    if (wait > 0) await clock.sleep(wait);
+    nextRequestAt = clock.now() + FIRECRAWL_SEARCH_GAP_MS;
+    response = await fetch("https://api.firecrawl.dev/v2/search", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
@@ -155,13 +173,20 @@ const firecrawlProvider: SearchProvider = {
       signal: AbortSignal.timeout(30_000),
     });
 
-    if (response.status === 429) {
-      throw new SearchRateLimitedError(
-        "Firecrawl rate limit hit (10 searches/min on the free plan). Lower ?limit= or space the runs out.",
-      );
+    if (response.status !== 429) break;
+    const header = response.headers.get("retry-after");
+    const seconds = header && /^\d+(?:\.\d+)?$/.test(header) ? Number(header) * 1_000 : NaN;
+    const headerWait = Number.isFinite(seconds) ? seconds : header ? Date.parse(header) - clock.now() : NaN;
+    const retryWait = Number.isFinite(headerWait) ? Math.max(FIRECRAWL_SEARCH_GAP_MS, headerWait) : MAX_RATE_LIMIT_WAIT_MS;
+    await response.body?.cancel();
+    if (attempt > 0 || retryWait > MAX_RATE_LIMIT_WAIT_MS) {
+      throw new SearchRateLimitedError("Firecrawl rate limit persists; discovery stopped after at most one bounded retry.");
+    }
+    nextRequestAt = Math.max(nextRequestAt, clock.now() + retryWait);
     }
     if (response.status === 402) {
-      throw new SearchRateLimitedError("Firecrawl credits exhausted for this month.");
+      await response.body?.cancel();
+      throw new SearchCreditsExhaustedError();
     }
     if (!response.ok) {
       throw new Error(`Firecrawl failed with ${response.status}: ${(await response.text()).slice(0, 300)}`);
@@ -192,8 +217,14 @@ const firecrawlProvider: SearchProvider = {
       }));
 
     return { results, creditsUsed: data.creditsUsed };
+    });
+    tail = task.catch(() => undefined);
+    return task;
   },
-};
+  };
+}
+
+const firecrawlProvider = createFirecrawlProvider();
 
 // ------------------------------------------------------------------ Selection
 

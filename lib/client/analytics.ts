@@ -38,7 +38,7 @@ export function gaInlineScript(id: string): string {
       var url=new URL(value,origin);
       if(url.origin!==origin||url.protocol!=='https:')return '';
       var path=url.pathname;
-      if(!/^(?:\/|\/(?:privacy|terms)\/?|\/category\/[a-z0-9-]+\/?|\/events\/[a-z0-9-]+-\d+\/?|\/events\/chennai\/[a-z0-9-]+\/?|\/venues(?:\/[a-z0-9-]+)?\/?)$/.test(path))return '';
+      if(!/^(?:\/|\/(?:privacy|terms)\/?|\/category\/[a-z0-9-]+\/?|\/events\/[a-z0-9-]+-\d+\/?|\/events\/chennai\/[a-z0-9-]+\/?|\/events\/city\/[a-z]+(?:-[a-z]+)*\/?|\/venues(?:\/[a-z0-9-]+)?\/?)$/.test(path))return '';
       for(var key of url.searchParams.keys())if(/ticket|token|secret|password|email|phone|signature|payment|authorization|^otp$|^code$/i.test(key))return '';
       return origin+(path==='/'?path:path.replace(/\/$/,''));
     }
@@ -53,7 +53,7 @@ export function gaInlineScript(id: string): string {
       if(location===initialPage)return initialTitle||'SCENE';
       var path=new URL(location).pathname;
       var titles={'/':'Chennai events — SCENE','/venues':'Venues — SCENE','/venues/search':'Venue search — SCENE','/venues/partner':'Venue partners — SCENE','/privacy':'Privacy — SCENE','/terms':'Terms — SCENE'};
-      return titles[path]||(/^\/venues\//.test(path)?'Venue — SCENE':/^\/events\/chennai\//.test(path)?'Chennai events — SCENE':/^\/events\//.test(path)?'Event — SCENE':'Category events — SCENE');
+      return titles[path]||(/^\/venues\//.test(path)?'Venue — SCENE':/^\/events\/city\//.test(path)?'City events — SCENE':/^\/events\/chennai\//.test(path)?'Chennai events — SCENE':/^\/events\//.test(path)?'Event — SCENE':'Category events — SCENE');
     }
     try{
       if(document.referrer){

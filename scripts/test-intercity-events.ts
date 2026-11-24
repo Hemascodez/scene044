@@ -100,16 +100,20 @@ async function main() {
   process.env.CURATOR_PASSWORD = "fixture-password";
   const statements: { sql: string; values?: unknown[] }[] = [];
   let competingCity: string | null = null;
-  globalThis.__pgPool = { query: async (sql: string, values?: unknown[]) => {
+  const fixtureQuery = async (sql: string, values?: unknown[]) => {
     statements.push({ sql, values });
-    if (sql.includes("SELECT id, url, source_domain, status FROM discovery_items")) return { rows: [{ id: 99, url: "https://example.com/new-event", source_domain: "example.com", status: "curator_pending" }] };
+    if (sql.includes("SELECT id, url, source_domain, status, event_id FROM discovery_items")) return { rows: [{ id: 99, url: "https://example.com/new-event", source_domain: "example.com", status: "curator_pending", event_id: null }] };
     if (sql.includes("SELECT COALESCE(a.canonical_id")) return { rows: [] };
     if (sql.includes("SELECT DISTINCT city")) return { rows: [{ city: "Bangalore" }, { city: "Bengaluru" }, { city: "Chennai" }, { city: "TBA" }] };
     if (sql.includes("FROM events e")) return { rows: events.map(e => ({ ...e, sourceDomains: [] })) };
     if (sql.includes("FROM events\n")) return { rows: competingCity ? [{ id: 44, title: base.title, start_at: base.startAt, is_online: false, venue_name: base.venueName, city: competingCity, organizer_name: base.organizerName, primary_source_url: "https://example.com/other-event" }] : [] };
     if (sql.includes("INSERT INTO events") || sql.includes("UPDATE events SET")) return { rows: [{ id: 100, status: "live" }] };
     return { rows: [] };
-  } } as unknown as Pool;
+  };
+  let releasedClients = 0;
+  globalThis.__pgPool = { query: fixtureQuery, connect: async () => ({
+    query: fixtureQuery, release() { releasedClients++; },
+  }) } as unknown as Pool;
   const headers = { Authorization: `Basic ${btoa("curator:fixture-password")}` };
   const request = (body: unknown, authorized = true) => new Request("http://localhost/api/admin/test", {
     method: "POST", body: JSON.stringify(body), headers: authorized ? headers : {},
@@ -127,6 +131,10 @@ async function main() {
     assert.equal((await update(request({ ...body, city: "Chennai", venueAddress: "Bengaluru, Karnataka" }))).status, 400);
     assert.equal(statements.length, 0, "auth and invalid cities cause no database writes");
     assert.equal((await publish(request(body))).status, 200);
+    assert.ok(statements.some(s => s.sql === 'BEGIN'));
+    assert.ok(statements.some(s => /FROM discovery_items.*FOR UPDATE/.test(s.sql)));
+    assert.equal(statements.at(-1)?.sql, 'COMMIT');
+    assert.equal(releasedClients, 1, "publication releases its transaction client");
     assert.equal(statements.find(s => s.sql.includes("INSERT INTO events"))?.values?.[19], "Bengaluru", "publishing persists the canonical city even with zero Chennai relevance");
     assert.equal((await update(request({ ...body, city: "Poona" }))).status, 200);
     assert.equal(statements.at(-1)?.values?.[18], "Pune", "published edits persist the city");

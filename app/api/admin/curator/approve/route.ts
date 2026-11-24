@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { pool } from "@/lib/db";
+import type { PoolClient } from 'pg';
 import { checkCuratorAccess } from "@/lib/auth";
 import { normalizeUrl } from "@/lib/domain";
 import { findDuplicateEvent, DEDUP_HIGH_CONFIDENCE_THRESHOLD } from "@/lib/dedup";
@@ -157,14 +158,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "isPromoted must be a boolean" }, { status: 400 });
   }
 
+  let client: PoolClient | undefined;
   try {
-    const { rows } = await query<{ id: number; url: string; source_domain: string; status: string }>(
-      "SELECT id, url, source_domain, status FROM discovery_items WHERE id = $1",
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const query = client.query.bind(client);
+    // Hold the current review state through every publication write. A stale
+    // preview cannot publish after another curator rejects the candidate.
+    const { rows } = await query<{ id: number; url: string; source_domain: string; status: string; event_id: number | null }>(
+      "SELECT id, url, source_domain, status, event_id FROM discovery_items WHERE id = $1 FOR UPDATE",
       [discoveryItemId],
     );
     const item = rows[0];
-    if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
-    if (!REVIEWABLE_ITEM_STATUSES.includes(item.status)) {
+    if (!item) {
+      await query('ROLLBACK');
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
+    if (!REVIEWABLE_ITEM_STATUSES.includes(item.status) || item.event_id != null) {
+      await query('ROLLBACK');
       return NextResponse.json(
         { error: "not open for curator review", status: item.status },
         { status: 409 },
@@ -202,6 +213,7 @@ export async function POST(request: Request) {
         "UPDATE discovery_items SET status = 'duplicate', event_id = $1, curator_draft = NULL WHERE id = $2",
         [dup.eventId, item.id],
       );
+      await query('COMMIT');
       return NextResponse.json({ ok: true, status: "duplicate", eventId: dup.eventId });
     }
 
@@ -243,9 +255,12 @@ export async function POST(request: Request) {
       "UPDATE discovery_items SET status = 'curator_approved', event_id = $1, curator_draft = NULL WHERE id = $2",
       [eventRow.id, item.id],
     );
-
+    await query('COMMIT');
     return NextResponse.json({ ok: true, status: "created", eventId: eventRow.id });
   } catch (err) {
+    await client?.query('ROLLBACK').catch(() => {});
     return NextResponse.json({ ok: false, error: String(err).slice(0, 500) }, { status: 500 });
+  } finally {
+    client?.release();
   }
 }

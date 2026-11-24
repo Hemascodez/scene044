@@ -13,17 +13,21 @@ import { EventCard } from "@/components/scene/EventCard";
 import { ReturnPrompt } from "@/components/scene/ReturnPrompt";
 import { Btn, Mono } from "@/components/scene/ui";
 import { isChennaiDiscoveryEvent } from "@/lib/eventLocations";
+import type { CityHub } from '@/lib/cityEvents';
+import { CityHubLinks } from '@/components/scene/CityHubLinks';
 
 export function SceneApp({
   events,
   fetchFailed = false,
   initialFeedTab,
   initialCity,
+  cityHubs = [],
 }: {
   events: PublicEvent[];
   fetchFailed?: boolean;
   initialFeedTab?: string;
   initialCity?: string | null;
+  cityHubs?: (CityHub & { count: number })[];
 }) {
   const [view, setView] = useState<"discover" | "saved">("discover");
   const feedRef = useRef<HTMLElement>(null);
@@ -101,6 +105,8 @@ export function SceneApp({
               )}
             </div>
 
+            <CityHubLinks hubs={cityHubs} />
+
             {newlyDiscovered.length > 0 && (
               <div className="mt-16">
                 <SectionHead
@@ -134,7 +140,7 @@ export function SceneApp({
         />
       )}
 
-      <SceneFooter />
+      <SceneFooter cityHubs={cityHubs} />
 
       {interactions.returnEvent && (
         <ReturnPrompt

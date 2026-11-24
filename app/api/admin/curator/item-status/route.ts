@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { discoveryItemId?: number; action?: string; reason?: string };
+  let body: { discoveryItemId?: number; action?: string; reason?: string; expectedStatus?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,22 +32,27 @@ export async function POST(request: Request) {
   if (!mapped) {
     return NextResponse.json({ error: "invalid action", allowed: Object.keys(ALLOWED) }, { status: 400 });
   }
+  if (body.expectedStatus != null && !['new', 'auto_processing'].includes(body.expectedStatus)) {
+    return NextResponse.json({ error: 'invalid expectedStatus' }, { status: 400 });
+  }
 
   try {
     // Never reaches back into an item already turned into a live event —
     // that would silently orphan the published card.
     const { rows } = await query<{ id: number }>(
       `UPDATE discovery_items SET status = $1, rejection_reason = $2
-       WHERE id = $3 AND status NOT IN ('curator_approved', 'duplicate')
+       WHERE id = $3 AND status NOT IN ('curator_approved', 'duplicate') AND event_id IS NULL
+         AND ($4::text IS NULL OR status = $4::text)
        RETURNING id`,
       [
         mapped.status,
         ((body.reason ?? "").slice(0, 500) || mapped.defaultReason) || null,
         discoveryItemId,
+        body.expectedStatus ?? null,
       ],
     );
     if (rows.length === 0) {
-      return NextResponse.json({ error: "not found or already published" }, { status: 404 });
+      return NextResponse.json({ error: "not found, changed or already published" }, { status: body.expectedStatus ? 409 : 404 });
     }
     return NextResponse.json({ ok: true, status: mapped.status });
   } catch (err) {

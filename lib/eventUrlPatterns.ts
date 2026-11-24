@@ -36,9 +36,9 @@ const RULES: Record<string, DomainRules> = {
   // Luma events and calendars share the lu.ma/<slug> shape, so only the
   // unambiguous cases are classified and the rest fall through to `unknown`.
   "lu.ma": {
-    hub: [/^\/(discover|explore|bengaluru|mumbai)(\/|$)/i],
+    hub: [/^\/(discover|explore|bengaluru|mumbai|delhi|new-delhi)(\/|$)/i],
   },
-  "luma.com": { hub: [/^\/(discover|explore|bengaluru|mumbai)(\/|$)/i] },
+  "luma.com": { hub: [/^\/(discover|explore|bengaluru|mumbai|delhi|new-delhi)(\/|$)/i] },
   "kynhood.com": {
     hub: [/^\/eventhome\/?$/i, /^\/eventcategory\//i],
     event: [/^\/event\/[a-f0-9]{24}\/?$/i],

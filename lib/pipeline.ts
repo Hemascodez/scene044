@@ -23,7 +23,7 @@ import { ASSUMED_DURATION_MS, EVENT_END_GRACE_MS, snippetLooksPast, stripSnippet
 import { safeFetchText } from "@/lib/safeFetch";
 import type { ExtractionMeta } from "@/lib/types";
 import { eventCityError } from "@/lib/eventLocations";
-import { EVENT_DISCOVERY_FEEDS } from "./eventIngestionScope";
+import { EVENT_DISCOVERY_FEED_CONFIG, EVENT_DISCOVERY_FEEDS, eventIngestionMarket, ingestionMarkets } from "./eventIngestionScope";
 import { automaticPublicationIssue, publicationLimit, retryDelayMs } from "./eventIngestionQuality";
 
 /**
@@ -48,6 +48,7 @@ interface SearchQueryRow {
   id: number;
   query_text: string;
   site_filter: string | null;
+  discovery_market: string | null;
 }
 
 interface PendingDiscoveryItemRow {
@@ -64,6 +65,32 @@ interface DiscoveryItemRow {
   source_domain: string;
   query_id: number | null;
   attempt_count: number;
+  discovery_market: string | null;
+}
+
+/** One scheduled run shares these counters across politeness waits/passes.
+ * Processed counts are real claims by scheduling hint; published counts use
+ * the detail's actual location (online is its own bucket). */
+export interface ExtractionRunState {
+  processedByMarket: Record<string, number>;
+  publishedByMarket: Record<string, number>;
+  skippedItemIds: number[];
+}
+export function createExtractionRunState(): ExtractionRunState {
+  return { processedByMarket: {}, publishedByMarket: {}, skippedItemIds: [] };
+}
+export interface IngestionFilter {
+  markets?: readonly string[];
+  itemIds?: readonly number[];
+}
+interface ExtractionOptions extends IngestionFilter {
+  batchLimit?: number;
+  maxPublish?: number;
+  runState?: ExtractionRunState;
+}
+function itemIdFilter(ids?: readonly number[]): number[] {
+  if (ids?.some(id => !Number.isSafeInteger(id) || id < 1)) throw new Error("itemIds must contain positive integers");
+  return [...new Set(ids ?? [])];
 }
 
 interface SourceRateLimitRow {
@@ -127,17 +154,19 @@ async function markDiscoveryItem(
 
 /** Explicit public feeds are re-expanded, so ON CONFLICT doesn't make a
  * calendar a one-time import. Respect manual source settings on every run. */
-export async function refreshDiscoveryFeeds(): Promise<number> {
+export async function refreshDiscoveryFeeds(opts: Pick<IngestionFilter, "markets"> = {}): Promise<number> {
+  const markets = ingestionMarkets(opts.markets);
   let refreshed = 0;
-  for (const url of EVENT_DISCOVERY_FEEDS) {
+  for (const { url, market } of EVENT_DISCOVERY_FEED_CONFIG) {
+    if (markets.length && (!market || !markets.includes(market))) continue;
     const domain = normalizeDomain(url);
     const route = await routeDiscoveryItem(domain);
     if (route.status !== "auto_processing") continue;
     const result = await query(
-      `INSERT INTO discovery_items (url, source_domain, title, status, origin)
-       VALUES ($1,$2,'Public event feed','auto_processing','search')
+      `INSERT INTO discovery_items (url, source_domain, title, status, origin, discovery_market)
+       VALUES ($1,$2,'Public event feed','auto_processing','search',$3)
        ON CONFLICT (url) DO UPDATE SET status = 'auto_processing', rejection_reason = NULL, attempt_count = 0
-       WHERE discovery_items.status = 'expanded' AND discovery_items.next_attempt_at <= now()`, [url, domain]);
+       WHERE discovery_items.status = 'expanded' AND discovery_items.next_attempt_at <= now()`, [url, domain, market]);
     refreshed += result.rowCount ?? 0;
   }
   return refreshed;
@@ -154,7 +183,9 @@ export async function runDiscovery(opts: {
   limit?: number;
   site?: string;
   provider?: SearchProvider;
+  markets?: readonly string[];
 } = {}): Promise<DiscoveryResult> {
+  const markets = ingestionMarkets(opts.markets);
   const provider = opts.provider ?? selectSearchProvider();
 
   // Free tiers differ by an order of magnitude (Google ~100/day, Firecrawl
@@ -170,13 +201,14 @@ export async function runDiscovery(opts: {
   // least recently run. A full sweep therefore happens across several runs
   // without burning a whole day's quota at once.
   const { rows: queries } = await query<SearchQueryRow>(
-    `SELECT id, query_text, site_filter FROM search_queries
+    `SELECT id, query_text, site_filter, discovery_market FROM search_queries
      WHERE active = true
        AND ($2 = '' OR COALESCE(site_filter, '') ILIKE '%' || $2 || '%')
+       AND (cardinality($3::text[]) = 0 OR discovery_market = ANY($3::text[]))
      ORDER BY CASE WHEN priority > 0 AND (last_run_at IS NULL OR last_run_at < now() - interval '20 hours') THEN 0 ELSE 1 END,
               last_run_at ASC NULLS FIRST, id ASC
      LIMIT $1`,
-    [limit, site],
+    [limit, site, markets],
   );
 
   let creditsUsed = 0;
@@ -195,8 +227,8 @@ export async function runDiscovery(opts: {
       for (const result of results) {
         const source_domain = normalizeDomain(result.link);
         await query(
-          "INSERT INTO discovery_items (query_id, title, snippet, url, source_domain) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (url) DO NOTHING",
-          [row.id, result.title, result.snippet, result.link, source_domain],
+          "INSERT INTO discovery_items (query_id, title, snippet, url, source_domain, discovery_market) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (url) DO NOTHING",
+          [row.id, result.title, result.snippet, result.link, source_domain, row.discovery_market],
         );
       }
 
@@ -216,7 +248,8 @@ export async function runDiscovery(opts: {
   }
 
   const { rows: pending } = await query<PendingDiscoveryItemRow>(
-    "SELECT id, url, source_domain, title, snippet FROM discovery_items WHERE status = 'new'",
+    `SELECT id, url, source_domain, title, snippet FROM discovery_items WHERE status = 'new'
+       AND (cardinality($1::text[]) = 0 OR discovery_market = ANY($1::text[]))`, [markets],
   );
 
   let autoProcessing = 0;
@@ -293,7 +326,9 @@ export async function runDiscovery(opts: {
 }
 
 /** Fetches, extracts, categorises and dedups one batch of queued items. */
-export async function runExtraction(opts: { batchLimit?: number; maxPublish?: number } = {}): Promise<ExtractionResult> {
+export async function runExtraction(opts: ExtractionOptions = {}): Promise<ExtractionResult> {
+  ingestionMarkets(opts.markets);
+  itemIdFilter(opts.itemIds);
   const lock = await pool.connect();
   let held = false;
   try {
@@ -310,82 +345,19 @@ export async function runExtraction(opts: { batchLimit?: number; maxPublish?: nu
   }
 }
 
-async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: number }): Promise<ExtractionResult> {
+async function runExtractionUnlocked(opts: ExtractionOptions): Promise<ExtractionResult> {
   const batchLimit = opts.batchLimit ?? EXTRACT_BATCH_LIMIT;
+  if (!Number.isInteger(batchLimit) || batchLimit < 1 || batchLimit > 100) throw new Error("batchLimit must be 1..100");
   const maxPublish = publicationLimit(opts.maxPublish);
+  const markets = ingestionMarkets(opts.markets);
+  const itemIds = itemIdFilter(opts.itemIds);
+  const state = opts.runState ?? createExtractionRunState();
+  const usedDomains: string[] = [];
 
   const { rows: allowedSources } = await query<{ domain: string }>(
     "SELECT domain FROM sources WHERE trust_tier = 'auto_fetch' AND active = true",
   );
   const allowedDomains = allowedSources.map((s) => s.domain);
-
-  /*
-   * Rate-limited domains are excluded HERE, not just checked per-item below.
-   *
-   * The previous version selected an unordered LIMIT batch and skipped
-   * whatever turned out to be within its politeness window. Skipped items
-   * keep status='auto_processing', so if a few high-traffic domains
-   * (meetup.com, eventbrite.com) dominate the front of the table, Postgres
-   * returns that SAME batch — unordered LIMIT is stable in practice — on
-   * every subsequent call. The pipeline would then "process" 25 items and
-   * extract nothing, pass after pass, forever, while genuinely fetchable
-   * items sat further back in the table and were never reached. That is
-   * exactly why some categories' candidates could go a very long time without
-   * surfacing: their rows were simply behind the stuck block.
-   *
-   * Filtering by the same politeness window in SQL means a batch only ever
-   * contains rows that can actually be fetched right now, so real progress
-   * happens on every call rather than a plausible-looking no-op.
-   */
-  /*
-   * DISTINCT ON (di.source_domain): at most ONE item per domain per call.
-   *
-   * The rate-limit filter above stops a batch from being entirely stuck, but
-   * it does not stop a batch from being entirely ONE domain. If meetup.com has
-   * the deepest backlog, an unrestricted LIMIT after the filter still returns
-   * mostly meetup.com rows — the first one fetches and updates
-   * sources.last_fetched_at, and every other meetup.com row in that SAME batch
-   * then fails the per-item safety check below and is skipped. It still counts
-   * toward `processed`, so a pass could report processed: 25 while only 3 or 4
-   * items reached any real outcome — a batch that LOOKS like it did work while
-   * mostly spinning on one domain. This is exactly why some communities'
-   * candidates could sit for a very long time despite the queue visibly
-   * moving: one prolific source was consuming almost the whole batch, pass
-   * after pass, leaving little room for anyone else.
-   *
-   * One row per domain means a 25-item call now touches up to 25 DIFFERENT
-   * communities, not up to 25 items from however few communities happen to
-   * dominate discovery_items that day.
-   */
-  const { rows: items } = await query<DiscoveryItemRow>(
-    `SELECT DISTINCT ON (di.source_domain)
-            di.id, di.url, di.source_domain, di.query_id, di.attempt_count
-       FROM discovery_items di
-       LEFT JOIN sources s ON s.domain = di.source_domain
-      WHERE di.status = 'auto_processing'
-        AND s.trust_tier = 'auto_fetch' AND s.active = true
-        AND (di.next_attempt_at IS NULL OR di.next_attempt_at <= now())
-        AND (
-          s.last_fetched_at IS NULL
-          OR now() - s.last_fetched_at > (interval '1 hour' / GREATEST(COALESCE(s.rate_limit_per_hour, 30), 1))
-        )
-      ORDER BY di.source_domain, CASE WHEN di.url = ANY($2::text[]) THEN 0 ELSE 1 END,
-               di.last_attempt_at ASC NULLS FIRST, di.discovered_at DESC, di.id DESC
-      LIMIT $1`,
-    [batchLimit, [...EVENT_DISCOVERY_FEEDS]],
-  );
-
-  // Listing pages can enqueue child event URLs on the same domain. Those
-  // children are held until the politeness window reopens, but a scheduled
-  // process must wait for them instead of treating the queue as empty. This
-  // matters especially for a weekly cron: otherwise a calendar expansion
-  // delays every child until the following week.
-  const { rows: pendingRows } = await query<{ pending: boolean; next_retry_at: string | null }>(
-    `SELECT count(*) > 0 AS pending, min(COALESCE(di.next_attempt_at, now())) AS next_retry_at
-       FROM discovery_items di JOIN sources s ON s.domain = di.source_domain
-      WHERE di.status = 'auto_processing' AND s.active = true AND s.trust_tier = 'auto_fetch'`,
-  );
-  const rateLimited = items.length === 0 && Boolean(pendingRows[0]?.pending);
 
   let processed = 0;
   let extracted = 0;
@@ -398,8 +370,35 @@ async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: n
   let needsDateReview = 0;
   let retryScheduled = 0;
 
-  for (const item of items) {
-    if (extracted >= maxPublish) break;
+  // Re-select after each real claim, so counts affect this pass as well as
+  // subsequent passes. Keep one fetch/domain/pass and the existing SQL and
+  // per-item politeness checks. Within a market, refresh configured due feeds
+  // before old unattempted children can consume the publication budget.
+  for (let n = 0; n < batchLimit && extracted < maxPublish; n++) {
+    const { rows: [item] } = await query<DiscoveryItemRow>(
+      `SELECT di.id, di.url, di.source_domain, di.query_id, di.attempt_count,
+              COALESCE(di.discovery_market, sq.discovery_market) AS discovery_market
+         FROM discovery_items di
+         JOIN sources s ON s.domain = di.source_domain
+         LEFT JOIN search_queries sq ON sq.id = di.query_id
+        WHERE di.status = 'auto_processing' AND s.trust_tier = 'auto_fetch' AND s.active = true
+          AND (cardinality($1::text[]) = 0 OR COALESCE(di.discovery_market, sq.discovery_market) = ANY($1::text[])
+               OR cardinality($2::int[]) > 0)
+          AND (cardinality($2::int[]) = 0 OR di.id = ANY($2::int[]))
+          AND NOT (di.id = ANY($3::int[])) AND NOT (di.source_domain = ANY($6::text[]))
+          AND (di.next_attempt_at IS NULL OR di.next_attempt_at <= now())
+          AND (s.last_fetched_at IS NULL OR now() - s.last_fetched_at >
+               (interval '1 hour' / GREATEST(COALESCE(s.rate_limit_per_hour, 30), 1)))
+        ORDER BY COALESCE(($4::jsonb ->> COALESCE(di.discovery_market, sq.discovery_market, 'Unknown'))::int, 0),
+                 COALESCE(($5::jsonb ->> COALESCE(di.discovery_market, sq.discovery_market, 'Unknown'))::int, 0),
+                 CASE WHEN di.url = ANY($7::text[]) THEN 0 ELSE 1 END,
+                 di.last_attempt_at ASC NULLS FIRST, di.discovered_at ASC, di.id ASC
+        LIMIT 1`,
+      [markets, itemIds, state.skippedItemIds, JSON.stringify(state.processedByMarket),
+        JSON.stringify(state.publishedByMarket), usedDomains, EVENT_DISCOVERY_FEEDS],
+    );
+    if (!item) break;
+    usedDomains.push(item.source_domain);
     const leaseToken = randomUUID();
     try {
 
@@ -424,6 +423,8 @@ async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: n
           AND (next_attempt_at IS NULL OR next_attempt_at <= now()) RETURNING id`, [item.id, leaseToken]);
       if (!claim.rowCount) continue;
       processed++;
+      const scheduledMarket = item.discovery_market ?? "Unknown";
+      state.processedByMarket[scheduledMarket] = (state.processedByMarket[scheduledMarket] ?? 0) + 1;
 
       const outcome = await extractFromUrl(item.url, allowedDomains);
       await query("UPDATE sources SET last_fetched_at = now() WHERE domain = $1", [
@@ -448,10 +449,10 @@ async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: n
           }
           const route = await routeDiscoveryItem(childDomain);
           const inserted = await query(
-            `INSERT INTO discovery_items (query_id, title, snippet, url, source_domain, status, rejection_reason, origin)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'search')
+            `INSERT INTO discovery_items (query_id, title, snippet, url, source_domain, status, rejection_reason, origin, discovery_market)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,'search',$8)
              ON CONFLICT (url) DO NOTHING`,
-            [item.query_id, link.title, null, link.url, childDomain, route.status, route.rejectionReason],
+            [item.query_id, link.title, null, link.url, childDomain, route.status, route.rejectionReason, item.discovery_market],
           );
           if (inserted.rowCount) enqueuedFromLists++;
         }
@@ -469,6 +470,19 @@ async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: n
 
       const extractedEvent = outcome.kind === "event" ? outcome.event : null;
       const supportingText = outcome.kind === "event" ? outcome.supportingText : null;
+
+      // Search/feed hints can be wrong (including global recommendations).
+      // A scoped run must prove its actual city before classification/dedup/
+      // editorial/publication. Leave mismatches for a later unrestricted run,
+      // without exhausting retry attempts or reopening any curator state.
+      const detailMarket = extractedEvent ? eventIngestionMarket(extractedEvent) : null;
+      if (extractedEvent && markets.length && (!detailMarket || !markets.includes(detailMarket))) {
+        state.skippedItemIds.push(item.id);
+        await query(`UPDATE discovery_items SET lease_token = NULL, next_attempt_at = NULL,
+          attempt_count = GREATEST(attempt_count - 1, 0)
+          WHERE id = $1 AND status = 'auto_processing' AND lease_token = $2`, [item.id, leaseToken]);
+        continue;
+      }
 
       if (!extractedEvent) {
         const reason = outcome.kind === "none" ? outcome.reason ?? "extraction_failed" : "extraction_failed";
@@ -677,6 +691,9 @@ async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: n
       } catch (error) { await tx.query("ROLLBACK"); throw error; }
       finally { tx.release(); }
       extracted++;
+      const actualMarket = extractedEvent.isOnline ? "Online"
+        : eventIngestionMarket(extractedEvent)!;
+      state.publishedByMarket[actualMarket] = (state.publishedByMarket[actualMarket] ?? 0) + 1;
     } catch (err) {
       // Never log scraped content, credentials or provider response bodies.
       console.warn(`extract: item ${item.id} failed (${err instanceof Error ? err.name : "unknown"})`);
@@ -692,6 +709,20 @@ async function runExtractionUnlocked(opts: { batchLimit?: number; maxPublish?: n
       }
     }
   }
+
+  // Use the same scope for drain/wait decisions, including newly expanded
+  // children. Other markets or excluded recommendations cannot keep it alive.
+  const { rows: pendingRows } = await query<{ pending: boolean; next_retry_at: string | null }>(
+    `SELECT count(*) > 0 AS pending, min(COALESCE(di.next_attempt_at, now())) AS next_retry_at
+       FROM discovery_items di JOIN sources s ON s.domain = di.source_domain
+       LEFT JOIN search_queries sq ON sq.id = di.query_id
+      WHERE di.status = 'auto_processing' AND s.active = true AND s.trust_tier = 'auto_fetch'
+        AND (cardinality($1::text[]) = 0 OR COALESCE(di.discovery_market, sq.discovery_market) = ANY($1::text[])
+             OR cardinality($2::int[]) > 0)
+        AND (cardinality($2::int[]) = 0 OR di.id = ANY($2::int[]))
+        AND NOT (di.id = ANY($3::int[]))`, [markets, itemIds, state.skippedItemIds],
+  );
+  const rateLimited = processed === 0 && Boolean(pendingRows[0]?.pending);
 
   return {
     processed, extracted, merged, needsReview, rejected,

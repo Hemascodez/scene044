@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
-import { getPublicEventById, getPublicEvents, type PublicEvent } from "@/lib/events";
+import { getPublicEventById, type PublicEvent } from "@/lib/events";
 import { eventPath, homeEventStructuredData, serializeJsonLd, websiteStructuredData } from "@/lib/seo";
 import { SceneApp } from "@/components/scene/SceneApp";
 import { EVENTS_SEARCH_DESCRIPTION, EVENTS_SEARCH_TITLE, eventsForCollection, getEventCollection } from '@/lib/eventDiscovery';
 import { normalizeEventCity } from '@/lib/eventLocations';
+import { getCityHubEvents } from '@/lib/cityEventData';
+import { activeCityHubs } from '@/lib/cityEvents';
 
 export const dynamic = "force-dynamic";
 
@@ -58,13 +60,12 @@ export default async function Home({ searchParams }: HomeProps) {
     if (linkedEvent) permanentRedirect(eventPath(linkedEvent));
   }
 
-  // One in-process query, not a self-fetch of /api/events: a single DB round
-  // trip, and the feed can never disagree with itself because everything on
-  // the page reads the same array.
+  // Read public listings in-process, with location/update facts for city links.
+  // Every section on this page reads the same event snapshot.
   let events: PublicEvent[] = [];
   let fetchFailed = false;
   try {
-    events = await getPublicEvents(null);
+    events = await getCityHubEvents();
   } catch (err) {
     console.error("Home: failed to load public events", err);
     fetchFailed = true;
@@ -79,7 +80,7 @@ export default async function Home({ searchParams }: HomeProps) {
       {!fetchFailed && <script type="application/ld+json" dangerouslySetInnerHTML={{
         __html: serializeJsonLd(homeEventStructuredData(eventsForCollection(events, getEventCollection('this-week')!, new Date()))),
       }} />}
-      <SceneApp events={events} fetchFailed={fetchFailed} initialFeedTab={params.tab} initialCity={normalizeEventCity(params.city)} />
+      <SceneApp events={events} fetchFailed={fetchFailed} initialFeedTab={params.tab} initialCity={normalizeEventCity(params.city)} cityHubs={activeCityHubs(events)} />
     </>
   );
 }

@@ -5,6 +5,8 @@ import { absoluteUrl, eventPath, venuePath, SITE_URL as BASE_URL } from "@/lib/s
 import { listPublicVenues } from "@/lib/venueCatalog";
 import { escapeSitemapUrls } from "@/lib/sitemapXml";
 import { EVENT_COLLECTIONS, eventCollectionPath } from '@/lib/eventDiscovery';
+import { getCityHubEvents } from '@/lib/cityEventData';
+import { cityHubSitemapEntries } from '@/lib/cityEventSeo';
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +32,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("sitemap: failed to load venue URLs", err);
   }
 
+  let cityHubs: MetadataRoute.Sitemap = [];
+  try {
+    cityHubs = cityHubSitemapEntries(await getCityHubEvents());
+  } catch (err) {
+    console.error('sitemap: failed to load city hubs', err);
+  }
+
   const latestSiteUpdate = events
     .map((event) => validDate(event.updatedAt))
     .filter((date): date is Date => !!date)
     .sort((a, b) => b.getTime() - a.getTime())[0];
 
   return escapeSitemapUrls([
+    ...cityHubs,
     {
       url: BASE_URL,
       ...(latestSiteUpdate ? { lastModified: latestSiteUpdate } : {}),
