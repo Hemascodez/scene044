@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { PGlite } from '@electric-sql/pglite';
 import { POST as approve } from '../app/api/admin/curator/approve/route';
 import { POST as changeStatus } from '../app/api/admin/curator/item-status/route';
+import { POST as changeEventStatus } from '../app/api/admin/events/status/route';
 
 function deferred() {
   let resolve!: () => void;
@@ -53,6 +54,8 @@ async function main() {
     process.env.CURATOR_PASSWORD = 'publication-fixture-password';
     globalThis.fetch = async () => { throw new Error('External requests forbidden in publication tests'); };
     await db.exec(readFileSync(new URL('../db/schema.sql', import.meta.url), 'utf8'));
+    // Only the host linkage column is used by the publication safety guard.
+    await db.exec('CREATE TABLE hosted_events(event_id integer PRIMARY KEY REFERENCES events(id))');
     globalThis.__pgPool = {
       query: async (text: string, values?: unknown[]) => {
         // PGlite has one connection. Model PostgreSQL's competing-session row
@@ -135,6 +138,20 @@ async function main() {
       assert.deepEqual(await snapshot(id), committed);
     }
     assert.equal(failedWrites, 2, 'both rollback failures were actually exercised');
+
+    const live = (await sql('SELECT id,title FROM events LIMIT 1')).rows[0];
+    const holdImport = { eventId: live.id, status: 'pending_review', expectedTitle: live.title, expectedVenueName: 'Fixture Hall' };
+    assert.equal((await changeEventStatus(request({ eventId: live.id, status: 'pending_review' }))).status, 400);
+    assert.equal((await changeEventStatus(request(holdImport))).status, 409, 'curator-authored events cannot be automatically held');
+    await sql("UPDATE events SET source_type='auto' WHERE id=$1", [live.id]);
+    assert.equal((await changeEventStatus(request({ ...holdImport, expectedVenueName: 'Stale venue' }))).status, 409);
+    await sql('INSERT INTO hosted_events(event_id) VALUES($1)', [live.id]);
+    assert.equal((await changeEventStatus(request(holdImport))).status, 409, 'hosted event registrations cannot be hidden by this guard');
+    await sql('DELETE FROM hosted_events WHERE event_id=$1', [live.id]);
+    assert.equal((await changeEventStatus(request(holdImport))).status, 200, 'a matching auto import can be reversibly held');
+    assert.equal((await sql('SELECT status FROM events WHERE id=$1', [live.id])).rows[0].status, 'pending_review');
+    assert.equal((await changeEventStatus(request({ eventId: live.id, status: 'live' }))).status, 200, 'normal reviewed restoration remains available');
+    await sql("UPDATE events SET source_type='curator' WHERE id=$1", [live.id]);
 
     const duplicateId = Number((await sql(`INSERT INTO discovery_items(url,source_domain,status,origin)
       VALUES('https://luma.com/duplicate-fixture','luma.com','curator_pending','search') RETURNING id`)).rows[0].id);
