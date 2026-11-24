@@ -46,6 +46,11 @@ async function main() {
   assert.equal(automaticPublicationIssue({ ...event, startAt: null }, null), "precise_event_time_required");
   assert.equal(automaticPublicationIssue({ ...event, startAt: "2099-11-28" }, null), "precise_event_time_required");
   assert.equal(automaticPublicationIssue({ ...event, summary: "Join us" }, null), "insufficient_source_description");
+  for (const venueName of ['Bengaluru', 'Bangalore, India', 'Bengaluru, Karnataka, India']) {
+    assert.equal(automaticPublicationIssue({ ...event, venueName }, null), 'source_venue_withheld', 'a city/region/country is not a named venue');
+  }
+  assert.equal(automaticPublicationIssue({ ...event, city: 'New Delhi', venueName: 'New Delhi, India', venueAddress: 'New Delhi, Delhi' }, null), 'source_venue_withheld');
+  assert.equal(automaticPublicationIssue({ ...event, venueName: 'Bengaluru International Centre' }, null), null, 'a real venue containing its city name remains valid');
   assert.equal(automaticPublicationIssue({ ...event, sourceMethod: "llm", confidence: 0.99 }, null), "source_evidence_review");
   assert.equal(automaticPublicationIssue({ ...event, sourceMethod: "llm", confidence: .9, dateEvidence: "November 28 at 10am", venueEvidence: "Fixture Hall Bengaluru" }, "November 28 at 10am. Fixture Hall Bengaluru."), null);
   assert.equal(automaticPublicationIssue({ ...event, priceType: null }, null), null, "unknown price stays unknown, not free");

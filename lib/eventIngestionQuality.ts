@@ -1,6 +1,6 @@
 import type { ExtractedEvent } from "./types";
 import { ingestionLocationAllowed } from "./eventIngestionScope";
-import { normalizeEventCity } from "./eventLocations";
+import { eventAddressRegion, normalizeEventCity } from "./eventLocations";
 
 /** Missing facts go to review, not to invented SEO copy. Search location is
  * not evidence. Structured data is preferred; AI-only imports need evidence. */
@@ -10,8 +10,13 @@ export function automaticPublicationIssue(event: ExtractedEvent, supportingText:
   if (!event.summary || event.summary.trim().length < 80) return "insufficient_source_description";
   if (!event.organizerName?.trim()) return "missing_source_organizer";
   if (!event.isOnline && (!event.venueName?.trim() || !event.venueAddress?.trim())) return "missing_source_venue";
+  const venueParts = (event.venueName ?? '').split(',').map(part => part.trim()).filter(Boolean);
+  const region = eventAddressRegion(event.city ?? '')?.toLowerCase();
+  const cityOnlyVenue = venueParts.length > 0
+    && normalizeEventCity(venueParts[0]) === normalizeEventCity(event.city)
+    && venueParts.slice(1).every(part => part.toLowerCase() === 'india' || part.toLowerCase() === region);
   if (!event.isOnline && (/\[(?:venue|location)[^\]]*\]|\b(?:tba|tbd|to be announced|register to (?:see|view))\b/i.test(`${event.venueName} ${event.venueAddress}`)
-    || normalizeEventCity(event.venueName) === normalizeEventCity(event.city))) return "source_venue_withheld";
+    || cityOnlyVenue)) return "source_venue_withheld";
   if (event.sourceMethod === "llm") {
     const normalize = (s: string) => s.replace(/\s+/g, " ").trim().toLocaleLowerCase();
     const page = normalize(supportingText ?? "");
