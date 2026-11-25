@@ -6,6 +6,14 @@ Previews (`npm run dev`): `/dev/hosted-event`, `/dev/my-bookings`, `/dev/host-ev
 Backend contract: `docs/hosted-event-backend-contract.md` (section 0: proxy.ts must admit approved event hosts to /host/events).
 Specs/plans: `docs/superpowers/specs/2026-11-12-*`, `docs/superpowers/plans/2026-11-12-*`.
 
+## Latest (25 November) — Chapter Lounge 6 December + poster theme
+Committed locally on this branch, NOT pushed: `b718f26`, `b4c8614`, `e768aeb` (on top of origin/main `e456f8a`).
+- Second date: `CHAPTER_LOUNGE_EDITIONS` in `lib/hostedEvents.ts` ("2026-11-22", "2026-12-06"; `LATEST_CHAPTER_LOUNGE_EDITION` = 6 Dec). Same price/seats/host/description/terms; own poster `public/events/chapter-lounge/2026-12-06/poster.jpg`; flipbook opens on the 22 Nov photos `last-time-8.jpg` (collage) and `last-time-9.jpg` (group). Portrait poster only (no wide desktop version yet).
+- `prepareChapterLoungeDraft(edition)` (default: latest) makes each date its own unpublished draft with zero registrations; the curator button reads "Prepare Chapter Lounge draft · Sunday, 6 December 2026"; route takes `edition`. Unknown date → 400. Backend test covers separate ids, idempotence and the default.
+- To go live: push + deploy, then curator presses that button in `/admin/curator/hosting`, reviews, opens registration and publishes.
+- Poster theme (`.hosted-theme`, was `.hosted-dark`): brown-to-black page, cream paper cards, espresso ink, cinnamon/gold accents, sage/maroon for success/error, leaf green `#86d993` for success text on the page. Text flips cream ↔ ink via `--h-text*` vars on paper surfaces (`hostedCard`, `bg-card`, `.hosted-paper`). Ticket, ticket printer, dialog and phone bar (cream) are re-coloured. All text pairs meet WCAG AA.
+- Previews: `/dev/hosted-event` (latest date; `?date=2026-11-22` for the old one), `/dev/hosted-ticket` (latest date). Preview code 123456; payment is simulated via a confirm prompt.
+
 ## Done since the first handoff
 - Event page uses the poster theme: brown-to-black page, cream paper cards, espresso ink, cinnamon and gold accents (`.hosted-theme` scope in app/globals.css; text flips to ink on paper surfaces via `--h-text*`); "Last time" and "About" are boxed; About folds behind "Read the full description".
 - Reader pass: "Pay by UPI or card" removed; footer describes My bookings and optional WhatsApp confirmation. Closing Razorpay shows no message.
