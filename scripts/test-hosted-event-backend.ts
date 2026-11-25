@@ -198,14 +198,18 @@ async function main() {
     await db.exec(readFileSync('db/migrations/2026-11-21-offline-event-registrations.sql', 'utf8'));
     const { prepareChapterLoungeDraft, saveHostedEventSettings, hostedEventAdminCatalog } =
       await import("../lib/hostedEventAdmin");
-    const draft = await prepareChapterLoungeDraft();
+    const draft = await prepareChapterLoungeDraft("2026-11-22");
+    const december = await prepareChapterLoungeDraft("2026-12-06");
+    assert.notEqual(december.eventId, draft.eventId, "each edition is its own event");
+    assert.equal((await prepareChapterLoungeDraft()).eventId, december.eventId, "default prepares the latest edition");
+    await assert.rejects(() => prepareChapterLoungeDraft("2027-01-01"), /Unknown Chapter Lounge date/);
     assert.equal(
-      (await prepareChapterLoungeDraft()).eventId,
+      (await prepareChapterLoungeDraft("2026-11-22")).eventId,
       draft.eventId,
       "draft preparation is idempotent",
     );
     await db.query("UPDATE events SET title='Previous reading-event title' WHERE id=$1", [draft.eventId]);
-    assert.equal((await prepareChapterLoungeDraft()).eventId, draft.eventId, 'draft identity survives a title edit');
+    assert.equal((await prepareChapterLoungeDraft("2026-11-22")).eventId, draft.eventId, 'draft identity survives a title edit');
     await db.query("UPDATE events SET title='Chapter Lounge - Sunday Reads' WHERE id=$1", [draft.eventId]);
     const chapter = await db.query<{ status: string; category: string }>(
       "SELECT status,category FROM events WHERE id=$1",

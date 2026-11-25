@@ -10,6 +10,10 @@ import {
   TextArea as Textarea,
   Pill,
 } from "./adminUi";
+import { CHAPTER_LOUNGE_EDITIONS, LATEST_CHAPTER_LOUNGE_EDITION } from "@/lib/hostedEvents";
+import { formatSceneDateLong } from "@/lib/client/istTime";
+
+const upcomingChapterLounge = formatSceneDateLong(CHAPTER_LOUNGE_EDITIONS[LATEST_CHAPTER_LOUNGE_EDITION].startAt!);
 
 type HostedChoice = {
   id: number;
@@ -167,6 +171,7 @@ export function EventHostingSection() {
             void action(async () => {
               const result = await mutate("/api/admin/hosted-events", "POST", {
                 action: "prepare-chapter-lounge",
+                edition: LATEST_CHAPTER_LOUNGE_EDITION,
               });
               const choices = await reload();
               choose(String(result.eventId), choices);
@@ -174,7 +179,7 @@ export function EventHostingSection() {
             })
           }
         >
-          Prepare Chapter Lounge draft
+          Prepare Chapter Lounge draft · {upcomingChapterLounge}
         </AdminBtn>
         <p className="text-sm text-[#a9bcb0]">
           Uses the supplied event details and photos. Starts closed, with zero

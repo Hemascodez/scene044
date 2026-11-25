@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       throw new EventTicketError("unauthorized", 401);
     const body = await eventBody(request);
     if (body.action === "prepare-chapter-lounge")
-      return { ok: true, ...(await prepareChapterLoungeDraft()) };
+      return { ok: true, ...(await prepareChapterLoungeDraft(body.edition ?? undefined)) };
     await saveHostedEventSettings(body);
     return { ok: true };
   });

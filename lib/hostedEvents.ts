@@ -211,3 +211,46 @@ export const CHAPTER_LOUNGE_FIXTURE: HostedEventDetail = {
     ],
   },
 };
+
+/**
+ * Chapter Lounge's second edition: Sunday 6 December 2026, 11 am – 1 pm, same
+ * venue, price, seats, host, description and terms. Its own poster, and the
+ * flipbook opens on photos from the 22 November session.
+ */
+export const CHAPTER_LOUNGE_DEC_06_FIXTURE: HostedEventDetail = {
+  ...CHAPTER_LOUNGE_FIXTURE,
+  id: 9045,
+  startAt: "2026-12-06T05:30:00.000Z",
+  endAt: "2026-12-06T07:30:00.000Z",
+  posterImageUrl: `${PHOTOS}/2026-12-06/poster.jpg`,
+  discoveredAt: "2026-11-25T00:00:00.000Z",
+  updatedAt: "2026-11-25T00:00:00.000Z",
+  hosted: {
+    ...CHAPTER_LOUNGE_FIXTURE.hosted,
+    registeredCount: 0,
+    gallery: [
+      { src: `${PHOTOS}/last-time-8.jpg`, alt: "Readers from the 22 November session holding up the books they brought, from Cosmos to Influence" },
+      { src: `${PHOTOS}/last-time-9.jpg`, alt: "Group photo from the 22 November session beside the Chapter Shelf sign and stacks of books" },
+      { src: `${PHOTOS}/last-time-2.jpg`, alt: "Stacks of books on the table beside the Chapter Shelf sign" },
+      { src: `${PHOTOS}/last-time-1.jpg`, alt: "Readers from an earlier Chapter Lounge session gathered around the table at Madras Adda" },
+      { src: `${PHOTOS}/last-time-5.jpg`, alt: "Readers holding up the books they brought" },
+      { src: `${PHOTOS}/last-time-4.jpg`, alt: "Readers mid-conversation and lost in their books" },
+      { src: `${PHOTOS}/last-time-3.jpg`, alt: "Handwritten sticky notes from readers about the session" },
+    ],
+  },
+};
+
+/** Every Chapter Lounge date, keyed by its IST date. Curators prepare each as its own draft event. */
+export const CHAPTER_LOUNGE_EDITIONS = {
+  "2026-11-22": CHAPTER_LOUNGE_FIXTURE,
+  "2026-12-06": CHAPTER_LOUNGE_DEC_06_FIXTURE,
+} as const satisfies Record<string, HostedEventDetail>;
+
+export type ChapterLoungeEdition = keyof typeof CHAPTER_LOUNGE_EDITIONS;
+
+/** The upcoming date: what "Prepare Chapter Lounge draft" and the dev preview use by default. */
+export const LATEST_CHAPTER_LOUNGE_EDITION: ChapterLoungeEdition = "2026-12-06";
+
+export function isChapterLoungeEdition(value: unknown): value is ChapterLoungeEdition {
+  return typeof value === "string" && Object.hasOwn(CHAPTER_LOUNGE_EDITIONS, value);
+}

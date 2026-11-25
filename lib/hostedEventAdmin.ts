@@ -4,7 +4,12 @@ import {
   EventTicketError,
   getHostedEventInfo,
 } from "@/lib/hostedEventData";
-import { CHAPTER_LOUNGE_FIXTURE } from "@/lib/hostedEvents";
+import {
+  CHAPTER_LOUNGE_EDITIONS,
+  isChapterLoungeEdition,
+  LATEST_CHAPTER_LOUNGE_EDITION,
+} from "@/lib/hostedEvents";
+import { formatSceneDateLong } from "@/lib/client/istTime";
 import { eventPath } from "@/lib/seo";
 
 export async function hostedEventAdminCatalog() {
@@ -146,15 +151,22 @@ export async function saveHostedEventSettings(body: Record<string, unknown>) {
   }
 }
 
-/** Explicit curator action only. Real supplied content; zero registrations; never publishes. */
-export async function prepareChapterLoungeDraft() {
-  const event = CHAPTER_LOUNGE_FIXTURE;
+/**
+ * Explicit curator action only. Real supplied content; zero registrations;
+ * never publishes. `edition` is the IST date of one Chapter Lounge session;
+ * each date is its own event. Defaults to the upcoming one.
+ */
+export async function prepareChapterLoungeDraft(edition: unknown = LATEST_CHAPTER_LOUNGE_EDITION) {
+  if (!isChapterLoungeEdition(edition))
+    throw new EventTicketError("Unknown Chapter Lounge date.", 400);
+  const event = CHAPTER_LOUNGE_EDITIONS[edition];
   const h = event.hosted;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(
-      "SELECT pg_advisory_xact_lock(hashtext('scene044-chapter-lounge-2026-11-22'))",
+      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      [`scene044-chapter-lounge-${edition}`],
     );
     let row = (
       await client.query<{ id: number; title: string }>(
@@ -207,8 +219,7 @@ export async function prepareChapterLoungeDraft() {
     await client.query("COMMIT");
     return {
       eventId: row.id,
-      notice:
-        "Chapter Lounge draft prepared. No event was published and no registrations were created.",
+      notice: `Chapter Lounge draft for ${formatSceneDateLong(event.startAt!)} prepared. No event was published and no registrations were created.`,
     };
   } catch (error) {
     await client.query("ROLLBACK");

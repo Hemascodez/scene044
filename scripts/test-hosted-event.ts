@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { CHAPTER_LOUNGE_FIXTURE, formatRupees, seatSummary, isSceneHostedEvent } from "../lib/hostedEvents";
+import { existsSync } from "node:fs";
+import { CHAPTER_LOUNGE_EDITIONS, CHAPTER_LOUNGE_FIXTURE, LATEST_CHAPTER_LOUNGE_EDITION, formatRupees, seatSummary, isSceneHostedEvent } from "../lib/hostedEvents";
 import { hostedGlanceFacts } from "../lib/client/sceneEvent";
 
 const END = "2026-11-22T07:30:00.000Z"; // 1:00 pm IST
@@ -60,5 +61,27 @@ assert.equal(facts[2].value, "Sadhana · Chapter Lounge");
 assert.equal(facts[3].value, "₹299 · refreshments included");
 assert.equal(facts[4].value, "Any book, poetry or your Kindle");
 assert.equal(CHAPTER_LOUNGE_FIXTURE.hosted.hostPerson, "Sadhana");
+
+// Second edition: Sunday 6 December 2026, 11 am – 1 pm IST, same page and terms.
+const dec = CHAPTER_LOUNGE_EDITIONS["2026-12-06"];
+assert.equal(LATEST_CHAPTER_LOUNGE_EDITION, "2026-12-06");
+assert.equal(CHAPTER_LOUNGE_EDITIONS["2026-11-22"], CHAPTER_LOUNGE_FIXTURE);
+assert.equal(dec.startAt, "2026-12-06T05:30:00.000Z", "11:00 am IST");
+assert.equal(dec.endAt, "2026-12-06T07:30:00.000Z", "1:00 pm IST");
+assert.notEqual(dec.id, CHAPTER_LOUNGE_FIXTURE.id);
+assert.equal(dec.venueName, "Madras Adda");
+assert.equal(dec.hosted.pricePaise, 29900);
+assert.equal(dec.hosted.hostPerson, "Sadhana");
+assert.equal(dec.hosted.registeredCount, 0, "new edition starts with zero registrations");
+assert.equal(dec.hosted.terms, CHAPTER_LOUNGE_FIXTURE.hosted.terms);
+assert.notEqual(dec.posterImageUrl, CHAPTER_LOUNGE_FIXTURE.posterImageUrl, "its own poster");
+assert.ok(existsSync(`public${dec.posterImageUrl}`), "poster file exists");
+assert.ok(dec.hosted.gallery.length <= 7);
+assert.ok(dec.hosted.gallery.every((p) => existsSync(`public${p.src}`) && p.alt.trim()), "every photo exists and has alt text");
+assert.deepEqual(
+  dec.hosted.gallery.slice(0, 2).map((p) => p.src),
+  ["/events/chapter-lounge/last-time-8.jpg", "/events/chapter-lounge/last-time-9.jpg"],
+  "opens on the most recent session's photos",
+);
 
 console.log("PASS hosted event seat summary and glance facts");
