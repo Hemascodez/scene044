@@ -17,6 +17,7 @@ import { HostedRegistration } from "@/components/scene/hosted/HostedRegistration
 import { HostedSeatBadge, HostedSeatStatsProvider } from "@/components/scene/hosted/HostedSeatStats";
 import { ReadersEnrolled } from "@/components/scene/hosted/ReadersEnrolled";
 import { hostedCard } from "@/components/scene/hosted/hostedCard";
+import { hostedPosterArtDirection } from "@/components/scene/hosted/hostedPosterArtDirection";
 import { HostedGoodToKnow, HostedTerms, HostedWhere } from "@/components/scene/hosted/HostedVenueSections";
 import { Mono } from "@/components/scene/ui";
 import { ChevronDown } from "@/components/venues/figma/icons";
@@ -31,10 +32,10 @@ import { ChevronDown } from "@/components/venues/figma/icons";
 export function HostedEventView({ event, api }: { event: HostedEventDetail; api: "http" | "mock" }) {
   const { hosted } = event;
   const price = formatRupees(hosted.pricePaise);
-  const landscape = event.posterImageUrl === "/events/chapter-lounge/poster.jpg";
+  const posterArt = hostedPosterArtDirection(event.posterImageUrl);
   const imageCommon = { alt: `Poster for ${event.title}`, sizes: "(min-width: 1024px) 976px, calc(100vw - 32px)", loading: "eager" as const, fetchPriority: "high" as const };
-  const desktopPoster = landscape ? getImageProps({ ...imageCommon, src: "/events/chapter-lounge/poster-landscape.png", width: 2880, height: 1280 }).props : null;
-  const portraitPoster = landscape ? getImageProps({ ...imageCommon, src: event.posterImageUrl!, width: 1120, height: 1400 }).props : null;
+  const desktopPoster = posterArt ? getImageProps({ ...imageCommon, ...posterArt.desktop }).props : null;
+  const portraitPoster = posterArt ? getImageProps({ ...imageCommon, src: event.posterImageUrl!, ...posterArt.portrait }).props : null;
   const paragraphs = hosted.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 
   return (
@@ -78,9 +79,9 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
 
       {event.posterImageUrl && (
         <div className="mx-auto max-w-5xl px-4 pt-8 lg:px-6 lg:pt-10">
-          <div className={`overflow-hidden border-2 border-foreground bg-secondary shadow-[6px_6px_0_0_var(--color-foreground)] ${landscape ? "aspect-[4/5] sm:aspect-[9/4]" : "sm:aspect-[21/9] sm:max-h-[440px]"} ${hostedCard}`}>
+          <div className={`overflow-hidden border-2 border-foreground bg-secondary shadow-[6px_6px_0_0_var(--color-foreground)] ${posterArt?.frameClassName ?? "sm:aspect-[21/9] sm:max-h-[440px]"} ${hostedCard}`}>
             {desktopPoster && portraitPoster ? <picture>
-              <source media="(min-width: 640px)" srcSet={desktopPoster.srcSet} sizes={desktopPoster.sizes} />
+              <source media="(min-width: 640px)" srcSet={desktopPoster.srcSet} sizes={desktopPoster.sizes} width={posterArt!.desktop.width} height={posterArt!.desktop.height} />
               <img {...portraitPoster} alt={imageCommon.alt} className="block h-full w-full object-contain" />
             </picture> : (<>
             {/* eslint-disable-next-line @next/next/no-img-element -- poster keeps its own shape; never cropped */}

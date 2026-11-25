@@ -5,6 +5,8 @@ import { mergeHostedSeatStats } from "../lib/client/hostedSeatStats";
 import { flowReducer, initialFlow } from "../lib/client/registrationFlow";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { getImageProps } from "next/image";
+import { hostedPosterArtDirection } from "../components/scene/hosted/hostedPosterArtDirection";
 import {
   HostedSeatBadge,
   HostedSeatStatsProvider,
@@ -67,10 +69,28 @@ const page = readFileSync(
 );
 assert.match(page, /HostedSeatStatsProvider/);
 assert.match(page, /HostedSeatBadge/);
-assert.match(page, /poster-landscape\.png/);
+assert.match(page, /hostedPosterArtDirection\(event.posterImageUrl\)/);
 assert.match(page, /min-width: 640px/);
-assert.match(page, /width: 2880, height: 1280/);
-assert.match(page, /width: 1120, height: 1400/);
+assert.match(page, /object-contain/);
+const novemberPoster = hostedPosterArtDirection("/events/chapter-lounge/poster.jpg")!;
+assert.deepEqual(novemberPoster.desktop, { src: "/events/chapter-lounge/poster-landscape.png", width: 2880, height: 1280 });
+assert.deepEqual(novemberPoster.portrait, { width: 1120, height: 1400 });
+assert.equal(novemberPoster.frameClassName, "aspect-[4/5] sm:aspect-[9/4]");
+const decemberPortrait = "/events/chapter-lounge/2026-12-06/poster.jpg";
+const decemberPoster = hostedPosterArtDirection(decemberPortrait)!;
+assert.deepEqual(decemberPoster.desktop, { src: "/events/chapter-lounge/2026-12-06/poster-landscape.png", width: 3200, height: 1800 });
+assert.deepEqual(decemberPoster.portrait, { width: 1117, height: 1408 });
+assert.equal(decemberPoster.frameClassName, "aspect-[1117/1408] sm:aspect-video");
+const png = readFileSync(`public${decemberPoster.desktop.src}`);
+assert.equal(png.readUInt32BE(16), 3200);
+assert.equal(png.readUInt32BE(20), 1800);
+const desktopImage = getImageProps({ alt: "Event poster", ...decemberPoster.desktop }).props;
+const mobileImage = getImageProps({ alt: "Event poster", src: decemberPortrait, ...decemberPoster.portrait }).props;
+assert.ok(decodeURIComponent(desktopImage.srcSet!).includes(decemberPoster.desktop.src));
+assert.ok(decodeURIComponent(mobileImage.srcSet!).includes(decemberPortrait));
+assert.ok(!decodeURIComponent(mobileImage.srcSet!).includes("landscape"), "phones retain the December portrait");
+assert.equal(hostedPosterArtDirection("/events/another-event.jpg"), null, "never reuse Chapter Lounge artwork for another event");
+assert.equal(hostedPosterArtDirection(null), null);
 assert.ok(readFileSync('next.config.ts','utf8').includes("pathname: '/events/chapter-lounge/**'"), 'optimized art-direction assets are explicitly allowed');
 const reader = readFileSync(
   "components/scene/hosted/ReadersEnrolled.tsx",
