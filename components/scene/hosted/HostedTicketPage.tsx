@@ -55,7 +55,7 @@ export function HostedTicketPage({ event, preview = false }: { event: HostedEven
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [api, attempt, event.id, preview]);
-  return <MotionConfig reducedMotion="user"><main className="hosted-surface hosted-theme min-h-[80dvh] px-4 py-8 sm:py-12">
+  return <MotionConfig reducedMotion="user"><main className="hosted-surface hosted-theme min-h-dvh px-4 py-8 sm:py-12">
     <div className="mx-auto max-w-xl">
       {preview && <p className="mb-4 border border-[var(--h-rule-strong)] p-3 font-mono text-xs">LOCAL PREVIEW · Not a real payment or ticket</p>}
       <h1 className="font-display text-3xl font-black">Your event ticket</h1>

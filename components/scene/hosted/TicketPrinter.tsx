@@ -117,8 +117,8 @@ function PrintedTicket({ eventTitle, guestName, eventDate }: { eventTitle: strin
           display: "flex",
           justifyContent: "space-between",
           padding: "12px 25px",
-          background: "var(--color-primary-ink)",
-          color: "#ffffff",
+          background: ACCENT,
+          color: PAPER,
           fontFamily: MONO,
           fontSize: 11,
           fontWeight: 700,
@@ -129,7 +129,7 @@ function PrintedTicket({ eventTitle, guestName, eventDate }: { eventTitle: strin
         <span>ADMIT ONE</span>
       </div>
       <div style={{ padding: "22px 25px 0", display: "flex", flexDirection: "column", flex: 1 }}>
-        <div className="font-display" style={{ fontSize: 22, fontWeight: 900, color: "var(--color-primary-ink)" }}>
+        <div className="font-display" style={{ fontSize: 22, fontWeight: 900, color: ACCENT }}>
           You&apos;re going to
         </div>
         <div className="font-display" style={{ marginTop: 6, fontSize: 38, lineHeight: 1.02, fontWeight: 900, letterSpacing: "-.02em" }}>

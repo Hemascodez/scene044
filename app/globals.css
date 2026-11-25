@@ -897,7 +897,7 @@ body {
   --h-text: #f6e8da;
   --h-text-soft: #d8c2ad;
   --h-text-accent: #e8b56f;
-  --h-text-good: #bccb92;
+  --h-text-good: #86d993; /* fresh leaf green, 6.3:1 on the lightest brown */
   --h-text-bad: #f2a593;
   --h-rule: rgba(246, 232, 218, 0.16);
   --h-rule-strong: rgba(246, 232, 218, 0.3);
