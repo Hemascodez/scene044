@@ -224,6 +224,18 @@ async function main() {
       0,
     );
     const { getHostedEventInfo } = await import("../lib/hostedEventData");
+    const decemberInfo = (await getHostedEventInfo(december.eventId))!;
+    assert.equal(decemberInfo.registeredCount, 0);
+    assert.equal(decemberInfo.registrationState, "closed");
+    assert.equal(decemberInfo.pricePaise, 29900);
+    assert.equal(decemberInfo.capacity, 15);
+    assert.equal(decemberInfo.gallery[0].src, "/events/chapter-lounge/last-time-8.jpg");
+    const decemberEvent = (await db.query<{ status: string; poster_image_url: string; start_at: Date }>(
+      "SELECT status,poster_image_url,start_at FROM events WHERE id=$1", [december.eventId],
+    )).rows[0];
+    assert.equal(decemberEvent.status, "pending_review");
+    assert.equal(decemberEvent.poster_image_url, "/events/chapter-lounge/2026-12-06/poster.jpg");
+    assert.equal(new Date(decemberEvent.start_at).toISOString(), "2026-12-06T05:30:00.000Z");
     assert.equal(
       (await getHostedEventInfo(draft.eventId))?.registeredCount,
       0,
@@ -261,6 +273,14 @@ async function main() {
       await assert.rejects(() => saveHostedEventSettings({ ...settings, eventId: draft.eventId, quote: invalid }), /Enter a review/);
     }
     console.log("PASS live review updates, retained attribution, omitted-review preservation and invalid review rejection");
+    const decemberSettings = (await hostedEventAdminCatalog()).find(e => e.id === december.eventId)!;
+    await saveHostedEventSettings({ ...decemberSettings, eventId: december.eventId, capacity: 14, registrationState: "open" });
+    await prepareChapterLoungeDraft("2026-12-06");
+    assert.equal((await getHostedEventInfo(december.eventId))?.capacity, 14, "repeat preparation preserves curator settings");
+    assert.equal((await getHostedEventInfo(december.eventId))?.registrationState, "open");
+    assert.equal((await getHostedEventInfo(draft.eventId))?.capacity, 15, "new edition edits never change the previous edition");
+    assert.equal((await getHostedEventInfo(draft.eventId))?.registrationState, "closed");
+    console.log("PASS separate December edition, correct poster/date/price, zero inherited attendees and non-destructive repeat preparation");
 
     const userIds: number[] = [];
     const sessions: string[] = [];

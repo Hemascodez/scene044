@@ -92,24 +92,35 @@ function SharedCounter() {
 }
 const event = {
   ...CHAPTER_LOUNGE_FIXTURE,
+  // This assertion tests shared counts, not whether the November edition ended.
+  // Keep its clock-independent open state separate from the archived real date.
+  startAt: "2999-01-01T05:30:00.000Z",
+  endAt: "2999-01-01T07:30:00.000Z",
   hosted: { ...seed, capacity: 20, registeredCount: 3 },
 };
-const markup = renderToStaticMarkup(
-  React.createElement(HostedSeatStatsProvider, {
-    event,
-    api: "mock",
-    children: React.createElement(
-      React.Fragment,
-      null,
-      React.createElement(HostedSeatBadge, { event }),
-      React.createElement(SharedCounter),
-    ),
-  }),
-);
+const counterProps = {
+  event,
+  api: "mock" as const,
+  children: React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(HostedSeatBadge, { event }),
+    React.createElement(SharedCounter),
+  ),
+};
+const markup = renderToStaticMarkup(React.createElement(HostedSeatStatsProvider, counterProps));
 assert.ok(
   markup.includes("17 spots left") && markup.includes("3 enrolled"),
   "SSR badge and shared stats start from the same actual server count",
 );
+const endedEvent = { ...event, endAt: "2000-01-01T07:30:00.000Z" };
+const endedCounterProps = {
+  event: endedEvent,
+  api: "mock" as const,
+  children: React.createElement(HostedSeatBadge, { event: endedEvent }),
+};
+const endedMarkup = renderToStaticMarkup(React.createElement(HostedSeatStatsProvider, endedCounterProps));
+assert.ok(endedMarkup.includes("This event has ended"), "archived editions must not advertise available seats");
 console.log(
   "PASS shared registration-derived counts, failure retention, sold-out/reopen safety, owned-payment isolation and responsive original posters",
 );
