@@ -94,6 +94,7 @@ async function main() {
     stub(200, { events: [] });
     await api.listEvents();
     assert.equal(calls.at(-1)!.url, "/api/host/events");
+    assert.equal(calls.at(-1)!.init?.cache, 'no-store', 'host approvals and editions are always read fresh');
     stub(200, { guests: [] });
     await api.guests(7);
     assert.equal(calls.at(-1)!.url, "/api/host/events/7/guests");

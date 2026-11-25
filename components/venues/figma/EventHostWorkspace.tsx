@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Dialog from './Dialog'
 import { ArrowLeft, Bell, Check, QrCode, Users, Wallet } from './icons'
@@ -8,17 +8,15 @@ import { useVenueApp } from './VenueApp'
 import { HostQrScanner } from '../HostQrScanner'
 import { EventGuestList } from './EventGuestList'
 import { EventReminderCard } from './EventReminderCard'
+import { EventEditionPicker } from './EventEditionPicker'
+import { createHostWorkspace, hostEventEnded } from '@/lib/client/eventHostWorkspace'
 import {
-  EventHostError,
-  classifyLoadError,
   guestsCsv,
   httpEventHostApi,
-  mockEventHostApi,
+  mockEventHostEditionsApi,
   parseTicketQr,
   type EventHostApi,
-  type HostEvent,
   type HostGuest,
-  type MoneySummary,
   type ReminderSend,
   type ReminderTemplate,
 } from '@/lib/client/eventHostApi'
@@ -33,7 +31,6 @@ import { formatRupees } from '@/lib/hostedEvents'
  */
 
 type Tab = 'guests' | 'checkin' | 'reminders' | 'money'
-type Load = 'loading' | 'ready' | 'signin' | 'not_approved' | 'error'
 
 const POLL_MS = 15000
 const btnInk = 'press flex min-h-11 items-center gap-2 border-[1.5px] border-ink bg-white px-4 py-2.5 font-head text-xs text-ink shadow-hard hover:bg-sand focus-visible:outline-2 focus-visible:outline-flame'
@@ -49,76 +46,48 @@ function maskForList(phone: string) {
 export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mock' }) {
   const router = useRouter()
   const { profile, requireAuth } = useVenueApp()
-  const api: EventHostApi = useMemo(() => (apiKind === 'mock' ? mockEventHostApi() : httpEventHostApi()), [apiKind])
+  const api: EventHostApi = useMemo(() => (apiKind === 'mock' ? mockEventHostEditionsApi() : httpEventHostApi()), [apiKind])
 
-  const [load, setLoad] = useState<Load>('loading')
-  const loadRef = useRef<Load>('loading')
-  useEffect(() => {
-    loadRef.current = load
-  }, [load])
-  const [loadMessage, setLoadMessage] = useState('')
-  const [events, setEvents] = useState<HostEvent[]>([])
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [guests, setGuests] = useState<HostGuest[]>([])
-  const [reminders, setReminders] = useState<{ templates: ReminderTemplate[]; history: ReminderSend[] } | null>(null)
-  const [money, setMoney] = useState<MoneySummary | null>(null)
+  const workspace = useMemo(() => createHostWorkspace(api), [api])
+  const { load, loadMessage, events, event, guests, reminders, money, pollError, checkedAt } = useSyncExternalStore(
+    workspace.subscribe, workspace.getSnapshot, workspace.getServerSnapshot,
+  )
+  const refresh = workspace.refresh
   const [tab, setTab] = useState<Tab>('guests')
   const [toast, setToast] = useState<string | null>(null)
-  const [confirming, setConfirming] = useState<ReminderTemplate | null>(null)
+  const [confirming, setConfirming] = useState<{ eventId: number; template: ReminderTemplate } | null>(null)
+  const confirmation = confirming?.eventId === event?.id ? confirming?.template : null
   const [sending, setSending] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [sentByTemplate, setSentByTemplate] = useState<Record<string, ReminderSend>>({})
-  const [pollError, setPollError] = useState('')
   const [code, setCode] = useState('')
-  const [found, setFound] = useState<{ guest: HostGuest | null; code: string } | null>(null)
+  const [found, setFound] = useState<{ eventId: number; guest: HostGuest | null; code: string } | null>(null)
   const [arriving, setArriving] = useState(false)
-
-  const event = events.find((e) => e.id === selectedId) ?? events[0] ?? null
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(null), 3500)
   }, [])
 
-  const fail = useCallback((error: unknown) => {
-    const status = error instanceof EventHostError ? error.status : 0
-    setLoad(classifyLoadError(status))
-    setLoadMessage(error instanceof Error ? error.message : 'Could not load your event.')
-  }, [])
-
-  const refresh = useCallback(async () => {
-    try {
-      const list = await api.listEvents()
-      setEvents(list)
-      const current = list.find((e) => e.id === selectedId) ?? list[0]
-      if (!current) {
-        setLoad('not_approved')
-        setLoadMessage("This number isn't set up for an event yet.")
-        return
-      }
-      const [g, r] = await Promise.all([api.guests(current.id), api.reminders(current.id)])
-      setGuests(g)
-      setReminders(r)
-      setLoad('ready')
-      setPollError('')
-      // Money comes from Razorpay and must never block the guest list or check-in.
-      api.money(current.id).then(setMoney).catch(() => setMoney(null))
-    } catch (error) {
-      if (loadRef.current === 'ready') {
-        // Keep the last good list on screen (the door must keep working).
-        setPollError(error instanceof Error ? error.message : 'Could not refresh.')
-      } else {
-        fail(error)
-      }
-    }
-  }, [api, selectedId, fail])
-
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial load of external data, then polled like the venue workspace
     void refresh()
     const id = window.setInterval(() => void refresh(), POLL_MS)
-    return () => window.clearInterval(id)
-  }, [refresh])
+    const onFocus = () => void refresh()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+      workspace.invalidate()
+    }
+  }, [refresh, workspace])
+
+  function selectEvent(id: number) {
+    setFound(null)
+    setCode('')
+    setConfirming(null)
+    setToast(null)
+    workspace.selectEvent(id)
+  }
 
   const checkedIn = guests.filter((g) => g.status === 'checked_in').length
   const confirmed = guests.filter((g) => g.status !== 'cancelled').length
@@ -126,8 +95,9 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   async function checkIn(by: { token: string } | { code: string }): Promise<string> {
-    if (!event) return 'No event loaded.'
+    if (!event || load !== 'ready') return 'Wait for this event to finish loading.'
     const result = await api.checkIn(event.id, by)
+    if (workspace.getSnapshot().event?.id !== event.id) return 'The previous event’s check-in was updated.'
     void refresh()
     const message = result.alreadyCheckedIn
       ? `${result.guest.name} was already checked in.`
@@ -139,8 +109,8 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
   function findByCode(e: FormEvent) {
     e.preventDefault()
     const c = code.trim().toUpperCase()
-    if (!c) return
-    setFound({ code: c, guest: guests.find((g) => g.code.toUpperCase() === c) ?? null })
+    if (!c || !event || load !== 'ready') return
+    setFound({ eventId: event.id, code: c, guest: guests.find((g) => g.code.toUpperCase() === c) ?? null })
   }
 
   async function confirmArrival(g: HostGuest) {
@@ -158,14 +128,15 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
   }
 
   async function sendReminder() {
-    if (!event || !confirming) return
-    const template = confirming
+    if (!event || !confirmation || load !== 'ready') return
+    const template = confirmation
     setConfirming(null)
     setSending(true)
     setSendingId(template.id)
     try {
       const sent = await api.sendReminder(event.id, template.id)
-      setSentByTemplate((all) => ({ ...all, [template.id]: sent }))
+      setSentByTemplate((all) => ({ ...all, [`${event.id}:${template.id}`]: sent }))
+      if (workspace.getSnapshot().event?.id !== event.id) return
       showToast(sent.pending ? `Queued "${sent.templateName}" for ${sent.pending} guests. Delivery status will update here.` : `Sent "${sent.templateName}" to ${sent.sent} guests on WhatsApp.`)
       void refresh()
     } catch (error) {
@@ -177,7 +148,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
   }
 
   function downloadCsv() {
-    if (!event) return
+    if (!event || load !== 'ready') return
     const blob = new Blob([guestsCsv(guests)], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -227,21 +198,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
             </button>
           </div>
 
-          {events.length > 1 && (
-            <div className="border-t border-line py-2">
-              <label htmlFor="event-switcher" className="sr-only">Choose event</label>
-              <select
-                id="event-switcher"
-                value={event?.id ?? ''}
-                onChange={(e) => { setSelectedId(Number(e.target.value)); setFound(null); setCode(''); }}
-                className="min-h-11 w-full border-[1.5px] border-ink bg-paper px-3 font-head text-sm sm:w-auto"
-              >
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>{ev.title} · {formatSceneDate(ev.startAt)}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {event && <EventEditionPicker events={events} event={event} disabled={sending || arriving} onSelect={selectEvent} now={checkedAt} />}
 
           <nav aria-label="Event workspace sections" className="relative flex gap-2 overflow-x-auto border-t border-line py-1 scrollbar-none">
             {tabs.map((t) => (
@@ -267,7 +224,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1280px] px-4 py-8 md:px-8 md:py-10">
+      <main aria-busy={load === 'loading'} className="mx-auto max-w-[1280px] px-4 py-8 md:px-8 md:py-10">
         {load === 'ready' && pollError && (
           <div role="status" className="mb-6 border-[1.5px] border-flame bg-flame/10 p-3 text-sm text-ink">
             Couldn&apos;t refresh just now ({pollError}). Showing the last loaded list; it retries every 15 seconds.
@@ -320,7 +277,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                     <p className="font-mono text-xs uppercase tracking-wider text-stone">
                       {greeting}{profile ? `, ${profile.name.split(' ')[0]}` : ''}
                     </p>
-                    <h1 className="mt-1 font-head text-2xl text-ink md:text-3xl">Here’s who’s coming</h1>
+                    <h1 className="mt-1 font-head text-2xl text-ink md:text-3xl">{hostEventEnded(event, checkedAt) ? 'Past event · Guest list' : 'Here’s who’s coming'}</h1>
                     <p className="mt-1 font-mono text-[11px] text-stone">
                       {formatSceneDate(event.startAt)} · {formatSceneTime(event.startAt)} IST · {event.venueName}
                     </p>
@@ -405,7 +362,7 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                   </div>
                   <p className="font-mono text-[11px] text-stone">Codes start with SCN- and are on the reader’s ticket.</p>
 
-                  {found && (
+                  {found && found.eventId === event.id && (
                     <div className={`mt-4 rounded border-[1.5px] p-4 font-mono text-xs anim-pop ${found.guest ? 'border-moss bg-moss/10' : 'border-ink bg-paper'}`}>
                       {found.guest ? (
                         <div className="space-y-1">
@@ -449,8 +406,8 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
                       template={t}
                       guests={guests}
                       sending={sendingId === t.id}
-                      sent={sentByTemplate[t.id] ?? null}
-                      onRequestSend={() => setConfirming(t)}
+                      sent={sentByTemplate[`${event.id}:${t.id}`] ?? null}
+                      onRequestSend={() => setConfirming({ eventId: event.id, template: t })}
                     />
                   ))}
                 </div>
@@ -534,18 +491,18 @@ export default function EventHostWorkspace({ api: apiKind }: { api: 'http' | 'mo
         )}
       </main>
 
-      {confirming && (
+      {confirmation && load === 'ready' && (
         <Dialog
           size="sm"
-          title={`Send to ${confirming.audience} guests on WhatsApp?`}
-          description={`"${confirming.name}" goes to confirmed guests who opted in to WhatsApp for ${event?.title ?? 'this event'}. This can't be undone.`}
+          title={`Send to ${confirmation.audience} guests on WhatsApp?`}
+          description={`"${confirmation.name}" goes to confirmed guests who opted in to WhatsApp for ${event?.title ?? 'this event'}. This can't be undone.`}
           onClose={() => !sending && setConfirming(null)}
         >
-          <p className="border-[1.5px] border-line bg-paper p-3 font-mono text-xs leading-5 text-ink">{confirming.preview}</p>
+          <p className="border-[1.5px] border-line bg-paper p-3 font-mono text-xs leading-5 text-ink">{confirmation.preview}</p>
           <div className="mt-4 flex justify-end gap-2">
             <button type="button" data-autofocus onClick={() => setConfirming(null)} disabled={sending} className={btnInk}>Cancel</button>
             <button type="button" onClick={() => void sendReminder()} disabled={sending} className={btnFlame}>
-              {sending ? 'Sending…' : `Send to ${confirming.audience}`}
+              {sending ? 'Sending…' : `Send to ${confirmation.audience}`}
             </button>
           </div>
         </Dialog>

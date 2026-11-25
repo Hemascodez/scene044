@@ -150,7 +150,7 @@ export function classifyLoadError(status: number): "signin" | "not_approved" | "
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url, init);
+    response = await fetch(url, { ...init, cache: 'no-store' });
   } catch {
     throw new EventHostError("Couldn't reach SCENE. Check your connection and try again.", 0);
   }
@@ -190,21 +190,22 @@ const NAMES = [
 ];
 
 /** Dev preview only: Chapter Lounge with 14 readers, 3 already at the door. */
-export function mockEventHostApi(): EventHostApi {
+export function mockEventHostApi(edition: 'november' | 'december' = 'november'): EventHostApi {
+  const december = edition === 'december';
   const event: HostEvent = {
-    id: 9044,
-    slug: "lets-do-more-reading-9044",
-    title: "Let's do more reading",
-    posterImageUrl: "/events/chapter-lounge/poster.jpg",
-    startAt: "2026-11-22T05:30:00.000Z",
-    endAt: "2026-11-22T07:30:00.000Z",
+    id: december ? 9045 : 9044,
+    slug: `chapter-lounge-sunday-reads-${december ? 9045 : 9044}`,
+    title: "Chapter Lounge - Sunday Reads",
+    posterImageUrl: december ? '/events/chapter-lounge/2026-12-06/poster.jpg' : "/events/chapter-lounge/poster.jpg",
+    startAt: december ? '2026-12-06T05:30:00.000Z' : "2026-11-22T05:30:00.000Z",
+    endAt: december ? '2026-12-06T07:30:00.000Z' : "2026-11-22T07:30:00.000Z",
     venueName: "Madras Adda",
-    capacity: 20,
-    registeredCount: NAMES.length,
-    checkedInCount: 3,
+    capacity: december ? 15 : 20,
+    registeredCount: december ? 2 : NAMES.length,
+    checkedInCount: december ? 0 : 3,
     pricePaise: 29900,
   };
-  const guests: HostGuest[] = NAMES.map((name, i) => {
+  const guests: HostGuest[] = (december ? NAMES.slice(0, 2) : NAMES).map((name, i) => {
     const n = String(101 + i).padStart(4, "0");
     return {
       code: `SCN-READ-${n}`,
@@ -212,20 +213,20 @@ export function mockEventHostApi(): EventHostApi {
       name,
       phone: `+9198765${String(10000 + i * 137).slice(-5)}`,
       email: `${name.split(" ")[0].toLowerCase()}@example.com`,
-      status: i < 3 ? "checked_in" : "confirmed",
+      status: !december && i < 3 ? "checked_in" : "confirmed",
       registeredAt: new Date(Date.UTC(2026, 10, 12 + Math.floor(i / 3), 9 + i)).toISOString(),
-      checkedInAt: i < 3 ? `2026-11-22T05:${String(10 + i * 4).padStart(2, "0")}:00.000Z` : null,
+      checkedInAt: !december && i < 3 ? `2026-11-22T05:${String(10 + i * 4).padStart(2, "0")}:00.000Z` : null,
     };
   });
-  const history: ReminderSend[] = [
+  const history: ReminderSend[] = december ? [] : [
     { id: "r-1", templateName: "You're in — save the date", sentAt: "2026-11-15T12:00:00.000Z", sent: 9, delivered: 9, failed: 0 },
   ];
   const templates = (): ReminderTemplate[] => {
     const audience = guests.filter((g) => g.status !== "cancelled").length;
     return [
-      { id: "day-before", name: "Day-before reminder", preview: "Hi {name}! See you tomorrow at Madras Adda for Let's do more reading, 11 am. Bring your book 📚", audience, lastSentAt: null },
+      { id: "day-before", name: "Day-before reminder", preview: `Hi {name}! See you tomorrow at Madras Adda for ${event.title}, 11 am. Bring your book 📚`, audience, lastSentAt: null },
       { id: "morning-of", name: "Morning-of reminder", preview: "Good morning {name}! We start at 11 am — doors open 10:30. Your QR ticket: {link}", audience, lastSentAt: null },
-      { id: "directions", name: "Directions", preview: "Madras Adda, Mylapore. Map: {map}. Reply here if you need help finding us.", audience, lastSentAt: history[0].sentAt },
+      { id: "directions", name: "Directions", preview: "Madras Adda, Mylapore. Map: {map}. Reply here if you need help finding us.", audience, lastSentAt: history[0]?.sentAt ?? null },
     ];
   };
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -299,5 +300,24 @@ export function mockEventHostApi(): EventHostApi {
         })),
       };
     },
+  };
+}
+
+/** Two independent in-memory editions for the dev-only workspace preview. */
+export function mockEventHostEditionsApi(): EventHostApi {
+  const november = mockEventHostApi();
+  const december = mockEventHostApi('december');
+  const forEvent = (id: number) => {
+    if (id === 9044) return november;
+    if (id === 9045) return december;
+    throw new EventHostError('Event not found.', 404);
+  };
+  return {
+    listEvents: async () => [...await november.listEvents(), ...await december.listEvents()],
+    guests: id => forEvent(id).guests(id),
+    reminders: id => forEvent(id).reminders(id),
+    money: id => forEvent(id).money(id),
+    checkIn: (id, by) => forEvent(id).checkIn(id, by),
+    sendReminder: (id, template) => forEvent(id).sendReminder(id, template),
   };
 }

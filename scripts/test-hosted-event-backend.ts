@@ -631,6 +631,30 @@ async function main() {
       ).guests.length,
       1,
     );
+    // A new edition is an explicit grant, not a copy of the old guest/payment rows.
+    assert.equal((await guestList(req('/api/host/events/x/guests', 'GET', undefined, hostSession), ctx(december.eventId))).status, 403);
+    assert.equal((await approve(req('/api/admin/event-hosts', 'POST', {
+      eventId: december.eventId, phone: hostPhone, label: 'Approved event host',
+    }, undefined, true))).status, 200);
+    const editions = await data<{ events: { id: number; registeredCount: number }[] }>(await listHost(req('/api/host/events', 'GET', undefined, hostSession)));
+    assert.deepEqual(new Set(editions.events.map(e => e.id)), new Set([eventId, december.eventId]), 'existing November login immediately sees a newly approved edition without another OTP');
+    assert.equal(editions.events.find(e => e.id === eventId)?.registeredCount, 1);
+    assert.equal(editions.events.find(e => e.id === december.eventId)?.registeredCount, 0);
+    assert.deepEqual((await data<{ guests: unknown[] }>(await guestList(req('/api/host/events/x/guests', 'GET', undefined, hostSession), ctx(december.eventId)))).guests, []);
+    const { GET: editionMoney } = await import('../app/api/host/events/[id]/payments/route');
+    assert.equal((await data<{ grossPaise: number }>(await editionMoney(req('/api/host/events/x/payments', 'GET', undefined, hostSession), ctx(december.eventId)))).grossPaise, 0);
+    const { GET: publicHostEvents } = await import('../app/api/venue-auth/host-events/route');
+    const privateChoices = await data<{ events: { id: number; startAt: string }[] }>(await publicHostEvents(req('/api/venue-auth/host-events')));
+    assert.equal(privateChoices.events.some(e => e.id === december.eventId), false, 'date labels never expose a private draft');
+    await db.query("UPDATE events SET status='live' WHERE id=$1", [december.eventId]);
+    const choices = await data<{ events: Record<string, unknown>[] }>(await publicHostEvents(req('/api/venue-auth/host-events')));
+    const decemberChoice = choices.events.find(e => e.id === december.eventId)!;
+    assert.equal(decemberChoice.startAt, '2026-12-06T05:30:00.000Z');
+    assert.deepEqual(Object.keys(decemberChoice).sort(), ['id', 'startAt', 'title'], 'public choices expose only event name/date/id, not host numbers');
+    await db.query('DELETE FROM event_host_access WHERE event_id=$1', [december.eventId]);
+    await db.query("UPDATE events SET status='draft' WHERE id=$1", [december.eventId]);
+    console.log('PASS explicit per-edition approval, existing-session refresh, separate guests/payments and safe dated host sign-in choices');
+
     const checked = await data<{ alreadyCheckedIn: boolean }>(
       await checkin(
         req(

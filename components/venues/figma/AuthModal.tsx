@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import FieldError from './FieldError'
 import { ArrowRight, Check, Close, Phone, Search } from './icons'
+import { formatSceneDateLong } from '@/lib/client/istTime'
 
 /** Optional replacement for the Organiser sign-in heading and line. */
 export type AuthCopy = { title: string; body: string }
@@ -47,7 +48,7 @@ export default function AuthModal({
   const [venue, setVenue] = useState<string | undefined>()
   const [hostVenues, setHostVenues] = useState<{ slug: string; name: string }[]>([])
   const [hostScope,setHostScope] = useState<'venue'|'event'>('venue')
-  const [hostEvents,setHostEvents] = useState<{id:number;title:string}[]>([])
+  const [hostEvents,setHostEvents] = useState<{id:number;title:string;startAt?:string}[]>([])
   const [hostEventId,setHostEventId] = useState<number|null>(null)
   const [eventError,setEventError] = useState('')
   const [venueError, setVenueError] = useState('')
@@ -107,7 +108,7 @@ export default function AuthModal({
     if (!open) return
     let active=true
     fetch('/api/venue-auth/host-events',{cache:'no-store'}).then(async response=>{
-      const data=await response.json() as {events?:{id:number;title:string}[]}
+      const data=await response.json() as {events?:{id:number;title:string;startAt?:string}[]}
       if (!response.ok || !Array.isArray(data.events)) throw new Error('Could not load events. Reopen sign-in to retry.')
       if(active){setHostEvents(data.events);setEventError('')}
     }).catch(()=>{if(active){setHostEvents([]);setEventError('Could not load events. Reopen sign-in to retry.')}})
@@ -344,7 +345,7 @@ export default function AuthModal({
                     <span className={label}>Choose your event</span>
                     <select aria-describedby={eventError?'host-event-error':undefined} className="mt-2 min-h-11 w-full border-[1.5px] border-ink bg-paper p-3 text-ink" value={hostEventId??''} onChange={e=>setHostEventId(e.target.value?Number(e.target.value):null)}>
                       <option value="">Select an event</option>
-                      {hostEvents.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}
+                      {hostEvents.map(e=><option key={e.id} value={e.id}>{e.startAt ? `${formatSceneDateLong(e.startAt)} · ` : ''}{e.title}</option>)}
                     </select>
                     {eventError?<span id="host-event-error" role="alert" className="mt-2 block text-danger-ink">{eventError}</span>:hostEvents.length===0&&<span className="mt-2 block text-stone">No published events with host access yet. Ask the curator to add your event and number.</span>}
                   </label> : <>
