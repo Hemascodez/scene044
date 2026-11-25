@@ -10,17 +10,16 @@ import styles from "@/components/scene/hosted/ReaderPass.module.css";
 import { hostedCardSolid } from "@/components/scene/hosted/hostedCard";
 
 /**
- * The "Reader pass register card" (dark design) in SCENE fonts and red, with
- * square corners. `ReaderPass` is the opening card; `SwipeToPay` is reused at
+ * The "Reader pass register card" in SCENE fonts and the poster theme's
+ * colours (see `.hosted-theme` in app/globals.css). `ReaderPass` is the opening card; `SwipeToPay` is reused at
  * the pay step. The design's "Sound on" toggle and "Replay" link are left out.
  */
 
 const THUMB = 50;
 const INSET = 4;
-const RED_SOFT = "#ff6a55";
-const RED_TEXT = "#ff8a77";
-const MUTED = "#b5aeaa";
-const GREEN = "#4ade80";
+const ACCENT = "var(--h-accent)";
+const ACCENT_INK = "var(--h-accent-ink)";
+const MUTED = "var(--h-ink-soft)";
 
 export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwipe: () => void }) {
   const price = formatRupees(hosted.pricePaise);
@@ -28,20 +27,20 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
   const segments = seatSegments(seats);
 
   return (
-    <div className={`relative overflow-hidden border-2 border-foreground p-5 text-white sm:p-7 ${hostedCardSolid}`}>
+    <div className={`relative overflow-hidden border-2 border-foreground p-5 sm:p-7 ${hostedCardSolid}`}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at 100% 0%, rgba(255,45,22,.34), rgba(255,45,22,0) 55%), radial-gradient(ellipse at 0% 100%, rgba(255,45,22,.14), rgba(255,45,22,0) 50%)",
+            "radial-gradient(ellipse at 0% 100%, rgba(194,122,62,.14), rgba(194,122,62,0) 50%)",
         }}
       />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
-          background: "repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 1px, transparent 1px 9px)",
+          background: "repeating-linear-gradient(135deg, rgba(154,79,31,.07) 0 1px, transparent 1px 9px)",
           WebkitMaskImage: "linear-gradient(to bottom left, #000, transparent 48%)",
           maskImage: "linear-gradient(to bottom left, #000, transparent 48%)",
         }}
@@ -49,8 +48,8 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
 
       <div className="relative">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 border border-white/15 bg-white/5 px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.16em]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={RED_SOFT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <span className="inline-flex items-center gap-2 border border-[var(--h-line-strong)] bg-[var(--h-card)] px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.16em]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" />
               <path d="M14 5v14" strokeDasharray="2 3" />
             </svg>
@@ -58,15 +57,15 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
           </span>
           <span
             className="inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.12em]"
-            style={{ background: "rgba(255,45,22,.18)", borderColor: "rgba(255,106,85,.5)", color: RED_TEXT }}
+            style={{ background: "var(--h-accent-soft)", borderColor: "rgba(154,79,31,.4)", color: ACCENT_INK }}
           >
-            <span className={`${styles.dot} size-2 rounded-full bg-primary shadow-[0_0_10px_#ff2d16]`} aria-hidden="true" />
+            <span className={`${styles.dot} size-2 rounded-full bg-[var(--h-accent)] shadow-[0_0_10px_rgba(217,164,92,.9)]`} aria-hidden="true" />
             {seats.left <= 10 ? `ONLY ${seats.left} ${seats.left === 1 ? "SPOT" : "SPOTS"} LEFT` : `${seats.left} SPOTS LEFT`}
           </span>
         </div>
 
         <div className="mt-6 flex items-baseline gap-3">
-          <span className="font-display text-[56px] font-black leading-none tracking-[-0.045em] [text-shadow:0_0_40px_rgba(255,45,22,.45)] sm:text-[72px]">
+          <span className="font-display text-[56px] font-black leading-none tracking-[-0.045em] [text-shadow:0_0_40px_rgba(217,164,92,.55)] sm:text-[72px]">
             {price}
           </span>
           <span className="text-[15px] font-medium" style={{ color: MUTED }}>
@@ -88,7 +87,7 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
                 key={i}
                 className={`h-3 min-w-0 flex-1 ${segment === "filled" ? styles.seg : styles.segOpen}`}
                 style={{
-                  background: segment === "filled" ? `linear-gradient(180deg, ${RED_SOFT}, #e0301f)` : "rgba(255,255,255,.1)",
+                  background: segment === "filled" ? "linear-gradient(180deg, var(--h-accent-light), var(--h-accent))" : "rgba(59,37,22,.1)",
                   animationDelay: `${i * 40}ms`,
                 }}
               />
@@ -98,11 +97,11 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
             <span>
               {seats.booked} OF {seats.capacity} BOOKED
             </span>
-            <span style={{ color: RED_SOFT }}>{seats.left} LEFT</span>
+            <span style={{ color: ACCENT_INK }}>{seats.left} LEFT</span>
           </div>
         </div>
 
-        <div className="mt-5 border-t border-dashed border-white/20" />
+        <div className="mt-5 border-t border-dashed border-[var(--h-line-strong)]" />
 
         <div className="mt-5">
           <SwipeToPay label={`Swipe to book · ${price}`} ariaLabel={`Swipe right, or press Enter, to book a reader pass for ${price}`} onComplete={onSwipe} />
@@ -114,10 +113,10 @@ export function ReaderPass({ hosted, onSwipe }: { hosted: HostedEventInfo; onSwi
   );
 }
 
-export function PassFooter({ dark = true }: { dark?: boolean }) {
+export function PassFooter() {
   return (
-    <p className="mt-4 flex items-start gap-2 text-[13px] font-medium leading-5" style={{ color: dark ? "#86efac" : "var(--color-signal-ink)" }}>
-      <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? GREEN : "var(--color-signal-ink)"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <p className="mt-4 flex items-start gap-2 text-[13px] font-medium leading-5" style={{ color: "var(--h-sage, var(--color-signal-ink))" }}>
+      <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z" />
       </svg>
       After payment, your ticket opens on its own page and in My bookings. WhatsApp updates are optional.
@@ -222,13 +221,13 @@ export function SwipeToPay({
   return (
     <div
       ref={trackRef}
-      className="relative h-[60px] select-none overflow-hidden border border-white/15 bg-[#1a1211] shadow-[inset_0_2px_8px_rgba(0,0,0,.5)]"
+      className="relative h-[60px] select-none overflow-hidden border border-[var(--h-line-strong)] bg-[var(--h-card-2)] shadow-[inset_0_2px_6px_rgba(59,37,22,.16)]"
     >
       <div
         aria-hidden="true"
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(90deg, rgba(255,45,22,0) 0%, rgba(255,45,22,.7) 100%)",
+          background: "linear-gradient(90deg, rgba(217,164,92,0) 0%, rgba(217,164,92,.75) 100%)",
           transform: `translateX(${fillX}px)`,
           opacity: fillVisible ? 1 : 0,
           transition: trans,
@@ -244,12 +243,12 @@ export function SwipeToPay({
         style={{ opacity: busy ? 1 : Math.max(0, 1 - dragX / 160) }}
         aria-live="polite"
       >
-        {busy ? <span className="text-white">{busyLabel}</span> : <span className={styles.label}>{label}</span>}
+        {busy ? <span className="text-[var(--h-ink)]">{busyLabel}</span> : <span className={styles.label}>{label}</span>}
       </div>
       {!busy && (
         <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-[18px] flex items-center" style={{ opacity: Math.max(0, 1 - dragX / 120) }}>
           {[0, 0.18, 0.36].map((delay) => (
-            <svg key={delay} className={styles.chev} style={{ animationDelay: `${delay}s`, marginLeft: delay ? -4 : 0 }} width="14" height="18" viewBox="0 0 14 18" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <svg key={delay} className={styles.chev} style={{ animationDelay: `${delay}s`, marginLeft: delay ? -4 : 0 }} width="14" height="18" viewBox="0 0 14 18" fill="none" stroke="var(--h-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 3l6 6-6 6" />
             </svg>
           ))}
@@ -271,7 +270,7 @@ export function SwipeToPay({
           if (suppressClick.current && e.detail !== 0) { suppressClick.current = false; return; }
           complete();
         }}
-        className={`${styles.thumb} absolute left-1 top-1 flex size-[50px] items-center justify-center bg-[linear-gradient(135deg,#ff7a66,#ff2d16)] text-white`}
+        className={`${styles.thumb} absolute left-1 top-1 flex size-[50px] items-center justify-center bg-[linear-gradient(135deg,var(--h-accent-light),var(--h-accent))] text-[var(--h-on-ink)]`}
         style={{ transform: `translateX(${x}px) scale(${dragging ? 1.05 : 1})`, transition: trans }}
       >
         {busy ? (

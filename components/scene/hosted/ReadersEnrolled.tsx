@@ -13,13 +13,14 @@ import { hostedCardSolid } from "@/components/scene/hosted/hostedCard";
 
 /**
  * "Readers enrolled" bookshelf, from the owner's design, in SCENE fonts and
- * red with square corners. One spine per real registration; the next free
+ * the poster theme's colours. One spine per real registration; the next free
  * seat glows as "yours". The count refreshes every 30 s; "LIVE" shows only
  * while that works, and "+1 just joined" only when the real count goes up.
  */
 
-const MUTED = "#b5aeaa";
-const RED_TEXT = "#ff8a77";
+const MUTED = "var(--h-ink-soft)";
+const ACCENT_INK = "var(--h-accent-ink)";
+const SAGE_CHIP = { background: "var(--h-sage-soft)", borderColor: "rgba(79,99,55,.45)", color: "var(--h-sage)" };
 
 export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "http" | "mock"; registerAnchorId?: string }) {
   const reduceMotion = useReducedMotion();
@@ -135,12 +136,12 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
       ref={sectionRef}
       data-event-id={event.id}
       aria-labelledby="enrolled-title"
-      className={`relative overflow-hidden border-2 border-foreground p-5 text-white sm:p-7 ${hostedCardSolid}`}
+      className={`relative overflow-hidden border-2 border-foreground p-5 sm:p-7 ${hostedCardSolid}`}
     >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse at 100% 0%, rgba(255,45,22,.3), rgba(255,45,22,0) 55%)" }}
+        style={{ background: "radial-gradient(ellipse at 0% 100%, rgba(194,122,62,.12), rgba(194,122,62,0) 50%)" }}
       />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
@@ -148,28 +149,28 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
             WHO&apos;S JOINING
           </h2>
           {(mode !== "filling" || live) && (
-            <span className="inline-flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.12em]" style={{ color: RED_TEXT }}>
-              <span className={`${styles.dot} size-2 rounded-full bg-primary shadow-[0_0_10px_#ff2d16]`} aria-hidden="true" />
+            <span className="inline-flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.12em]" style={{ color: ACCENT_INK }}>
+              <span className={`${styles.dot} size-2 rounded-full bg-[var(--h-accent)] shadow-[0_0_10px_rgba(217,164,92,.9)]`} aria-hidden="true" />
               {mode === "empty" ? "OPEN FOR SIGN-UPS" : mode === "full" ? "SOLD OUT" : "LIVE"}
             </span>
           )}
         </div>
 
         <div className="mt-3.5 flex flex-wrap items-baseline gap-3">
-          <span className="min-w-[2ch] font-display text-[64px] font-black leading-none tracking-[-0.045em] tabular-nums [text-shadow:0_0_40px_rgba(255,45,22,.45)] sm:text-[76px]" aria-hidden="true">
+          <span className="min-w-[2ch] font-display text-[64px] font-black leading-none tracking-[-0.045em] tabular-nums [text-shadow:0_0_40px_rgba(217,164,92,.55)] sm:text-[76px]" aria-hidden="true">
             {display}
           </span>
           <span className="font-display text-[20px] font-bold leading-[1.15] sm:text-[22px]">
             <span className="sr-only">{seats.booked} </span>
             {mode === "empty" ? "readers so far." : mode === "full" ? "readers in." : seats.booked === 1 ? "reader" : "readers"}
             <br />
-            <span style={{ color: RED_TEXT }}>{mode === "empty" ? "Be the first." : mode === "full" ? "Every seat is taken." : "already in."}</span>
+            <span style={{ color: ACCENT_INK }}>{mode === "empty" ? "Be the first." : mode === "full" ? "Every seat is taken." : "already in."}</span>
           </span>
           {joined > 0 && (
             <span
               role="status"
               className={`${styles.toast} ml-auto self-center border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.1em]`}
-              style={{ background: "rgba(74,222,128,.14)", borderColor: "rgba(74,222,128,.5)", color: "#86efac" }}
+              style={SAGE_CHIP}
             >
               +{joined} JUST JOINED
             </span>
@@ -193,9 +194,9 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
                 <div
                   className={styles.body}
                   style={{
-                    background: `linear-gradient(90deg, rgba(0,0,0,.28), rgba(255,255,255,.14) 42%, rgba(0,0,0,.22)), ${slot.colour[0]}`,
+                    background: `linear-gradient(90deg, rgba(0,0,0,.2), rgba(255,255,255,.18) 42%, rgba(0,0,0,.16)), ${slot.colour[0]}`,
                     animationDelay: `-${i * 200}ms`,
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,.25), 0 6px 10px -6px rgba(0,0,0,.8)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,.3), 0 6px 10px -6px rgba(59,37,22,.6)",
                   }}
                 >
                   <div className="absolute inset-x-0 top-3 h-[3px] opacity-75" style={{ background: slot.colour[1] }} />
@@ -225,16 +226,16 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
           </div>
         )}
         </div>
-        <div aria-hidden="true" className="h-2.5 bg-[linear-gradient(180deg,#7a4a2b_0%,#4a2a16_100%)] shadow-[0_12px_20px_-6px_rgba(0,0,0,.9),inset_0_1px_0_rgba(255,255,255,.2)]" />
+        <div aria-hidden="true" className="h-2.5 bg-[linear-gradient(180deg,#7a4a2b_0%,#4a2a16_100%)] shadow-[0_12px_20px_-8px_rgba(59,37,22,.55),inset_0_1px_0_rgba(255,255,255,.25)]" />
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-[13px] font-medium" style={{ color: MUTED }}>
           <div className="flex flex-wrap items-center gap-4">
             <span className="inline-flex items-center gap-2">
-              <span aria-hidden="true" className="h-4 w-2.5 bg-[linear-gradient(180deg,#ff6a55,#e0301f)]" />
+              <span aria-hidden="true" className="h-4 w-2.5 bg-[linear-gradient(180deg,var(--h-accent-light),var(--h-accent))]" />
               {seats.booked} enrolled
             </span>
             <span className="inline-flex items-center gap-2">
-              <span aria-hidden="true" className="h-4 w-2.5 border-[1.5px] border-dashed border-white/35" />
+              <span aria-hidden="true" className="h-4 w-2.5 border-[1.5px] border-dashed border-[var(--h-line-strong)]" />
               {open} {open === 1 ? "seat" : "seats"} open
             </span>
           </div>
@@ -242,8 +243,8 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
             <button
               type="button"
               onClick={takeFirstSeat}
-              className="inline-flex min-h-11 items-center font-mono text-[11px] font-bold tracking-[0.12em] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              style={{ color: RED_TEXT }}
+              className="inline-flex min-h-11 items-center font-mono text-[11px] font-bold tracking-[0.12em] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--h-ink)]"
+              style={{ color: ACCENT_INK }}
             >
               TAKE THE FIRST SEAT →
             </button>
@@ -253,7 +254,7 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
               <span className="inline-flex flex-wrap items-center gap-2.5">
                 <span
                   className={`${styles.toast} inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.08em]`}
-                  style={{ background: "rgba(74,222,128,.14)", borderColor: "rgba(74,222,128,.5)", color: "#86efac" }}
+                  style={SAGE_CHIP}
                   role="status"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5" /></svg>
@@ -263,8 +264,8 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
                   type="button"
                   onClick={toggleWaitlist}
                   disabled={waitBusy}
-                  className="min-h-11 px-1.5 text-[13px] font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                  style={{ color: RED_TEXT }}
+                  className="min-h-11 px-1.5 text-[13px] font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--h-ink)]"
+                  style={{ color: ACCENT_INK }}
                 >
                   Undo
                 </button>
@@ -274,7 +275,7 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
                 type="button"
                 onClick={toggleWaitlist}
                 disabled={waitBusy}
-                className={`${styles.waitBtn} inline-flex min-h-11 items-center gap-2 bg-[linear-gradient(135deg,#ff8a77,#ff5a43)] px-3.5 font-display text-sm font-bold text-[#1a0a08] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-70`}
+                className={`${styles.waitBtn} inline-flex min-h-11 items-center gap-2 bg-[var(--h-ink)] px-3.5 font-display text-sm font-bold text-[var(--h-on-ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--h-ink)] disabled:opacity-70`}
               >
                 {waitBusy ? "Joining…" : "Join the waitlist"}
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -282,7 +283,7 @@ export function ReadersEnrolled({ event }: { event: HostedEventDetail; api: "htt
             ))}
         </div>
         {waitError && (
-          <p role="alert" className="mt-3 text-sm" style={{ color: RED_TEXT }}>
+          <p role="alert" className="mt-3 text-sm" style={{ color: ACCENT_INK }}>
             {waitError}
           </p>
         )}

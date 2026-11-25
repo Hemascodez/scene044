@@ -7,8 +7,8 @@ import { attendeePhone, httpAttendeeAuth, pastedOtp, type AttendeeAuthApi } from
 import { formatIndianMobile, type RegistrationDetails } from "@/lib/client/eventRegistration";
 import { EventFlowDialog } from "@/components/scene/hosted/EventFlowDialog";
 
-const fieldClass = "mt-2 block min-h-12 w-full border border-white/20 bg-white/5 px-3 py-3 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff6a55] disabled:opacity-60";
-const buttonClass = "mt-4 flex min-h-12 w-full items-center justify-center bg-[#c41b09] px-4 py-3 font-mono text-sm font-bold text-white hover:bg-[#df2d16] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-wait disabled:opacity-60";
+const fieldClass = "mt-2 block min-h-12 w-full border border-[var(--h-line-strong)] bg-[var(--h-card)] px-3 py-3 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--h-accent)] disabled:opacity-60";
+const buttonClass = "mt-4 flex min-h-12 w-full items-center justify-center bg-[var(--h-ink)] px-4 py-3 font-mono text-sm font-bold text-[var(--h-on-ink)] hover:bg-[var(--h-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--h-accent)] disabled:cursor-wait disabled:opacity-60";
 type Saved = Pick<Profile, "name" | "phone" | "email">;
 
 /** One details form and one paste/autofill-friendly OTP field; no venue or host-role controls. */
@@ -91,15 +91,15 @@ export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHr
         <label htmlFor={`${id}-email`} className="block text-sm font-semibold">Email<input id={`${id}-email`} name="email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} maxLength={300} required placeholder="you@example.com" value={email} disabled={busy} onChange={e => setEmail(e.target.value)} className={fieldClass} /></label>
         <label htmlFor={`${id}-phone`} className="block text-sm font-semibold">WhatsApp number <span className="font-normal text-muted-foreground">(+91)</span><input id={`${id}-phone`} name="tel" type="tel" inputMode="tel" autoComplete="tel-national" maxLength={30} required placeholder="98765 43210" value={phone} disabled={busy} onChange={e => setPhone(e.target.value)} onBlur={() => { if (number) setPhone(number); }} className={fieldClass} /></label>
       </div>
-      {price && <label className="mt-3 flex min-h-11 items-start gap-3 py-2 text-sm leading-relaxed text-muted-foreground"><input type="checkbox" checked={whatsappOptIn} disabled={busy} onChange={e => setWhatsappOptIn(e.target.checked)} className="mt-1 size-[18px] shrink-0 accent-[#c41b09]" /><span>Send my ticket and event reminders on WhatsApp <span className="whitespace-nowrap">(optional).</span> Your ticket is always in My bookings.</span></label>}
+      {price && <label className="mt-3 flex min-h-11 items-start gap-3 py-2 text-sm leading-relaxed text-muted-foreground"><input type="checkbox" checked={whatsappOptIn} disabled={busy} onChange={e => setWhatsappOptIn(e.target.checked)} className="mt-1 size-[18px] shrink-0 accent-[var(--h-accent)]" /><span>Send my ticket and event reminders on WhatsApp <span className="whitespace-nowrap">(optional).</span> Your ticket is always in My bookings.</span></label>}
     </> : <>
       <p className="text-sm leading-relaxed text-muted-foreground">Enter the code sent to <strong className="text-foreground">{formatIndianMobile(phone)}</strong>.</p>
-      <button type="button" disabled={busy} onClick={() => { setStep("details"); setCode(""); setError(""); }} className="mb-3 inline-flex min-h-11 items-center text-sm text-[#ff8a77] underline underline-offset-4">Change number</button>
+      <button type="button" disabled={busy} onClick={() => { setStep("details"); setCode(""); setError(""); }} className="mb-3 inline-flex min-h-11 items-center text-sm text-[var(--h-accent-ink)] underline underline-offset-4">Change number</button>
       <label htmlFor={`${id}-code`} className="block text-sm font-semibold">Six-digit WhatsApp code</label>
       <input ref={codeRef} id={`${id}-code`} name="one-time-code" type="text" inputMode="numeric" autoComplete="one-time-code" autoCapitalize="none" spellCheck={false} maxLength={6} pattern="[0-9]{6}" value={code} disabled={busy} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} onPaste={e => { const pasted = pastedOtp(e.clipboardData.getData("text")); if (pasted) { e.preventDefault(); setCode(pasted); } }} aria-describedby={`${id}-otp-hint${error ? ` ${id}-error` : ""}`} className={`${fieldClass} text-center text-2xl tracking-[0.3em]`} />
       <p id={`${id}-otp-hint`} className="mt-2 text-xs leading-relaxed text-muted-foreground">You can paste the whole code or use your phone&apos;s autofill.</p>
     </>}
-    {(error || parentError) && <p ref={errorRef} id={`${id}-error`} role="alert" tabIndex={-1} className="mt-3 border-l-2 border-[#ff6a55] px-3 text-sm text-[#ffb2a4]">{error || parentError}</p>}
+    {(error || parentError) && <p ref={errorRef} id={`${id}-error`} role="alert" tabIndex={-1} className="mt-3 border-l-2 border-[var(--h-maroon)] px-3 text-sm text-[var(--h-maroon)]">{error || parentError}</p>}
     <button type="submit" disabled={busy} aria-busy={busy} className={buttonClass}>{busy ? (step === "otp" ? "Verifying…" : "Please wait…") : verifiedPhone === number && number ? (price ? `Continue to pay ${price}` : "Continue") : step === "details" ? "Send WhatsApp code" : price ? `Verify & pay ${price}` : "Verify & sign in"}</button>
     {step === "otp" && <button type="button" disabled={busy || remaining > 0} onClick={() => void resend()} className="mt-2 min-h-11 w-full text-sm text-muted-foreground underline underline-offset-4 disabled:no-underline">{remaining > 0 ? `Resend code in ${remaining}s` : "Resend WhatsApp code"}</button>}
     {price && termsHref && <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">By paying, you agree to the <a href={termsHref} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">event terms &amp; refund policy</a>.</p>}
@@ -109,6 +109,6 @@ export function AttendeeForm({ saved, initialDetails, price, eventTitle, termsHr
 export function AttendeeAuthDialog({ open, saved, onClose, onVerified }: { open: boolean; saved: Profile | null; onClose: () => void; onVerified: (profile: Profile) => void }) {
   return <EventFlowDialog open={open} title="Sign in to SCENE" onClose={onClose}>{open && <>
     <AttendeeForm saved={saved} onReady={(details, _, verified) => { if (verified) onVerified(verified); else if (saved) onVerified({ ...saved, ...details }); }} />
-    <p className="mt-4 border-t border-white/15 pt-3 text-sm text-muted-foreground">Hosting an event? <Link href="/host/login?next=%2Fhost%2Fevents" className="inline-flex min-h-11 items-center text-[#ff8a77] underline underline-offset-4">Organiser sign in →</Link></p>
+    <p className="mt-4 border-t border-[var(--h-line)] pt-3 text-sm text-muted-foreground">Hosting an event? <Link href="/host/login?next=%2Fhost%2Fevents" className="inline-flex min-h-11 items-center text-[var(--h-accent-ink)] underline underline-offset-4">Organiser sign in →</Link></p>
   </>}</EventFlowDialog>;
 }

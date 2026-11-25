@@ -5,12 +5,12 @@ import { useSavedEvents } from "@/lib/client/useSavedEvents";
 import { eventPath } from "@/lib/seo";
 import { SaveIcon } from "@/components/scene/ui";
 
-/** Frosted glass over the hosted page's black-and-red background. */
+/** Paper buttons in the poster theme: cream, with an espresso outline. */
 const GLASS_BASE =
-  "inline-flex min-h-12 w-full items-center justify-center gap-2 border px-4 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[#f4f2ea] shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_12px_30px_-14px_rgba(0,0,0,.9)] backdrop-blur-md transition-colors duration-150 active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
-const GLASS = `${GLASS_BASE} border-white/20 bg-white/[0.08] hover:border-white/35 hover:bg-white/[0.14]`;
-/** Saved: the same glass, tinted SCENE red. */
-const GLASS_SAVED = `${GLASS_BASE} border-[#ff6a55]/55 bg-[#ff2d16]/20 hover:bg-[#ff2d16]/30`;
+  "inline-flex min-h-12 w-full items-center justify-center gap-2 border px-4 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[var(--h-ink)] shadow-[0_12px_28px_-18px_rgba(59,37,22,.55)] transition-colors duration-150 active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--h-accent)]";
+const GLASS = `${GLASS_BASE} border-[var(--h-line-strong)] bg-[var(--h-card)] hover:border-[var(--h-accent)] hover:bg-[#fffaf4]`;
+/** Saved: filled espresso, like the poster's script. */
+const GLASS_SAVED = `${GLASS_BASE} border-[var(--h-ink)] bg-[var(--h-ink)] !text-[var(--h-on-ink)] hover:bg-[var(--h-accent)] hover:border-[var(--h-accent)]`;
 
 /** Save and Share for hosted events — the existing pair, minus "View original". */
 export function HostedPageActions({ id, title, startAt }: { id: number; title: string; startAt: string | null }) {

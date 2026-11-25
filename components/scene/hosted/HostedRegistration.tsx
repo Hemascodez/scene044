@@ -18,7 +18,7 @@ import { ReaderPass } from "./ReaderPass";
 import { AttendeeForm } from "./AttendeeForm";
 import { EventFlowDialog } from "./EventFlowDialog";
 
-const action = "mt-4 min-h-12 w-full border border-white/20 bg-[#c41b09] px-4 py-3 font-mono text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-60";
+const action = "mt-4 min-h-12 w-full border border-[var(--h-ink)] bg-[var(--h-ink)] px-4 py-3 font-mono text-sm font-bold text-[var(--h-on-ink)] hover:bg-[var(--h-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--h-accent)] disabled:opacity-60";
 
 /** One attendee popup → OTP → the real Razorpay sheet → a separate, verified ticket page. */
 export function HostedRegistration({ event, api: apiKind, anchorId }: { event: HostedEventDetail; api: "http" | "mock"; anchorId: string }) {
@@ -179,15 +179,15 @@ export function HostedRegistration({ event, api: apiKind, anchorId }: { event: H
   return <>
     <section id={anchorId} aria-labelledby="hosted-registration-title" className="scroll-mt-20">
       <h2 id="hosted-registration-title" className="sr-only">Registration</h2>
-      {existingToken ? <div className="border border-white/20 bg-card p-5"><p className="font-display text-xl font-bold">You’re registered</p><a href={ticketHref(existingToken)} className={`${action} inline-flex items-center justify-center`}>View your ticket</a></div>
+      {existingToken ? <div className="border border-[var(--h-line-strong)] bg-card p-5"><p className="font-display text-xl font-bold">You’re registered</p><a href={ticketHref(existingToken)} className={`${action} inline-flex items-center justify-center`}>View your ticket</a></div>
         : canRegister ? <>
           <ReaderPass hosted={hosted} onSwipe={startRegistration} />
           {state.step !== "idle" && state.step !== "details" && <button type="button" onClick={startRegistration} className={action} disabled={state.busy}>{state.step === "confirming" ? "Continue payment confirmation" : state.busy ? "Opening payment…" : "Continue payment"}</button>}
-        </> : <div className="border border-white/20 bg-card p-5"><p className="font-display text-2xl font-black">{seat.label}</p><p className="mt-2 text-sm text-muted-foreground">{state.step === "sold_out" ? "Every seat is taken. Turn on alerts below to hear about the next session." : "Registration isn't open right now."}</p></div>}
+        </> : <div className="border border-[var(--h-line-strong)] bg-card p-5"><p className="font-display text-2xl font-black">{seat.label}</p><p className="mt-2 text-sm text-muted-foreground">{state.step === "sold_out" ? "Every seat is taken. Turn on alerts below to hear about the next session." : "Registration isn't open right now."}</p></div>}
     </section>
     <EventFlowDialog open={open} title={state.step === "paying" ? "Complete your booking" : state.step === "confirming" ? "Confirming your payment" : "Get your reader pass"} onClose={closeDialog}>
       {open && state.step === "details" && <AttendeeForm key={formVersion} saved={forceOtp ? null : profile} initialDetails={state.details} price={price} eventTitle={event.title} termsHref={`${eventPath(event)}#terms`} auth={apiKind === "mock" ? mockAttendeeAuth : undefined} error={state.message} onStage={stage => { if (apiKind === 'http') trackHostedStage(stage, { eventId: event.id, amountPaise: hosted.pricePaise }); }} onReady={ready} />}
-      {state.step === "paying" && <><p className="text-sm leading-relaxed">Your reader pass is {price}. Finish payment to confirm your place.</p>{state.message && <p role="alert" className="mt-3 text-sm text-[#ffb2a4]">{state.message}</p>}<button type="button" className={action} disabled={state.busy} onClick={() => { if (state.registration) void pay(state.registration); }}>{state.busy ? "Opening payment…" : `Pay ${price} with Razorpay`}</button><p className="mt-3 text-xs text-muted-foreground">UPI, cards and other methods supported by Razorpay.</p></>}
+      {state.step === "paying" && <><p className="text-sm leading-relaxed">Your reader pass is {price}. Finish payment to confirm your place.</p>{state.message && <p role="alert" className="mt-3 text-sm text-[var(--h-maroon)]">{state.message}</p>}<button type="button" className={action} disabled={state.busy} onClick={() => { if (state.registration) void pay(state.registration); }}>{state.busy ? "Opening payment…" : `Pay ${price} with Razorpay`}</button><p className="mt-3 text-xs text-muted-foreground">UPI, cards and other methods supported by Razorpay.</p></>}
       {state.step === "confirming" && <div role="status"><p className="text-sm leading-relaxed">{state.message ?? "Verifying your payment. Your ticket will open on its own page once confirmed."}</p>{state.message && <button type="button" className={action} disabled={state.busy} onClick={() => { if (state.registration && paymentRef.current) void confirmPaymentWith(state.registration.registrationToken, paymentRef.current, state.registration.amount); }}>{state.busy ? "Retrying…" : "Retry confirmation — do not pay again"}</button>}</div>}
       {state.step === "sold_out" && <p>Sorry, the remaining seats were just taken. You haven&apos;t been charged.</p>}
     </EventFlowDialog>

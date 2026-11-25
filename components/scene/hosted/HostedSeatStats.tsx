@@ -123,7 +123,7 @@ export function HostedSeatBadge({ event }: { event: HostedEventDetail }) {
     <span
       aria-live="polite"
       aria-atomic="true"
-      className={`px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white ${seat.state === "open" ? "bg-warn-ink" : seat.state === "sold_out" ? "bg-primary-ink" : "bg-background/20"}`}
+      className={`px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-white ${seat.state === "open" ? "bg-warn-ink" : seat.state === "sold_out" ? "bg-primary-ink" : "bg-[var(--h-ink-soft,#6b4f3c)]"}`}
     >
       {seat.state === "open" ? `${seat.spotsLeft} spots left` : seat.label}
     </span>

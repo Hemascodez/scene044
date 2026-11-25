@@ -55,15 +55,15 @@ export function HostedTicketPage({ event, preview = false }: { event: HostedEven
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [api, attempt, event.id, preview]);
-  return <MotionConfig reducedMotion="user"><main className="hosted-surface hosted-dark min-h-[80dvh] px-4 py-8 sm:py-12">
+  return <MotionConfig reducedMotion="user"><main className="hosted-surface hosted-theme min-h-[80dvh] px-4 py-8 sm:py-12">
     <div className="mx-auto max-w-xl">
-      {preview && <p className="mb-4 border border-white/20 p-3 font-mono text-xs">LOCAL PREVIEW · Not a real payment or ticket</p>}
+      {preview && <p className="mb-4 border border-[var(--h-rule-strong)] p-3 font-mono text-xs">LOCAL PREVIEW · Not a real payment or ticket</p>}
       <h1 className="font-display text-3xl font-black">Your event ticket</h1>
       <p className="mt-2 text-sm text-muted-foreground">{event.title}</p>
-      <section className={`mt-6 ${!ticket || error || ticket.status === 'cancelled' ? 'border border-white/20 bg-card p-4 sm:p-6' : ''}`} aria-live="polite">
+      <section className={`mt-6 ${!ticket || error || ticket.status === 'cancelled' ? 'border border-[var(--h-line-strong)] bg-card p-4 sm:p-6' : ''}`} aria-live="polite">
         {loading ? <p role="status">Loading your confirmed ticket…</p> : error ? <>
           <p role="alert" className="text-sm">{error}</p>
-          <button className="mt-4 min-h-12 border border-white/40 px-4" onClick={() => { setLoading(true); setAttempt(n => n + 1); }}>Retry loading ticket</button>
+          <button className="mt-4 min-h-12 border border-[var(--h-text)] px-4" onClick={() => { setLoading(true); setAttempt(n => n + 1); }}>Retry loading ticket</button>
         </> : ticket?.status === "cancelled" ? <><h2 className="text-xl font-bold">Ticket cancelled</h2><p className="mt-2 text-sm">{ticket.code} is not valid for entry. Contact SCENE if you need help.</p></> : ticket ? <>
           {celebrate ? <FreshTicket ticket={ticket} event={event} /> : <TicketView ticket={ticket} event={event} />}
         </> : null}
@@ -89,8 +89,8 @@ function FreshTicket({ ticket, event }: { ticket: Ticket; event: HostedEventDeta
     const ready = window.setTimeout(() => setRevealed(true), reduced ? 0 : 250 + PRINT_TIMING.feedMs + PRINT_TIMING.settleMs + 350);
     return () => { window.clearTimeout(feed); window.clearTimeout(ready); };
   }, [reduced]);
-  return <div style={{ "--tp-label": "#f4f2ea" } as CSSProperties}>
-    <p role="status" className="mb-4 font-mono text-xs text-[#86efac]">{revealed ? "Payment successful · ticket ready" : "Payment successful · printing your ticket…"}</p>
+  return <div style={{ "--tp-label": "var(--h-text)" } as CSSProperties}>
+    <p role="status" className="mb-4 font-mono text-xs text-[var(--h-text-good)]">{revealed ? "Payment successful · ticket ready" : "Payment successful · printing your ticket…"}</p>
     <AnimatePresence mode="wait" initial={false}>
       {revealed ? <motion.div key="qr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}><TicketView ticket={ticket} event={event} /></motion.div>
         : <motion.div key="printer" exit={{ opacity: 0 }} transition={{ duration: 0.15 }}><TicketPrinter phase={phase} eventTitle={event.title} guestName={ticket.name} eventDate={event.startAt ? formatSceneDateLong(event.startAt) : ""} /></motion.div>}

@@ -7,7 +7,7 @@ Backend contract: `docs/hosted-event-backend-contract.md` (section 0: proxy.ts m
 Specs/plans: `docs/superpowers/specs/2026-11-12-*`, `docs/superpowers/plans/2026-11-12-*`.
 
 ## Done since the first handoff
-- Event page is black and red (`.hosted-dark` scope in app/globals.css); "Last time" and "About" are boxed; About folds behind "Read the full description".
+- Event page uses the poster theme: brown-to-black page, cream paper cards, espresso ink, cinnamon and gold accents (`.hosted-theme` scope in app/globals.css; text flips to ink on paper surfaces via `--h-text*`); "Last time" and "About" are boxed; About folds behind "Read the full description".
 - Reader pass: "Pay by UPI or card" removed; footer describes My bookings and optional WhatsApp confirmation. Closing Razorpay shows no message.
 - Host workspace: owner's dark "Guest list check-in" (EventGuestList.tsx) and "Day-before reminder WhatsApp" (EventReminderCard.tsx) designs are in; sends still go through the confirm dialog.
 - Host workspace keeps the last loaded list if a refresh fails (banner), and Money loads separately.

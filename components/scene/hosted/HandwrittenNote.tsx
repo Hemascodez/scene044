@@ -29,7 +29,7 @@ const HOLE: CSSProperties = {
   width: 18,
   height: 18,
   borderRadius: "50%",
-  background: "#14130d",
+  background: "var(--h-card, #14130d)", // shows the card behind the punched holes
   boxShadow: "inset 0 2px 3px rgba(0,0,0,.6)",
 };
 
@@ -111,7 +111,7 @@ export function HandwrittenNote({ text, by, highlight }: { text: string; by: str
         >
           <div
             className={styles.note}
-            style={{ position: "absolute", left: PAD, top: PAD, width: NOTE_W, height: noteH, filter: "drop-shadow(0 22px 26px rgba(0,0,0,.6))" }}
+            style={{ position: "absolute", left: PAD, top: PAD, width: NOTE_W, height: noteH, filter: "drop-shadow(0 18px 22px rgba(59,37,22,.35))" }}
           >
             {/* Torn, ruled notebook page. */}
             <div

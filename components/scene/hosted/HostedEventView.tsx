@@ -39,10 +39,10 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
 
   return (
     <HostedSeatStatsProvider key={event.id} event={event} api={api}>
-    <main className="hosted-surface hosted-dark pb-28 sm:pb-0">
-      <section className="border-b border-white/10 text-[#f4f2ea]">
+    <main className="hosted-surface hosted-theme pb-28 sm:pb-0">
+      <section className="border-b border-[var(--h-rule)] text-[var(--h-text)]">
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6 lg:py-8">
-          <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#b5aeaa]">
+          <nav aria-label="Breadcrumb" className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--h-text-soft)]">
             <Link href="/" className="hover:text-primary">Events</Link>
             <span aria-hidden> / </span>
             <span>Hosted by SCENE</span>
@@ -51,7 +51,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
             <span className="bg-primary px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-foreground">
               Hosted by SCENE
             </span>
-            <span className="border border-background/50 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-background">
+            <span className="border border-[var(--h-rule-strong)] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--h-text)]">
               {price}
             </span>
             <HostedSeatBadge event={event} />
@@ -59,7 +59,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
           <h1 className="mt-3 max-w-4xl font-display text-3xl font-black leading-[0.98] tracking-tighter sm:text-4xl lg:text-5xl">
             {event.title}
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#d8d2ce]">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--h-text-soft)]">
             {event.startAt ? (
               <time dateTime={new Date(event.startAt).toISOString()}>
                 {formatSceneDateLong(event.startAt)} · {formatSceneTime(event.startAt)}
@@ -138,7 +138,7 @@ export function HostedEventView({ event, api }: { event: HostedEventDetail; api:
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0"
-              style={{ background: "radial-gradient(ellipse at 100% 0%, rgba(255,45,22,.26), rgba(255,45,22,0) 55%)" }}
+              style={{ background: "radial-gradient(ellipse at 100% 0%, rgba(239,190,110,.32), rgba(239,190,110,0) 55%)" }}
             />
             <div className="relative">
             <Mono className="text-[10px] text-primary-ink">Last time</Mono>

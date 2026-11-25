@@ -20,9 +20,10 @@ const STAGE_H = 740;
 
 // SCENE tokens as literals (app/globals.css): SVG presentation attributes
 // don't reliably resolve CSS variables.
-const INK = "#14130d"; // --color-foreground
-const ACCENT = "#ff2d16"; // --color-primary
-const PAPER = "#fbfaf5"; // --color-card
+// Poster theme (see `.hosted-theme` in app/globals.css): espresso, cinnamon, cream.
+const INK = "#3b2516";
+const ACCENT = "#9a4f1f";
+const PAPER = "#fcf6ef";
 const MONO = "'Space Mono', ui-monospace, SFMono-Regular, Consolas, monospace";
 
 export function TicketPrinter({
@@ -58,7 +59,7 @@ export function TicketPrinter({
             top: 320,
             width: 500,
             height: 400,
-            background: "radial-gradient(ellipse at center, rgba(255,45,22,.16), rgba(255,45,22,0) 70%)",
+            background: "radial-gradient(ellipse at center, rgba(217,164,92,.22), rgba(217,164,92,0) 70%)",
           }}
         />
 
@@ -244,7 +245,7 @@ function Machine() {
 
       <rect x="384" y="104" width="104" height="92" rx="5" fill={INK} />
       <rect x="392" y="112" width="88" height="22" rx="3" fill="#000000" stroke="#555555" strokeWidth="1" />
-      <text className={styles.statusPrinting} x="398" y="127" fontFamily={MONO} fontSize="10.5" fontWeight="700" letterSpacing=".6" fill="#ff5a4f">
+      <text className={styles.statusPrinting} x="398" y="127" fontFamily={MONO} fontSize="10.5" fontWeight="700" letterSpacing=".6" fill="#e8b56f">
         PRINTING...
       </text>
       <text className={styles.statusReady} x="398" y="127" fontFamily={MONO} fontSize="10.5" fontWeight="700" letterSpacing=".6" fill="#ffffff">
@@ -259,7 +260,7 @@ function Machine() {
         <circle cx="426" cy="176" r="5" />
       </g>
       <circle cx="470" cy="176" r="6" fill="#444444" stroke="#ffffff" strokeWidth="2" />
-      <circle className={styles.ledRed} cx="470" cy="176" r="6" fill="#ff3b30" stroke="#ffffff" strokeWidth="2" />
+      <circle className={styles.ledRed} cx="470" cy="176" r="6" fill="#e8b56f" stroke="#ffffff" strokeWidth="2" />
       <circle className={styles.ledWhite} cx="470" cy="176" r="6" fill="#ffffff" stroke="#ffffff" strokeWidth="2" />
 
       <path d="M100 196 L100 172 L460 172 L460 196 Z" fill="#ffffff" stroke={INK} strokeWidth="3" />

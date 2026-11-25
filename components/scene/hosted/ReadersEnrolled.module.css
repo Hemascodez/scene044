@@ -24,13 +24,13 @@
   position: relative;
   flex: 1;
   min-width: 0;
-  border: 1.5px dashed rgba(255, 255, 255, 0.22);
+  border: 1.5px dashed rgba(59, 37, 22, 0.28);
   box-sizing: border-box;
   animation: en-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .you {
-  border-color: #ff6a55;
-  background: rgba(255, 45, 22, 0.12);
+  border-color: var(--h-accent);
+  background: var(--h-accent-soft);
   animation: en-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both, en-glow 1.8s ease-in-out 1s infinite;
 }
 
@@ -81,7 +81,7 @@
   transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .youButton:hover { transform: translateY(-6px); }
-.youButton:focus-visible { outline: 3px solid #ffffff; outline-offset: 3px; }
+.youButton:focus-visible { outline: 3px solid var(--h-ink); outline-offset: 3px; }
 .youTag {
   position: absolute;
   left: 50%;
@@ -92,8 +92,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #ff8a77, #ff5a43);
-  color: #1a0a08;
+  background: var(--h-ink);
+  color: var(--h-on-ink);
   font-family: "Space Mono", ui-monospace, monospace;
   font-size: 11px;
   font-weight: 700;
@@ -108,7 +108,7 @@
   margin-left: -5px;
   border: 5px solid transparent;
   border-bottom: 0;
-  border-top-color: #ff5a43;
+  border-top-color: var(--h-ink);
 }
 
 /* Full house: a stamp thumps onto the full shelf. */
@@ -125,14 +125,14 @@
   justify-content: center;
   width: 192px;
   height: 60px;
-  border: 3px solid #ff6a55;
-  background: rgba(14, 8, 8, 0.78);
-  color: #ff6a55;
+  border: 3px solid var(--h-maroon);
+  background: rgba(252, 246, 239, 0.9);
+  color: var(--h-maroon);
   font-family: "Space Mono", ui-monospace, monospace;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  box-shadow: 0 0 0 2px rgba(14, 8, 8, 0.78), 0 16px 30px -10px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 2px rgba(252, 246, 239, 0.9), 0 16px 30px -12px rgba(59, 37, 22, 0.5);
   transform: rotate(-9deg);
 }
 .stampWrap[data-play="false"] .stamp { opacity: 0; }

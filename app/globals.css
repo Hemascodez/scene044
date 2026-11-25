@@ -859,60 +859,120 @@ body {
 }
 
 /*
- * Hosted event page — black and red theme (owner request). Scoped to
- * `.hosted-dark` (HostedEventView's <main>) so the rest of SCENE is untouched.
- * The events theme is `@theme inline` (utilities carry literal colours), so the
- * shared pieces used inside (EventGlance, Btn, AlertsBanner, venue cards) are
- * re-coloured here by utility class. Unlayered, so these win over Tailwind's
- * utilities layer. Palette from the owner's dark card designs; contrast:
- * #f4f2ea / #b5aeaa / #ff6a55 on #1b1412 ≈ 16:1 / 8:1 / 6:1.
+ * Hosted event pages — "poster" theme (owner request). Colours come from the
+ * Chapter Lounge poster: the page is the dark table wood falling to black, so
+ * the light poster stands out, and every card is the poster's peach-cream
+ * paper with espresso-brown script. Accents: cinnamon from the wicker lamp,
+ * golden morning light, sage and maroon from the book spines.
+ *
+ * Text flips by surface: on the brown page it is cream (`--h-text*`); any
+ * paper surface (cards, `bg-card`, `.hosted-paper`) redefines the same
+ * variables as espresso ink, so shared utilities (`text-foreground`,
+ * `text-muted-foreground`, `text-primary-ink`…) read correctly in both.
+ *
+ * Scoped to `.hosted-theme` (event page, ticket page, sign-up dialog) so the
+ * rest of SCENE is untouched; unlayered, so these win over Tailwind utilities.
+ * Contrast (AA), page: cream 8.9:1, soft 6.2:1, gold 5.7:1 at the lightest
+ * brown. Paper: ink 13:1, ink-soft 7:1, cinnamon 7:1, sage 6.2:1, maroon 7.8:1.
  */
-.hosted-dark {
-  --hosted-surface: #1b1412;
-  --hosted-surface-2: #241a17;
-  --hosted-line: rgba(255, 255, 255, 0.14);
-  color: #f4f2ea;
+.hosted-theme {
+  /* paper and ink (cards) */
+  --h-card: #fcf6ef;
+  --h-card-2: #f1e1d2;
+  --h-ink: #3b2516;
+  --h-ink-soft: #6b4f3c;
+  --h-on-ink: #fdf6ee;
+  --h-line: rgba(59, 37, 22, 0.14);
+  --h-line-strong: rgba(59, 37, 22, 0.3);
+  --h-accent: #9a4f1f;
+  --h-accent-light: #c27a3e;
+  --h-accent-ink: #84421a;
+  --h-accent-soft: rgba(176, 98, 43, 0.14);
+  --h-gold: #d9a45c;
+  --h-sage: #4f6337;
+  --h-sage-soft: rgba(95, 118, 66, 0.14);
+  --h-maroon: #8a2f22;
+  --h-shadow: 0 22px 44px -24px rgba(0, 0, 0, 0.7);
+  /* text and rules on the brown page; flipped to ink on paper below */
+  --h-text: #f6e8da;
+  --h-text-soft: #d8c2ad;
+  --h-text-accent: #e8b56f;
+  --h-text-good: #bccb92;
+  --h-text-bad: #f2a593;
+  --h-rule: rgba(246, 232, 218, 0.16);
+  --h-rule-strong: rgba(246, 232, 218, 0.3);
+  /* what a ticket's punched notch shows through: the page here, paper on cards */
+  --h-notch: #2a180e;
+  --hosted-surface: var(--h-notch);
+  --hosted-surface-2: var(--h-card-2);
+  --hosted-line: var(--h-rule-strong);
+  color: var(--h-text);
   background:
-    /* Black first; red is one soft glow behind the title and a faint ember at the foot. */
-    radial-gradient(ellipse 90% 30% at 85% 0%, rgba(255, 45, 22, 0.16), rgba(255, 45, 22, 0) 65%),
-    radial-gradient(ellipse 80% 25% at 100% 100%, rgba(196, 27, 9, 0.07), rgba(196, 27, 9, 0) 65%),
-    radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1.2px) 0 0 / 22px 22px,
-    linear-gradient(180deg, #0c0a09 0%, #0f0d0c 50%, #090807 100%);
+    /* golden morning light through the window, top right */
+    radial-gradient(ellipse 85% 30% at 90% 0%, rgba(232, 181, 111, 0.22), rgba(232, 181, 111, 0) 70%),
+    /* table wood, falling to black */
+    linear-gradient(180deg, #5a3520 0%, #3d2414 22%, #24150c 55%, #0f0906 100%);
 }
-.hosted-dark .bg-card,
-.hosted-dark .bg-white,
-.hosted-dark .bg-paper,
-.hosted-dark .bg-sand { background-color: var(--hosted-surface); }
-.hosted-dark .bg-secondary,
-.hosted-dark .bg-muted { background-color: var(--hosted-surface-2); }
-.hosted-dark .border-foreground,
-.hosted-dark .border-ink { border-color: var(--hosted-line); }
-.hosted-dark .border-line,
-.hosted-dark .border-foreground\/25 { border-color: rgba(255, 255, 255, 0.1); }
-.hosted-dark .bg-line { background-color: rgba(255, 255, 255, 0.1); }
-.hosted-dark .text-foreground,
-.hosted-dark .text-ink { color: #f4f2ea; }
-.hosted-dark .text-muted-foreground,
-.hosted-dark .text-stone { color: #b5aeaa; }
-.hosted-dark .text-primary-ink,
-.hosted-dark .text-flame { color: #ff6a55; }
-.hosted-dark .text-moss,
-.hosted-dark .text-signal-ink { color: #86efac; }
-.hosted-dark .bg-\[\#ffe3dd\] { background-color: rgba(255, 45, 22, 0.16); }
-/* Hard ink shadows vanish on black; use a soft depth shadow instead. */
-.hosted-dark .shadow-hard,
-.hosted-dark .shadow-hard-sm,
-.hosted-dark .shadow-hard-md,
-.hosted-dark [class*="shadow-[5px_5px_0_0_var(--color-foreground)]"],
-.hosted-dark [class*="shadow-[6px_6px_0_0_var(--color-foreground)]"] {
-  box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+/* Paper surfaces: text and rules switch to espresso ink. */
+.hosted-theme .bg-card,
+.hosted-theme .bg-white,
+.hosted-theme .bg-paper,
+.hosted-theme .bg-sand,
+.hosted-theme .bg-secondary,
+.hosted-theme .bg-muted,
+.hosted-theme .hosted-paper,
+.hosted-theme.hosted-paper {
+  --h-notch: var(--h-card);
+  --hosted-surface: var(--h-card);
+  --h-text: var(--h-ink);
+  --h-text-soft: var(--h-ink-soft);
+  --h-text-accent: var(--h-accent-ink);
+  --h-text-good: var(--h-sage);
+  --h-text-bad: var(--h-maroon);
+  --h-rule: var(--h-line);
+  --h-rule-strong: var(--h-line-strong);
+  color: var(--h-text);
 }
-/* Solid buttons: SCENE red instead of ink-on-ink. */
-.hosted-dark button.bg-foreground.text-background,
-.hosted-dark a.bg-foreground.text-background { background-color: #c41b09; border-color: #c41b09; }
-.hosted-dark button.bg-foreground.text-background:hover:not(:disabled),
-.hosted-dark a.bg-foreground.text-background:hover { background-color: #ff2d16; border-color: #ff2d16; }
-/* Cream-on-cream guard (e.g. the phone bar's Register button). */
-.hosted-dark .bg-background.text-foreground { color: #14130d; }
-.hosted-dark input::placeholder { color: #8f8783; }
-.hosted-dark :focus-visible { outline-color: #ff6a55; }
+.hosted-theme .bg-card,
+.hosted-theme .bg-white,
+.hosted-theme .bg-paper,
+.hosted-theme .bg-sand,
+.hosted-theme .hosted-paper { background-color: var(--h-card); }
+.hosted-theme.hosted-paper { background: var(--h-card); }
+.hosted-theme .bg-secondary,
+.hosted-theme .bg-muted { background-color: var(--h-card-2); }
+.hosted-theme .border-foreground,
+.hosted-theme .border-ink { border-color: var(--h-rule-strong); }
+.hosted-theme .border-line,
+.hosted-theme .border-foreground\/25 { border-color: var(--h-rule); }
+.hosted-theme .bg-line { background-color: var(--h-rule); }
+.hosted-theme .text-foreground,
+.hosted-theme .text-ink { color: var(--h-text); }
+.hosted-theme .text-muted-foreground,
+.hosted-theme .text-stone { color: var(--h-text-soft); }
+.hosted-theme .text-primary-ink,
+.hosted-theme .text-flame,
+.hosted-theme .text-primary { color: var(--h-text-accent); }
+.hosted-theme .text-moss,
+.hosted-theme .text-signal-ink { color: var(--h-text-good); }
+.hosted-theme .bg-primary,
+.hosted-theme .bg-flame { background-color: var(--h-accent); }
+.hosted-theme .bg-primary-ink { background-color: var(--h-maroon); }
+.hosted-theme .bg-warn-ink { background-color: var(--h-sage); }
+.hosted-theme .text-primary-foreground { color: var(--h-on-ink); }
+.hosted-theme .bg-\[\#ffe3dd\] { background-color: var(--h-accent-soft); }
+/* Hard ink shadows read as cartoonish; use a soft depth shadow. */
+.hosted-theme .shadow-hard,
+.hosted-theme .shadow-hard-sm,
+.hosted-theme .shadow-hard-md,
+.hosted-theme [class*="shadow-[5px_5px_0_0_var(--color-foreground)]"],
+.hosted-theme [class*="shadow-[6px_6px_0_0_var(--color-foreground)]"] {
+  box-shadow: var(--h-shadow);
+}
+/* Solid buttons: espresso, like the poster's script. */
+.hosted-theme button.bg-foreground.text-background,
+.hosted-theme a.bg-foreground.text-background { background-color: var(--h-ink); border-color: var(--h-ink); color: var(--h-on-ink); }
+.hosted-theme button.bg-foreground.text-background:hover:not(:disabled),
+.hosted-theme a.bg-foreground.text-background:hover { background-color: var(--h-accent); border-color: var(--h-accent); }
+.hosted-theme input::placeholder { color: #8f7562; }
+.hosted-theme :focus-visible { outline-color: var(--h-text-accent); }

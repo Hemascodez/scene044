@@ -20,15 +20,15 @@ export interface ShelfSlot {
   colour: [string, string] | [];
 }
 
-/** The design's spine heights and SCENE-palette spine colours, cycled. */
+/** The design's spine heights, and spine colours from the poster's book stack, cycled. */
 const HEIGHTS = [104, 116, 96, 112, 100, 118, 92, 108, 114, 98, 110, 94, 116, 102];
 const SPINES: [string, string][] = [
-  ["#c41b09", "#ffd9b0"],
-  ["#f4f2ea", "#c41b09"],
-  ["#2a2524", "#ff6a55"],
-  ["#9d1f18", "#f4f2ea"],
-  ["#ff2d16", "#14130d"],
-  ["#3a2f2c", "#f4f2ea"],
+  ["#6f7a4e", "#e9d3a6"], // sage cloth, gold band
+  ["#7c2f24", "#e3ad62"], // maroon
+  ["#efe0c8", "#9a4f1f"], // cream paperback
+  ["#9a4f1f", "#f6e8d6"], // cinnamon
+  ["#3b2516", "#d9a45c"], // espresso
+  ["#6f8796", "#f6e8d6"], // dusty blue, from the saucer
 ];
 
 /** A spine per reader, the next free seat marked "you", the rest open. */

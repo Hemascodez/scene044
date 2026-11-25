@@ -1,6 +1,6 @@
 /*
- * "Reader pass register card" (dark version), ported from the owner's design
- * with SCENE fonts and red. Transform and opacity only, except the label
+ * "Reader pass register card", ported from the owner's design with SCENE
+ * fonts, in the poster theme. Transform and opacity only, except the label
  * shimmer (background-position on text, as designed). Everything stops under
  * reduced motion.
  */
@@ -13,7 +13,7 @@
 .spin { transform-origin: center; animation: rc-rot 0.8s linear infinite; }
 
 .label {
-  background: linear-gradient(100deg, rgba(255, 255, 255, 0.55) 30%, #ffffff 50%, rgba(255, 255, 255, 0.55) 70%);
+  background: linear-gradient(100deg, var(--h-ink-soft) 30%, var(--h-accent) 50%, var(--h-ink-soft) 70%);
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -28,7 +28,7 @@
   top: 0;
   width: 200%;
   height: 100%;
-  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0) 0 18px, rgba(255, 255, 255, 0.35) 18px 60px, rgba(255, 255, 255, 0) 60px 78px);
+  background: repeating-linear-gradient(90deg, rgba(255, 250, 240, 0) 0 18px, rgba(255, 250, 240, 0.6) 18px 60px, rgba(255, 250, 240, 0) 60px 78px);
   -webkit-mask-image: repeating-linear-gradient(0deg, #000 0 2px, transparent 2px 9px);
   mask-image: repeating-linear-gradient(0deg, #000 0 2px, transparent 2px 9px);
   animation: rc-streak 0.28s linear infinite;
@@ -36,7 +36,7 @@
 
 .thumb { touch-action: none; cursor: grab; }
 .thumb:active { cursor: grabbing; }
-.thumb:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+.thumb:focus-visible { outline: 3px solid var(--h-ink); outline-offset: 2px; }
 
 @keyframes rc-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
@@ -70,6 +70,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dot, .seg, .segOpen, .nudge, .label, .chev, .streak { animation: none; }
-  .label { background: none; color: #ffffff; }
+  .label { background: none; color: var(--h-ink); }
   .streak { display: none; }
 }
